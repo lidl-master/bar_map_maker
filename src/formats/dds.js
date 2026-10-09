@@ -4,6 +4,7 @@
 // does every mip level that is still at least one block row tall inside the strip, and assembleDds joins the strips
 // and finishes the small levels. readDds + decodeBlock / encodeBlock let derivative exports edit existing files
 // block by block (src/bar).
+import { concatBytes } from './bytes.js';
 import { decodeColorBlock, encodeColorBlock } from './dxt.js';
 
 const FOURCC = { bc1: 'DXT1', bc2: 'DXT3', bc3: 'DXT5' };
@@ -131,9 +132,9 @@ export function encodeStrip(rgba, width, rows, format) {
  */
 export function assembleDds(strips, width, height, format) {
   strips = [...strips].reverse(); // bottom first
-  const levels = strips[0].levels.map((_, l) => concat(strips.map((s) => s.levels[l])));
+  const levels = strips[0].levels.map((_, l) => concatBytes(strips.map((s) => s.levels[l])));
   let w = Math.max(1, width >> levels.length), h = Math.max(1, height >> levels.length);
-  let image = concat(strips.map((s) => s.tail));
+  let image = concatBytes(strips.map((s) => s.tail));
   if (image.length !== w * h * 4) throw new Error(`DDS: strips hold ${image.length / 4} texels at mip ${levels.length}, expected ${w}x${h}`);
   for (;;) {
     levels.push(encodeLevel(image, w, h, format));
@@ -166,13 +167,6 @@ export function writeDds(levels, width, height, format) {
   u32(108, 0x1000 | 0x8 | 0x400000); // texture, complex, mipmap
   let o = 128;
   for (const level of levels) { out.set(level, o); o += level.length; }
-  return out;
-}
-
-function concat(arrays) {
-  const out = new Uint8Array(arrays.reduce((n, a) => n + a.length, 0));
-  let o = 0;
-  for (const a of arrays) { out.set(a, o); o += a.length; }
   return out;
 }
 

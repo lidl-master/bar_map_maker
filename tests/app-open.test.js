@@ -1,5 +1,6 @@
 // Opening an installed BAR map through the real app: the Open screen lists the BAR maps folder with thumbnails, a
-// broken map shows the error panel, and Pyroclast opens with its own texture in 2D and 3D. Skipped without BAR.
+// broken map shows the error panel, Pyroclast opens with its own texture in 2D and 3D, is stored from its first edit
+// and can be removed from Recent. Skipped without BAR.
 // Screenshots go to .engine-tmp/screenshots/wave3-*.png (gitignored); copy them to docs/gauntlet/screenshots by hand.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,7 +41,7 @@ before(async () => {
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 800));
-  await page.locator('#welcome').waitFor();
+  await page.locator('body[data-ready="1"]').waitFor(); // booted: every handler is bound (#welcome is static HTML)
 });
 
 after(async () => {
@@ -82,19 +83,45 @@ test('Pyroclast opens with its own texture, objects and name', { skip }, async (
   await page.click('#viewMode [data-view="2d"]');
 });
 
-test('the autosave keeps doc.original (archive path, tile index, 4x4 mips), not the archive files', { skip }, async () => {
-  await page.click('#btnHome');
-  await page.locator('#recentList .recent').first().waitFor();
-  const saved = await page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('bar-map-studio');
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const docs = await new Promise((resolve) => { const r = db.transaction('docs').objectStore('docs').getAll(); r.onsuccess = () => resolve(r.result); });
-    const { original } = docs.find((d) => d.doc.original).doc;
-    return { archive: original.archive, mips: original.tileMips.length, tiles: original.tileIndex.length };
+// The autosaved docs: [{archive, mips, tiles}] from each doc.original.
+const storedDocs = () => page.evaluate(async () => {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open('bar-map-studio');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
   });
+  const docs = await new Promise((resolve) => { const r = db.transaction('docs').objectStore('docs').getAll(); r.onsuccess = () => resolve(r.result); });
+  db.close();
+  return docs.map(({ doc: { original } }) => ({ archive: original?.archive, mips: original?.tileMips.length, tiles: original?.tileIndex.length }));
+});
+
+test('an opened map is stored from its first edit, with doc.original (archive path, tile index, 4x4 mips), not the archive files', { skip }, async () => {
+  assert.deepEqual(await storedDocs(), [], 'an untouched opened map is not stored');
+  await page.fill('#mapName', 'Pyroclast edit');
+  await page.waitForFunction(() => document.querySelector('#saveState .label').textContent === 'Saved');
+  const [saved, ...more] = await storedDocs();
+  assert.equal(more.length, 0);
   assert.match(saved.archive, /pyroclast_1\.0\.4\.sd7$/);
   assert.deepEqual([saved.tiles, saved.mips], [16 * 16 * 20 * 16, 81920 * 8]); // Pyroclast: 16 × 20 units, 81,920 SMT tiles
+});
+
+test('Recent removes a stored map only after the user confirms', { skip }, async () => {
+  // Open Pyroclast again and leave it untouched: the edited copy is no longer the open map, so it can be removed.
+  await page.click('#btnHome');
+  await page.click('#wOpen');
+  await page.click(`#oMaps [data-file="${MAP}"]`);
+  await page.locator('body[data-screen="editor"]').waitFor({ timeout: 60_000 });
+  await page.locator('#loading').waitFor({ state: 'hidden', timeout: 60_000 });
+  await page.click('#btnHome');
+  const rows = page.locator('#recentList .recent-row');
+  await rows.first().waitFor();
+  assert.equal(await rows.count(), 1, 'only the edited map is stored');
+  await rows.first().hover();
+  await page.click('#recentList .remove');
+  await page.click('#cfCancel');
+  assert.equal((await storedDocs()).length, 1, 'cancel keeps it');
+  await page.click('#recentList .remove');
+  await page.click('#cfOk');
+  await page.locator('#recentList .empty').waitFor();
+  assert.deepEqual(await storedDocs(), []);
 });

@@ -96,7 +96,8 @@ return function(host)
     end,
   }
 
-  -- shortcut: counts VM instructions only; a slow C call (huge pattern match) is not interrupted.
+  -- Counts VM instructions only: a slow C call (a pathological pattern match) is not interrupted, so callers that must
+  -- not hang run this in a thread they can stop (src/bar openMapArchive: a worker with a 10 s limit).
   debug.sethook(function()
     budget = budget - 1
     if budget < 0 then error(LIMIT_ERROR, 0) end

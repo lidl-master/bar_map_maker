@@ -20,4 +20,10 @@ contextBridge.exposeInMainWorld('studio', {
   mapThumb: (file) => invoke('studio:mapThumb', file),
   openMap: (file) => invoke('studio:openMap', file),
   onOpenProgress: (callback) => { ipcRenderer.on('studio:openProgress', (_event, progress) => callback(progress)); },
+  // Before the window closes: callback() saves the last edits; the main process waits for it (briefly).
+  onFlush: (callback) => {
+    ipcRenderer.on('studio:flush', async () => {
+      try { await callback(); } finally { ipcRenderer.send('studio:flushed'); }
+    });
+  },
 });

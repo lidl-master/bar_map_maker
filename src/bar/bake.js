@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
-import { assembleDds, encodeDxt1Mips } from '../formats/index.js';
+import { assembleDds, concatBytes, encodeDxt1Mips } from '../formats/index.js';
 import { bakeMaterials, finishMinimap, materialTable, MATERIAL_LIBRARY } from '../look/index.js';
 import { decodePng, TEXTURE_ROOT } from '../look/library-load.js';
 import { EXPORT_STEPS } from './steps.js';
@@ -71,12 +71,6 @@ function bakeJobs(doc, plan, jobs, onResult, signal) {
   return runBakeJobs({ doc: workerDoc, tables, layers: plan.layers, stripRows: STRIP_ROWS, dntsFiles }, jobs, onResult, signal);
 }
 
-const concat = (arrays) => {
-  const out = new Uint8Array(arrays.reduce((n, a) => n + a.length, 0));
-  arrays.reduce((o, a) => { out.set(a, o); return o + a.length; }, 0);
-  return out;
-};
-
 /**
  * The diffuse (SMT tiles), minimap, grass and texture stack of a new map, baked and encoded on all cores.
  * Progress 0..0.75.
@@ -97,10 +91,10 @@ export async function bakeTexture(doc, plan, onProgress, signal) {
   onProgress(0.75, ENCODING);
   const width = doc.sx * 512, height = doc.sz * 512;
   const dds = (layer, elmos, format) => assembleDds(strips.map((s) => s[layer]), width / elmos, height / elmos, format);
-  const grass = concat(strips.map((s) => s.grass));
+  const grass = concatBytes(strips.map((s) => s.grass));
   return {
-    tiles: concat(strips.map((s) => s.tiles)),
-    minimap: encodeDxt1Mips(finishMinimap(doc, concat(strips.map((s) => s.minimap))), 1024),
+    tiles: concatBytes(strips.map((s) => s.tiles)),
+    minimap: encodeDxt1Mips(finishMinimap(doc, concatBytes(strips.map((s) => s.minimap))), 1024),
     grass: grass.some((g) => g) ? grass : null,
     textures: {
       splatDistrTex: dds('splat', plan.layers.splat, 'bc3'),

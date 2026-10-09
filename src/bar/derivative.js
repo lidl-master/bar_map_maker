@@ -36,7 +36,9 @@ const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 async function readOriginal(original, signal) {
   const name = basename(original.archive);
   if (!existsSync(original.archive)) throw new Error(`The original map ${name} is no longer at ${original.archive}. Put it back to export this map.`);
-  const key = (listing) => listing.map((f) => `${f.path}\0${f.size}`).sort().join('\n');
+  // Files only: listings from before the archive safety checks also named read-only folders (size 0).
+  const key = (listing) => listing.filter((f) => !listing.some((g) => g.path.startsWith(`${f.path}/`)))
+    .map((f) => `${f.path}\0${f.size}`).sort().join('\n');
   if (key(await listArchive(original.archive)) !== key(original.files)) {
     throw new Error(`The original map ${name} changed on disk since you opened it. Open it again to export this map.`);
   }

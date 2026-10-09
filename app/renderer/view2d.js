@@ -1,11 +1,24 @@
-// Top-down 2D view: the map image (look or pathing colours) plus overlays (grid, symmetry axes, objects, brush, ramp).
+// Top-down 2D view: the map image (look or pathing colours) plus overlays (grid, symmetry axes, features, markers, brush, ramp).
 import { orbit } from '../../src/core/index.js';
 import { previewColor } from '../../src/look/index.js';
 import { clamp } from './dom.js';
+import { iconPaths } from './icons.js';
 import { PATHING_LEGEND, SQ, UNIT, pathingClass, worldSize } from './sample.js';
 
 export const TEAM_COLORS = ['#3d8bff', '#ff4d4d', '#38d86b', '#ffd23f', '#c05cff', '#ff8f2e', '#2ee6e6', '#ff66c4',
   '#9be04c', '#7a7aff', '#d9a066', '#ffffff', '#8c8c8c', '#4cc9a0', '#e05c8c', '#b0b0ff'];
+
+const BACKDROP = '#0e1014';
+const SELECT = '#7aa5ff';
+const FONT = '"Inter", "Segoe UI", sans-serif';
+const FLAME = iconPaths('flame');
+
+// Light team colours (yellow, cyan, white…) carry dark numbers.
+const luminance = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+};
+const TEAM_TEXT = TEAM_COLORS.map((c) => (luminance(c) > 0.6 ? '#0e1014' : '#ffffff'));
 
 const AXES = {
   mirrorX: (w, h) => [[w / 2, 0, w / 2, h]],
@@ -23,10 +36,11 @@ export class View2D {
   oy = 0;
   dpr = 1;
   cursor = null; // {x, z} in elmos
-  brush = null; // {radius, color}
+  brush = null; // {radius, hardness, color}
   rampPreview = null; // {a, b, width}
   selected = null;
   hover = null;
+  onDraw = null; // called after every frame (zoom read-out)
   #raf = 0;
 
   constructor(canvas) {
@@ -75,8 +89,9 @@ export class View2D {
   }
 
   fit() {
+    if (!this.doc) return;
     const cw = this.canvas.width / this.dpr, ch = this.canvas.height / this.dpr;
-    this.zoom = Math.max(0.05, Math.min((cw - 40) / this.doc.W, (ch - 40) / this.doc.H));
+    this.zoom = Math.max(0.05, Math.min((cw - 64) / this.doc.W, (ch - 64) / this.doc.H));
     this.ox = (cw - this.doc.W * this.zoom) / 2;
     this.oy = (ch - this.doc.H * this.zoom) / 2;
     this.invalidate();
@@ -95,6 +110,11 @@ export class View2D {
     this.invalidate();
   }
 
+  /** Zoom around the middle of the view (toolbar buttons). */
+  zoomBy(factor) {
+    this.zoomAt(this.canvas.width / this.dpr / 2, this.canvas.height / this.dpr / 2, factor);
+  }
+
   invalidate() {
     this.#raf ||= requestAnimationFrame(() => { this.#raf = 0; this.#draw(); });
   }
@@ -102,17 +122,27 @@ export class View2D {
   #draw() {
     const { ctx, doc } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#0d0f12';
+    ctx.fillStyle = BACKDROP;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     if (!doc) return;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const w = doc.W * this.zoom, h = doc.H * this.zoom;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(this.ox, this.oy, w, h);
+    ctx.restore();
     ctx.imageSmoothingEnabled = this.zoom < 2;
-    ctx.drawImage(this.base, this.ox, this.oy, doc.W * this.zoom, doc.H * this.zoom);
+    ctx.drawImage(this.base, this.ox, this.oy, w, h);
     this.#drawGrid();
+    this.#drawFeatures();
     this.#drawAxes();
     this.#drawObjects();
     if (this.rampPreview) this.#drawRamp();
     if (this.cursor && this.brush) this.#drawBrush();
+    this.onDraw?.();
   }
 
   #line(x0, z0, x1, z1) {
@@ -123,39 +153,94 @@ export class View2D {
 
   #drawGrid() {
     const { ctx, doc } = this, [w, h] = worldSize(doc);
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath();
-    for (let u = 0; u <= doc.sx; u++) this.#line(u * UNIT, 0, u * UNIT, h);
-    for (let v = 0; v <= doc.sz; v++) this.#line(0, v * UNIT, w, v * UNIT);
+    for (let u = 1; u < doc.sx; u++) this.#line(u * UNIT, 0, u * UNIT, h);
+    for (let v = 1; v < doc.sz; v++) this.#line(0, v * UNIT, w, v * UNIT);
     ctx.stroke();
+    const a = this.toScreen(0, 0), b = this.toScreen(w, h);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.strokeRect(Math.round(a.x) - 0.5, Math.round(a.y) - 0.5, Math.round(b.x - a.x) + 1, Math.round(b.y - a.y) + 1);
+  }
+
+  // Trees and rocks as small dots: thousands of them, so one path per kind.
+  #drawFeatures() {
+    const { ctx, doc } = this, size = clamp(14 * this.scale, 1.5, 5);
+    const paths = { tree: new Path2D(), rock: new Path2D() };
+    let any = false;
+    for (const o of doc.objects) {
+      if (o.type !== 'feature') continue;
+      const s = this.toScreen(o.x, o.z);
+      paths[o.name?.startsWith('rocks') ? 'rock' : 'tree'].rect(s.x - size / 2, s.y - size / 2, size, size);
+      any = true;
+    }
+    if (!any) return;
+    ctx.fillStyle = 'rgba(18, 48, 20, 0.85)';
+    ctx.fill(paths.tree);
+    ctx.fillStyle = 'rgba(150, 144, 132, 0.9)';
+    ctx.fill(paths.rock);
   }
 
   #drawAxes() {
     const { ctx, doc } = this, [w, h] = worldSize(doc);
-    ctx.save();
-    ctx.setLineDash([8, 6]);
-    ctx.strokeStyle = 'rgba(255,220,120,0.75)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (const axis of AXES[doc.symmetry]?.(w, h) ?? []) this.#line(...axis);
-    if (doc.symmetry === 'rot180' || doc.symmetry === 'rot90') {
-      const c = this.toScreen(w / 2, h / 2);
-      ctx.moveTo(c.x + 10, c.y);
-      ctx.arc(c.x, c.y, 10, 0, Math.PI * 1.6);
+    const path = new Path2D();
+    for (const [x0, z0, x1, z1] of AXES[doc.symmetry]?.(w, h) ?? []) {
+      const a = this.toScreen(x0, z0), b = this.toScreen(x1, z1);
+      path.moveTo(a.x, a.y);
+      path.lineTo(b.x, b.y);
     }
-    ctx.stroke();
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.stroke(path);
+    ctx.setLineDash([7, 5]);
+    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.stroke(path);
+    ctx.setLineDash([]);
+    if (doc.symmetry === 'rot180' || doc.symmetry === 'rot90') this.#drawRotationCentre(this.toScreen(w / 2, h / 2));
     ctx.restore();
   }
 
-  #label(text, x, y, size) {
+  #drawRotationCentre(c) {
+    const ctx = this.ctx, r = 10;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r + 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(14, 16, 20, 0.7)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r - 3, -Math.PI * 0.35, Math.PI * 1.25);
+    ctx.lineWidth = 1.75;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    const tip = { x: c.x + (r - 3) * Math.cos(-Math.PI * 0.35), y: c.y + (r - 3) * Math.sin(-Math.PI * 0.35) };
+    ctx.beginPath();
+    ctx.moveTo(tip.x - 4, tip.y - 2.5);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.lineTo(tip.x - 1, tip.y + 4.5);
+    ctx.stroke();
+  }
+
+  #pill(text, x, y) {
     const ctx = this.ctx;
-    ctx.font = `bold ${size}px system-ui, sans-serif`;
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(text, x, y);
+    ctx.font = `600 10px ${FONT}`;
+    const w = Math.ceil(ctx.measureText(text).width) + 8;
+    ctx.beginPath();
+    ctx.roundRect(Math.round(x - w / 2), Math.round(y - 7), w, 14, 4);
+    ctx.fillStyle = 'rgba(14, 16, 20, 0.85)';
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, Math.round(x), Math.round(y) + 0.5);
+  }
+
+  #ring(s, r, color, width) {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.lineWidth = width;
+    ctx.strokeStyle = color;
+    ctx.stroke();
   }
 
   #drawObjects() {
@@ -166,73 +251,131 @@ export class View2D {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const o of doc.objects) {
+      if (o.type === 'feature') continue;
       const s = this.toScreen(o.x, o.z);
       const sel = selectedGroup !== null && (o.group ?? o) === selectedGroup;
-      const ring = sel ? '#ffffff' : o === this.hover ? '#ffe9a8' : null;
-      ctx.beginPath();
-      if (o.type === 'metal') {
-        const r = Math.max(4, doc.settings.extractorRadius * k);
-        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.fill();
-        ctx.lineWidth = sel ? 2.5 : 1.5;
-        ctx.strokeStyle = ring ?? '#d9d9e6';
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, Math.max(3, 24 * k), 0, Math.PI * 2);
-        ctx.fillStyle = '#c9ccd6';
-        ctx.fill();
-        if (r > 12) this.#label(o.metal.toFixed(1), s.x, s.y + r + 8, clamp(r * 0.35, 9, 14));
-      } else if (o.type === 'geo') {
-        const r = Math.max(6, 40 * k);
-        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,120,30,0.35)';
-        ctx.fill();
-        ctx.lineWidth = sel ? 2.5 : 1.5;
-        ctx.strokeStyle = ring ?? '#ff9a3d';
-        ctx.stroke();
-        this.#label('G', s.x, s.y, clamp(r * 0.6, 9, 14));
-      } else if (o.type === 'start') {
-        const r = Math.max(8, 30 * k);
-        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = TEAM_COLORS[team % TEAM_COLORS.length];
-        ctx.fill();
-        ctx.lineWidth = sel ? 3 : 2;
-        ctx.strokeStyle = ring ?? 'rgba(0,0,0,0.7)';
-        ctx.stroke();
-        this.#label(String(++team), s.x, s.y, clamp(r, 10, 16));
-      }
+      const highlight = sel ? SELECT : o === this.hover ? 'rgba(255, 255, 255, 0.9)' : null;
+      if (o.type === 'metal') this.#drawMetal(o, s, k, highlight);
+      else if (o.type === 'geo') this.#drawGeo(s, k, highlight);
+      else if (o.type === 'start') this.#drawStart(s, k, team++, highlight);
     }
     ctx.restore();
+  }
+
+  #drawMetal(o, s, k, highlight) {
+    const ctx = this.ctx, r = Math.max(5, this.doc.settings.extractorRadius * k), core = clamp(22 * k, 2.5, 6);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(14, 16, 20, 0.3)';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.stroke();
+    if (highlight) this.#ring(s, r + 2, highlight, 2);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, core, 0, Math.PI * 2);
+    ctx.fillStyle = '#e9edf5';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(14, 16, 20, 0.8)';
+    ctx.stroke();
+    if (r >= 9) this.#pill(o.metal.toFixed(1), s.x, s.y + core + 9);
+  }
+
+  #drawGeo(s, k, highlight) {
+    const ctx = this.ctx, r = clamp(40 * k, 7, 14);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#f2782f';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(14, 16, 20, 0.8)';
+    ctx.stroke();
+    if (highlight) this.#ring(s, r + 3, highlight, 2);
+    const f = (r * 1.25) / 24;
+    ctx.save();
+    ctx.translate(s.x - 12 * f, s.y - 12 * f);
+    ctx.scale(f, f);
+    ctx.lineWidth = 1.75 / f; // 1.75 screen px, like the UI icons
+    ctx.lineJoin = ctx.lineCap = 'round';
+    ctx.strokeStyle = '#ffffff';
+    for (const p of FLAME) ctx.stroke(p);
+    ctx.restore();
+  }
+
+  #drawStart(s, k, team, highlight) {
+    const ctx = this.ctx, r = clamp(30 * k, 9, 16), color = TEAM_COLORS[team % TEAM_COLORS.length];
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r + 4, 0, Math.PI * 2);
+    ctx.fillStyle = `${color}40`;
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    if (highlight) this.#ring(s, r + 5, highlight, 2);
+    ctx.font = `700 ${Math.round(r * 1.05)}px ${FONT}`;
+    ctx.fillStyle = TEAM_TEXT[team % TEAM_TEXT.length];
+    ctx.fillText(String(team + 1), s.x, s.y + 0.5);
   }
 
   #drawBrush() {
     const { ctx, brush } = this, r = brush.radius * this.scale;
     ctx.save();
-    ctx.lineWidth = 1.5;
-    orbit(this.doc, this.cursor.x, this.cursor.z).forEach(([x, z], k) => {
+    orbit(this.doc, this.cursor.x, this.cursor.z).forEach(([x, z], n) => {
       const s = this.toScreen(x, z);
-      ctx.strokeStyle = k === 0 ? brush.color : 'rgba(255,255,255,0.45)';
-      ctx.setLineDash(k === 0 ? [] : [4, 4]); // ghosts show where the mirrored copies of the stroke land
+      if (n > 0) { // ghosts show where the mirrored copies of the stroke land
+        ctx.setLineDash([4, 4]);
+        this.#ring(s, r, 'rgba(255, 255, 255, 0.5)', 1);
+        ctx.setLineDash([]);
+        return;
+      }
+      this.#ring(s, r, 'rgba(0, 0, 0, 0.45)', 3);
+      this.#ring(s, r, brush.color, 1.5);
+      if (brush.hardness > 0.05) {
+        ctx.setLineDash([2, 4]);
+        this.#ring(s, r * brush.hardness, brush.color, 1);
+        ctx.setLineDash([]);
+      }
       ctx.beginPath();
-      ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(s.x, s.y, 1.75, 0, Math.PI * 2);
+      ctx.fillStyle = brush.color;
+      ctx.fill();
     });
     ctx.restore();
   }
 
   #drawRamp() {
     const { ctx } = this, { a, b, width } = this.rampPreview;
+    const sa = this.toScreen(a.x, a.z), sb = this.toScreen(b.x, b.z);
     ctx.save();
     ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(80,200,255,0.35)';
+    ctx.strokeStyle = 'rgba(122, 215, 255, 0.28)';
     ctx.lineWidth = Math.max(2, width * this.scale);
     ctx.beginPath();
-    this.#line(a.x, a.z, b.x, b.z);
+    ctx.moveTo(sa.x, sa.y);
+    ctx.lineTo(sb.x, sb.y);
     ctx.stroke();
-    ctx.strokeStyle = '#5cd0ff';
+    ctx.strokeStyle = '#7ad7ff';
     ctx.lineWidth = 2;
     ctx.stroke();
+    for (const s of [sa, sb]) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#0e1014';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }

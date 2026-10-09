@@ -1,0 +1,161 @@
+/* Design tokens and base elements. Every colour, size and duration in the other sheets comes from here. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url('../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces: 0 = backdrop behind the map, 1 = app chrome, 2 = raised (inputs, cards, dialogs). */
+  --bg-0: #0e1014;
+  --bg-1: #15171c;
+  --bg-2: #1c1f26;
+  --bg-3: #242832; /* hover on raised surfaces only */
+  --glass: rgba(21, 23, 28, 0.86); /* overlays floating on the map */
+  --hover: rgba(255, 255, 255, 0.05);
+  --press: rgba(255, 255, 255, 0.09);
+  --line-1: #262a33; /* dividers */
+  --line-2: #333845; /* control borders */
+  --line-3: #454b5a; /* control borders on hover */
+
+  /* Text: every tier is at least 4.5:1 on every surface. */
+  --text-1: #eceef2;
+  --text-2: #a3a9b6;
+  --text-3: #8a91a0;
+  --text-on-accent: #ffffff;
+
+  /* One accent. --accent-fill carries white text at 4.6:1. */
+  --accent: #7aa5ff;
+  --accent-fill: #3a6fe0;
+  --accent-fill-hover: #3366da;
+  --accent-fill-press: #2c5cc8;
+  --accent-soft: rgba(58, 111, 224, 0.18);
+  --accent-line: rgba(122, 165, 255, 0.55);
+  --focus: #7aa5ff;
+
+  /* State colours: only for success, warning and danger. */
+  --ok: #3ecf8e;
+  --ok-soft: rgba(62, 207, 142, 0.14);
+  --warn: #f5b84a;
+  --warn-soft: rgba(245, 184, 74, 0.14);
+  --danger: #ff6b6e;
+  --danger-soft: rgba(255, 107, 110, 0.14);
+  --danger-fill: #c9353b;
+
+  /* Type: Inter, scale 11 / 12 / 13 / 15 / 18 / 24. */
+  --font: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-15: 15px;
+  --fs-18: 18px;
+  --fs-24: 24px;
+  --lh-tight: 1.25;
+  --lh: 1.45;
+
+  /* 4-px spacing grid. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+
+  --h-control: 28px;
+  --h-control-lg: 36px;
+  --topbar-h: 48px;
+  --status-h: 26px;
+  --rail-w: 52px;
+  --inspector-w: 320px;
+
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-dialog: 0 24px 72px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --ring: 0 0 0 2px var(--focus);
+
+  /* Motion: short and purposeful; never animates layout. */
+  --dur: 120ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font: 400 var(--fs-13) / var(--lh) var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+button, select, input, textarea { font: inherit; color: inherit; }
+input, textarea { user-select: text; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+::selection { background: var(--accent-fill); color: var(--text-on-accent); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--line-3); }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon.lg { width: 20px; height: 20px; }
+.icon.xl { width: 32px; height: 32px; stroke-width: 1.5; }
+
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-2); }
+.spacer { flex: 1; }
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--s-1);
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font: 500 var(--fs-11) / 1 var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.98); } }
+.spin { animation: spin 0.9s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .spin { animation: spin 1.2s linear infinite !important; }
+}

@@ -1,11 +1,13 @@
-// The Generate, Look and Map tabs. Rebuilt whenever a new map is loaded or a history step replaced doc parts.
-import { BIOMES } from '../../src/look/index.js';
+// The Generate and Map tabs. Rebuilt whenever a new map is loaded or a history step replaced doc parts.
+import { SYMMETRY } from '../../src/core/index.js';
 import { TEMPLATES } from '../../src/terrain/index.js';
 import { changeExportDir } from './bar-actions.js';
-import { $, busy, check, el, heading, note, select, slider, stat, text } from './dom.js';
+import { $, btn, el, formatInt, note, section, select, slider, text, toggle, value } from './dom.js';
+import { confirmDialog, withLoading } from './feedback.js';
 import { runJob } from './generator.js';
+import { icon } from './icons.js';
+import { buildLook } from './look-panel.js';
 import { counts } from './objects.js';
-import { SYMMETRIES } from './new-map.js';
 
 export function buildPanels(editor) {
   buildGenerate(editor);
@@ -13,78 +15,79 @@ export function buildPanels(editor) {
   buildMap(editor);
 }
 
+const randomSeed = () => Math.floor(Math.random() * 1e6);
+
 function buildGenerate(editor) {
   const panel = $('tab-generate'), doc = editor.doc;
-  const gen = { template: TEMPLATES[0].id, seed: Math.floor(Math.random() * 1e6), players: Math.max(2, counts(doc).starts) };
-  const randomSeed = () => { gen.seed = Math.floor(Math.random() * 1e6); };
+  const gen = { template: TEMPLATES[0].id, seed: randomSeed(), players: Math.max(2, counts(doc).starts) };
   panel.replaceChildren();
 
-  heading(panel, 'Terrain');
-  note(panel, 'Replaces the terrain and resources with a new one, keeping size, symmetry and map settings. Ctrl+Z undoes it.');
-  select(panel, 'Template', gen, 'template', TEMPLATES.map((t) => [t.id, t.label]));
-  slider(panel, 'Players', gen, 'players', 2, 16, 1);
-  panel.append(el('button', {
-    class: 'primary wide',
+  const terrain = section(panel, 'Terrain');
+  note(terrain, 'Replaces the terrain and resources, keeping size, symmetry and map settings. Ctrl+Z undoes it.');
+  select(terrain, 'Template', gen, 'template', TEMPLATES.map((t) => [t.id, t.label]));
+  slider(terrain, 'Players', gen, 'players', { min: 2, max: 16 });
+  const seed = el('input', { id: 'genSeed', class: 'field', type: 'number', min: 0, max: 999999 });
+  seed.value = gen.seed;
+  seed.addEventListener('change', () => { gen.seed = Math.max(0, Math.round(+seed.value) || 0); seed.value = gen.seed; });
+  const dice = el('button', { class: 'btn square', 'data-tip': 'Random seed', 'aria-label': 'Random seed', onclick: () => { gen.seed = randomSeed(); seed.value = gen.seed; } }, icon('dice-5'));
+  terrain.append(el('div', { class: 'row' }, el('label', { for: 'genSeed' }, 'Seed'), el('div', { class: 'slider-row' }, seed, dice)));
+  terrain.append(btn('Generate terrain', {
+    class: 'btn primary block',
     onclick: async () => {
-      const fresh = await busy('Generating terrain…', () => runJob('newMap', { sx: doc.sx, sz: doc.sz, symmetry: doc.symmetry, biome: doc.biome, ...gen }));
+      const label = TEMPLATES.find((t) => t.id === gen.template).label;
+      const fresh = await withLoading('Generating terrain', `${label} · ${gen.players} players · seed ${gen.seed}`,
+        () => runJob('newMap', { sx: doc.sx, sz: doc.sz, symmetry: doc.symmetry, biome: doc.biome, ...gen }));
       if (fresh) editor.replaceTerrain(fresh, 'generate terrain');
-      randomSeed();
     },
-  }, 'Generate new terrain'));
+  }, 'sparkles'));
 
-  heading(panel, 'Resources');
-  note(panel, 'Places start positions, metal spots and geothermal vents for the player count above, mirrored by the symmetry.');
-  panel.append(el('button', {
-    class: 'wide',
-    onclick: async () => {
-      const placed = await busy('Placing resources…', () => runJob('placeResources', { doc, players: gen.players, seed: gen.seed }));
-      if (placed) editor.replaceTerrain(placed, 'place resources');
-      randomSeed();
-    },
-  }, 'Auto-place resources'));
-  panel.append(el('button', {
-    class: 'wide danger',
-    onclick: () => editor.editObjects('remove resources', () => { doc.objects = []; }),
-  }, 'Remove all resources and starts'));
-}
-
-function buildLook(editor) {
-  const panel = $('tab-look');
-  panel.replaceChildren();
-  heading(panel, 'Biome');
-  note(panel, 'Sets the colours of the ground. Paint (P) overrides it locally.');
-  select(panel, 'Biome', editor.doc, 'biome', Object.entries(BIOMES).map(([key, b]) => [key, b.label]), (biome) => {
-    editor.doc.settings.sunDir = [...BIOMES[biome].sunDir];
-    editor.lookChanged();
-  });
+  const resources = section(panel, 'Resources');
+  note(resources, 'Places start positions, metal spots and geothermal vents for the player count above, mirrored by the symmetry.');
+  resources.append(el('div', { class: 'stack-sm' },
+    btn('Auto-place resources', {
+      class: 'btn block',
+      onclick: async () => {
+        const placed = await withLoading('Placing resources', `${gen.players} players · seed ${gen.seed}`, () => runJob('placeResources', { doc, players: gen.players, seed: gen.seed }));
+        if (placed) editor.replaceTerrain(placed, 'place resources');
+      },
+    }, 'circle-dot'),
+    btn('Remove all resources', {
+      class: 'btn danger block',
+      onclick: async () => {
+        const ok = await confirmDialog({ title: 'Remove all resources?', text: 'Every start position, metal spot and geothermal vent is removed. You can undo this with Ctrl+Z.', ok: 'Remove all' });
+        if (ok) editor.editObjects('remove resources', () => { doc.objects = doc.objects.filter((o) => o.type === 'feature'); });
+      },
+    }, 'trash'),
+  ));
 }
 
 function buildMap(editor) {
-  const panel = $('tab-map'), doc = editor.doc, s = doc.settings, changed = () => editor.lookChanged();
+  const panel = $('tab-map'), doc = editor.doc, s = doc.settings;
+  const changed = () => editor.markDirty();
   panel.replaceChildren();
 
-  heading(panel, 'Map info');
-  text(panel, 'Name', s, 'name', () => editor.updateTitle());
-  text(panel, 'Version', s, 'version');
-  text(panel, 'Author', s, 'author');
-  text(panel, 'Description', s, 'description', null, true);
+  const info = section(panel, 'Map info');
+  text(info, 'Name', s, 'name', () => editor.updateTitle()).dataset.field = 'name'; // kept in step with the top bar's name
+  text(info, 'Version', s, 'version', changed);
+  text(info, 'Author', s, 'author', changed);
+  text(info, 'Description', s, 'description', changed, true);
 
-  heading(panel, 'Size');
-  stat(panel, 'Map size', `${doc.sx} × ${doc.sz}`);
-  stat(panel, 'In elmos', `${doc.sx * 512} × ${doc.sz * 512}`);
-  stat(panel, 'Symmetry', SYMMETRIES[doc.symmetry]);
+  const size = section(panel, 'Size');
+  value(size, 'Map size', `${doc.sx} × ${doc.sz} units`);
+  value(size, 'In elmos', `${formatInt(doc.sx * 512)} × ${formatInt(doc.sz * 512)}`);
+  value(size, 'Symmetry', SYMMETRY[doc.symmetry].label);
 
-  heading(panel, 'Gameplay');
-  slider(panel, 'Wind min', s, 'minWind', 0, 30, 1);
-  slider(panel, 'Wind max', s, 'maxWind', 0, 30, 1);
-  slider(panel, 'Tidal strength', s, 'tidalStrength', 0, 25, 1);
+  const play = section(panel, 'Gameplay');
+  slider(play, 'Wind min', s, 'minWind', { min: 0, max: 30, onChange: changed });
+  slider(play, 'Wind max', s, 'maxWind', { min: 0, max: 30, onChange: changed });
+  slider(play, 'Tidal', s, 'tidalStrength', { min: 0, max: 25, onChange: changed });
 
-  heading(panel, 'Lava');
-  note(panel, 'Everything below the lava level becomes BAR\'s animated, damaging lava instead of water.');
-  check(panel, 'Lava map', s.lava, 'enabled', changed);
-  slider(panel, 'Lava level (elmos)', s.lava, 'level', -100, 1000, 1, changed);
+  const lava = section(panel, 'Lava');
+  note(lava, 'Everything below the lava level becomes BAR\'s animated, damaging lava instead of water.');
+  toggle(lava, 'Lava instead of water', s.lava, 'enabled', () => editor.lookChanged());
+  slider(lava, 'Level', s.lava, 'level', { min: -100, max: 1000, onChange: () => editor.lookChanged() });
 
-  heading(panel, 'Export');
-  note(panel, 'Export asks for a folder the first time and remembers it.');
-  panel.append(el('button', { class: 'wide', onclick: changeExportDir }, 'Change export folder…'));
+  const out = section(panel, 'Export folder');
+  note(out, 'The first export asks for a folder and remembers it.');
+  out.append(btn('Change export folder…', { class: 'btn block', onclick: changeExportDir }, 'folder-open'));
 }

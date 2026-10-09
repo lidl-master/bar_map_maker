@@ -15,7 +15,9 @@
     "playwright": "1.64.0"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "5.2.8",
     "7zip-bin": "5.2.0",
+    "lucide": "1.47.0",
     "three": "0.186.1",
     "wasmoon": "1.16.0"
   }

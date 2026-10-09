@@ -1,9 +1,9 @@
-// Module worker: terrain generation and resource placement run here, off the UI thread.
-import { createMap } from '../../src/core/index.js';
+// Module worker: terrain generation, resource placement, feature scatter and template previews run here, off the UI thread.
+import { createMap, worldSize } from '../../src/core/index.js';
 import { BIOMES, previewColor } from '../../src/look/index.js';
 import { TEMPLATES, generate, placeResources } from '../../src/terrain/index.js';
 
-const THUMB = 64;
+const THUMB = 160; // px; drawn from a 4×4 map so the terrain reads like a whole map, not a close-up
 
 const jobs = {
   newMap({ sx, sz, symmetry, biome, template, players, seed }) {
@@ -18,10 +18,18 @@ const jobs = {
     return doc;
   },
 
-  /** A small preview of every template on a 2×2 map. */
-  thumbnails({ symmetry, biome, players }) {
-    return TEMPLATES.map(({ id }) => {
-      const doc = createMap({ sx: 2, sz: 2, symmetry, biome });
+  /** WP 2.3's scatter; loaded on demand, the Look tab only offers it when the module exists. */
+  async scatterFeatures({ doc, density, seed }) {
+    const { scatterFeatures } = await import('../../src/terrain/features.js');
+    scatterFeatures(doc, { density, seed });
+    return doc.objects;
+  },
+
+  /** A preview per item ({id, symmetry, biome}): RGBA pixels plus the start positions (0..1) for team dots. */
+  thumbnails({ items, players }) {
+    return items.map(({ id, symmetry, biome }) => {
+      const template = TEMPLATES.find((t) => t.id === id);
+      const doc = createMap({ sx: 4, sz: 4, symmetry: template.symmetry ?? symmetry, biome });
       generate(doc, id, { players, seed: 7 });
       const rgba = new Uint8ClampedArray(THUMB * THUMB * 4);
       for (let y = 0; y < THUMB; y++) {
@@ -30,14 +38,16 @@ const jobs = {
           rgba.set([...rgb, 255], (y * THUMB + x) * 4);
         }
       }
-      return { id, size: THUMB, rgba };
+      const [w, h] = worldSize(doc);
+      const starts = doc.objects.filter((o) => o.type === 'start').map((o) => [o.x / w, o.z / h]);
+      return { id, size: THUMB, rgba, starts };
     });
   },
 };
 
-self.onmessage = ({ data: { id, type, args } }) => {
+self.onmessage = async ({ data: { id, type, args } }) => {
   try {
-    self.postMessage({ id, result: jobs[type](args) });
+    self.postMessage({ id, result: await jobs[type](args) });
   } catch (error) {
     self.postMessage({ id, error: error.message });
   }

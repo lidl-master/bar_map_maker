@@ -62,7 +62,8 @@ export function materialTable(albedo, tileElmos) {
 
 /**
  * @typedef {Object} BakeLayers  elmos per texel of the stack layers (powers of two, at most 32)
- * @property {number} diffuse  1 = albedo detail; n > 1 = average material colours in flat n x n blocks
+ * @property {number} diffuse  1 = albedo detail and baked shading; n > 1 = average material colours, tone and
+ *   topolines only (the engine shades the ground anyway) in flat n x n blocks
  * @property {number} splat
  * @property {number} spec
  * @property {number} normal
@@ -108,7 +109,8 @@ function gradient(doc, i, j) {
   ];
 }
 
-// Per-sample inputs of heightmap rows j0 .. j0 + rows - 1; light = shading towards the sun times broad tone.
+// Per-sample inputs of heightmap rows j0 .. j0 + rows - 1; light = shading towards the sun (sun null: none) times
+// broad tone.
 function sampleRows(doc, sun, j0, rows) {
   const { W } = doc, n = W * rows;
   const grid = { h: new Float32Array(n), gx: new Float32Array(n), gz: new Float32Array(n), patch: new Float32Array(n), light: new Float32Array(n), wobble: new Float32Array(n), swap: new Float32Array(n) };
@@ -118,7 +120,7 @@ function sampleRows(doc, sun, j0, rows) {
       grid.h[k] = doc.heights[(j0 + r) * W + i];
       [grid.gx[k], grid.gz[k]] = gradient(doc, i, j0 + r);
       grid.patch[k] = patchAt(x, z);
-      grid.light[k] = shade(sun, grid.gx[k], grid.gz[k]) * (1 + TONE * toneAt(x, z));
+      grid.light[k] = (sun ? shade(sun, grid.gx[k], grid.gz[k]) : 1) * (1 + TONE * toneAt(x, z));
       grid.wobble[k] = wobbleAt(x, z);
       grid.swap[k] = swapAt(x, z);
     }
@@ -136,7 +138,7 @@ function sampleRows(doc, sun, j0, rows) {
 export function bakeStrip(ctx, tz0, rows) {
   const { doc, look, layers, sun, tables } = ctx, { W } = doc, { biome, slots, roleSlot, paintSlot } = look;
   const tilesX = doc.sx * 16, wE = tilesX * TILE, hE = rows * TILE, z0 = tz0 * TILE, j0 = tz0 * 4;
-  const grid = sampleRows(doc, sun, j0, rows * 4 + 1);
+  const grid = sampleRows(doc, layers.diffuse === 1 ? sun : null, j0, rows * 4 + 1);
   const paint = doc.paint.subarray(j0 * W, (j0 + rows * 4 + 1) * W), paintWeight = doc.paintWeight.subarray(j0 * W, (j0 + rows * 4 + 1) * W);
   for (const s of new Set([...roleSlot, ...paintSlot.filter((s, p) => p && paint.includes(p))])) {
     if (!tables[s]) throw new Error(`bake: no albedo for material "${slots[s].id}"`);

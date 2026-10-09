@@ -13,7 +13,7 @@ Builders may change internals freely. Changing a contract below needs a note in 
 |---|---|---|
 | `src/core/` | 1.3 | MapDoc, symmetry, history. Pure. |
 | `src/terrain/` | 1.3 | Generators, brushes, erosion, placement, presets. Pure. |
-| `src/look/` | 1.1 | Biome palettes and the simple texture bake (replaced by the full texture stack in Wave 2). Pure. |
+| `src/look/` | 1.1, 2.1, 2.2 | Biomes, the CC0 material library (2.1), auto-texturing rules and the texture-stack bake (2.2). Pure, except `library-load.js` (Node-only, not exported from `index.js`). |
 | `src/formats/` | 1.1 | SMF/SMT/DXT/metal map, mapinfo.lua + lava.lua writers. Pure. |
 | `src/archive/`, `src/bar/` | 1.1 | 7-Zip, export pipeline, install to BAR. Node-only. |
 | `src/lua/` | 1.2 | Sandboxed Lua reading of mapinfo.lua / mapconfig. Pure (wasmoon). |
@@ -28,7 +28,8 @@ Builders may change internals freely. Changing a contract below needs a note in 
  * @property {number} W   heightmap width  = 64*sx + 1
  * @property {number} H   heightmap height = 64*sz + 1
  * @property {Float32Array} heights   elmos, row-major (index = z*W + x), 8 elmos between samples
- * @property {Uint8Array} paint       per heightmap sample, src/look MATERIALS index + 1 painted by the user (0 = auto)
+ * @property {Uint8Array} paint       per heightmap sample, src/look MATERIALS index + 1 painted by the user (0 = auto):
+ *                                    1..7 = the biome's role materials (ROLES), 8.. = library materials by id
  * @property {Uint8Array} paintWeight per heightmap sample, 0..255
  * @property {string} symmetry  'none'|'mirrorX'|'mirrorZ'|'diag'|'adiag'|'rot180'|'rot90'|'quad'
  * @property {MapObject[]} objects
@@ -64,6 +65,21 @@ Builders may change internals freely. Changing a contract below needs a note in 
 ```
 Start positions: `objects` of type `start`, in team order (team 0 first).
 
+## Texture stack (WP 2.2)
+What an export ships in `maps/` and lists in mapinfo `resources` / `splats`:
+
+| File | Content | Standard | Share |
+|---|---|---|---|
+| `<base>.smt` | Diffuse: library albedo tiled in world space (1 texel per elmo, a transposed copy blended in by noise against visible tiling), blended by role weights (slope ≤ 27° / 27–54° / > 54°, height bands, paint), broad tone, 30% shading from the northern sun, thin wobbly topolines on 2–26° ground | full detail | average material colours in flat 4×4 blocks (packs ~5× smaller; the DNTS add the grain in-engine) |
+| `<base>_splat.dds` | `splatDistrTex`, BC3: weights of the 4 splats from the same per-texel weights (sum 255) | 4 elmos/px | 8 elmos/px |
+| `dnts_<id>.png|dds` | `splatDetailNormalTex1..4` from the library; `texScales = 1/tileElmos` (aligned with the baked albedo), `texMults` 0.6–0.8 by class, `splatDetailNormalDiffuseAlpha = 1` | library PNG as is | BC3 DDS |
+| `<base>_normal.dds` | `detailNormalTex`, BC1, tangent space relative to the engine's heightmap normal: material relief (albedo luminance gradients, by class) plus topoline grooves | 1 elmo/px up to 8192 px | up to 4096 px |
+| `<base>_spec.dds` | `specularTex`, BC3: subtle grey intensity by class and albedo brightness, alpha = exponent / 16 | 4 elmos/px | 8 elmos/px |
+| SMF grass header | 255 where > 60% of a 32-elmo cell is a `grass*` material, clear of metal, geos and starts | ✓ | ✓ |
+| SMF minimap | the bake at 8 elmos/px, lightened (gamma 0.85), water/lava drawn in | ✓ | ✓ |
+
+Archive: 7-Zip `-mx=1` (fast) for both presets; Share is smaller through its content, not the packer.
+
 ## Module entry points
 Actual signatures after Wave 1 smoothing. Grid rects are `[x0, z0, x1, z1]` in heightmap samples, inclusive; positions are elmos.
 
@@ -79,9 +95,15 @@ Actual signatures after Wave 1 smoothing. Grid rects are `[x0, z0, x1, z1]` in h
   - `brush(doc, tool, x, z, {radius, strength, hardness, target?, material?, noiseScale?}, dt) → rect | null`, tool `'raise'|'lower'|'smooth'|'flatten'|'noise'|'paint'` (paint: `material` = MATERIALS index + 1, 0 erases; noise: negative strength subtracts). Applies the dab at every symmetry image: callers call it once.
   - `ramp(doc, a, b, {width, hardness = 0.5}) → rect`, `a`/`b` = `{x, z, h?}` (h defaults to the terrain height). Mirrored like `brush`.
   - `placeResources(doc, {players, metalPerBase = 4, expansions?, geos?, metalValue = 2, flattenBases = true, seed = 1})`, `erode(doc, {amount, seed})`, `limitSlopes(doc, maxDeg)`.
-- `src/look/index.js` (1.1, pure): `BIOMES` (`{[key]: {label, sunDir, …colours}}`, keys as in MapDoc.biome; every `sunDir` has z < 0; New Map copies it to `settings.sunDir`), `MATERIALS` (`[{key, label}]`), `previewColor(doc, i, j) → [r, g, b]` (0..255, includes water, void water and lava), `bakeTile(doc, tx, tz) → Uint8ClampedArray` (32×32 RGB), `bakeMinimap(doc) → Uint8ClampedArray` (1024×1024 RGB). Both bakes throw on an unknown biome or paint id.
-- `src/formats/index.js` (1.1, pure): `buildMapFiles(doc, bakeTexture) → Map<archivePath, bytes>`, `mapFileBase(text) → string` (file-system safe; throws when nothing is left), `writeMapInfo(doc, {fileBase, minHeight, maxHeight, maxMetal}) → string`, `writeLavaConfig(doc) → string | null`, `buildMetalMap(doc)`, `writeSmf`, `readSmf`, `writeSmt`, `readSmt`, `dedupeTiles`, `encodeDxt1Mips`, `TILE_BYTES`, `MINIMAP_BYTES`.
-- `src/archive/index.js` (1.1, Node-only): `readArchive(path) → Map<path, Uint8Array>`, `writeSd7(files, outPath)`, `TEMP_ROOT`.
-- `src/bar/index.js` (1.1, Node-only): `exportMap(doc, outDir, {onProgress(fraction, label)}) → {archivePath, bytes}` (`outDir` must exist; the file is `<mapFileBase(name)>_<mapFileBase(version)>.sd7`, lower case), `planInstall(archivePath, {mapsDir}) → {mapsDir, replaces: string[]}`, `installMap(archivePath, {mapsDir}) → {installedPath, removed: string[]}` (same replace rule as `planInstall`), `locateBar(root?) → {root, dataDir, mapsDir, engines, headlessEngine, game, sevenZip}`.
+- `src/look/index.js` (1.1 + 2.2, pure):
+  - `BIOMES` (`{[key]: {label, materials, splats, sunDir, highStart, highEnd, sandTop, snowLine, sky, fog, …}}`, keys as in MapDoc.biome; every `sunDir` has z < 0; New Map copies it to `settings.sunDir`). `materials`: role → library id for the 7 `ROLES` (`ground, high, slope, cliff, sand, seabed, snow`); `splats`: the 4 in-engine splat materials (ground, slope, cliff, shore/snow/special).
+  - `MATERIALS` (paint list, `[{key, label, role?, id?}]`): the 7 roles first (resolved per biome, so Wave 1 paint ids and `terrain/volcano.js`'s `'sand'`/`'seabed'` keys keep working), then every `MATERIAL_LIBRARY` entry (`key` = library id). `MATERIAL_LIBRARY` (2.1: `{id, label, class, avgColor, tileElmos, files, …}`).
+  - `previewColor(doc, i, j) → [r, g, b]` (0..255; the bake's rules with library average colours, plus water, void water and lava).
+  - `QUALITY` (`standard`, `share`), `texturePlan(doc, quality) → {quality, layers: {diffuse, splat, spec, normal}, splats: [{id, scale, mult}×4], dnts: 'png'|'dds'}` (throws on an unknown quality).
+  - Bake (used by `src/bar` workers): `bakeMaterials(doc) → id[]` (role + painted materials), `materialTable(albedo, tileElmos) → Float32Array`, `prepareBake(doc, tables: Map<id, table>, layers) → ctx`, `bakeStrip(ctx, tz0, rows) → {rgb, splat, spec, normal, minimap, grass}` (SMT tile rows; RGBA layer strips top-down; splat pixels sum to 255), `finishMinimap(doc, rgb8) → Uint8Array` (1024² RGB), `checkPaint(doc)` (throws on an unknown paint id).
+  - `library-load.js` (2.1, Node-only): `TEXTURE_ROOT`, `loadMaterial(id, root?)`, `decodePng`, `encodePng`.
+- `src/formats/index.js` (1.1 + 2.2, pure): `buildMapFiles(doc, bakeTexture(plan) → {tiles, minimap, grass, textures}, {quality = 'standard'}) → Map<archivePath, bytes>` (`textures` by mapinfo resources key; checks every resource file is there), `textureFiles(fileBase, plan) → {resourcesKey: fileName}`, `mapFileBase(text) → string` (file-system safe; throws when nothing is left), `writeMapInfo(doc, {fileBase, minHeight, maxHeight, maxMetal, textures: {resources, splats}}) → string` (writes `resources` + `splats`), `writeLavaConfig(doc) → string | null`, `buildMetalMap(doc)`, `writeSmf`, `readSmf`, `writeSmt`, `readSmt`, `dedupeTiles`, `encodeDxt1Mips`, `TILE_BYTES`, `MINIMAP_BYTES`, DDS: `encodeDds(rgba, w, h, 'bc1'|'bc3')`, `encodeStrip` + `assembleDds` (strip-wise on workers), `readDdsHeader`. DDS files store rows bottom-first because the engine (nv_dds) flips them on load; callers pass top-down images.
+- `src/archive/index.js` (1.1, Node-only): `readArchive(path) → Map<path, Uint8Array>`, `writeSd7(files, outPath)` (LZMA2 `-mx=1` since Wave 2), `TEMP_ROOT`.
+- `src/bar/index.js` (1.1, Node-only): `exportMap(doc, outDir, {onProgress(fraction, label), quality = 'standard'|'share'}) → {archivePath, bytes}` (reads the material library from `assets/textures/`) (`outDir` must exist; the file is `<mapFileBase(name)>_<mapFileBase(version)>.sd7`, lower case), `planInstall(archivePath, {mapsDir}) → {mapsDir, replaces: string[]}`, `installMap(archivePath, {mapsDir}) → {installedPath, removed: string[]}` (same replace rule as `planInstall`), `locateBar(root?) → {root, dataDir, mapsDir, engines, headlessEngine, game, sevenZip}`.
 - `src/lua/index.js` (1.2): `readMapInfo(files) → {name, version, author, description, maxMetal, extractorRadius, minHeight, maxHeight, smtFile, sunDir, teams:[{x,z}], lava:{...}|null, voidWater, licence: string|null, raw}` or `{error, line}`; never throws.
 - IPC (`app/ipc.js`, `window.studio`): `locateBar()`, `exportMap(doc) → {archivePath, bytes} | {cancelled: true}` (the first export asks for a folder and remembers it in `<userData>/settings.json`), `chooseExportDir() → string | null`, `installMap(archivePath) → {installedPath, removed} | {cancelled: true}` (asks first, naming what it replaces), `onProgress(({label, fraction}) => …)`.

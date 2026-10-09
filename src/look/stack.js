@@ -3,11 +3,11 @@
 import { biomeOf, libraryMaterial } from './biomes.js';
 
 /**
- * Export quality presets. diffuse: 1 = library albedo at 1 texel per elmo; n > 1 = average material colours in
- * flat n x n blocks, which pack ~5x smaller (the in-engine splat detail textures add the grain back).
+ * Export quality presets. diffuse: 1 = library albedo at 1 texel per elmo; n > 1 = average material colours (no
+ * baked shading) in flat n x n blocks, which pack ~6x smaller (the in-engine splat detail textures add the grain).
  * splat/spec: elmos per texel of splatDistrTex and specularTex; normalMax: the largest detailNormalTex side
  * (1 texel per elmo up to that, then halved); dnts: how the splat detail textures ship (the library PNG as is,
- * or BC3 DDS at ~40% of the size). Share keeps a 32x32 map well under 50 MB (~40 MB for rolling hills).
+ * or BC3 DDS at ~40% of the size). Share keeps a 32x32 map well under 50 MB (rolling hills: ~33 MB).
  */
 export const QUALITY = {
   standard: { diffuse: 1, splat: 4, spec: 4, normalMax: 8192, dnts: 'png' },

@@ -43,11 +43,8 @@ export async function readArchive(archivePath) {
   }
 }
 
-/**
- * Packs files (Map of archive path -> bytes) into a non-solid LZMA2 .sd7, replacing outPath atomically.
- * level: 7-Zip -mx (1 fast .. 9 ultra); 1 packs a 32x32 map ~7x faster than 7 for ~20% more bytes.
- */
-export async function writeSd7(files, outPath, { level = 7 } = {}) {
+/** Packs files (Map of archive path -> bytes) into a non-solid LZMA2 .sd7, replacing outPath atomically. */
+export async function writeSd7(files, outPath) {
   const dir = tempDir('pack-');
   const partial = `${resolve(outPath)}.partial`; // 7-Zip `a` appends to an existing archive, so always start fresh
   try {
@@ -58,8 +55,9 @@ export async function writeSd7(files, outPath, { level = 7 } = {}) {
       writeFileSync(target, bytes);
     }
     rmSync(partial, { force: true });
-    // c=8m: 8 MB LZMA2 chunks keep every core busy on one big SMT (178 MB: 15 s instead of 68 s, 1% larger).
-    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=8m', `-mx=${level}`, '-ms=off', partial, '.'], dir);
+    // c=8m: 8 MB LZMA2 chunks keep every core busy on one big SMT. -mx=1 (fast): a detailed 32x32 map (310 MB, mostly
+    // DXT) packs in ~5 s instead of ~13 s at -mx=3 for ~10% more bytes (Wave 1 used -mx=7: ~3x slower again).
+    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=8m', '-mx=1', '-ms=off', partial, '.'], dir);
     renameSync(partial, outPath);
   } finally {
     rmSync(dir, { recursive: true, force: true });

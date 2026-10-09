@@ -5,9 +5,11 @@ import { basename, join } from 'node:path';
 import { after, test } from 'node:test';
 import { readArchive, TEMP_ROOT } from '../../src/archive/index.js';
 import { exportMap } from '../../src/bar/index.js';
+import { createMap } from '../../src/core/index.js';
 import { readDdsHeader, readSmf, readSmt, TILE_BYTES } from '../../src/formats/index.js';
 import { TEXTURE_ROOT } from '../../src/look/library-load.js';
 import { readMapInfo } from '../../src/lua/index.js';
+import { generate } from '../../src/terrain/index.js';
 import { testMap } from '../helpers/test-map.js';
 
 mkdirSync(TEMP_ROOT, { recursive: true });
@@ -50,20 +52,23 @@ test('exports a 2x2 map whose archive holds a consistent SMF, SMT, mapinfo and t
   assert.equal(Object.values(info.raw.splats.texscales).length, 4);
 });
 
-test('the Share preset makes a smaller archive with DDS splat textures, sized for 32x32 under 50 MB', { skip }, async () => {
+test('the Share preset makes a smaller archive with DDS splat textures', { skip }, async () => {
   const doc = testMap({ sx: 4, sz: 4, name: 'Preset Test' });
   const standard = await exportMap(doc, outDir);
   const shareDir = mkdtempSync(join(outDir, 'share-'));
   const share = await exportMap(doc, shareDir, { quality: 'share' });
   assert.ok(share.bytes < standard.bytes * 0.6, `share ${share.bytes} vs standard ${standard.bytes}`);
-  const files = await readArchive(share.archivePath);
-  const dnts = [...files.keys()].filter((path) => path.startsWith('maps/dnts_'));
+  const dnts = [...(await readArchive(share.archivePath)).keys()].filter((path) => path.startsWith('maps/dnts_'));
   assert.equal(dnts.length, 4);
   assert.ok(dnts.every((path) => path.endsWith('.dds')));
-  // Everything but the 4 splat detail textures grows with the map area: a 32x32 map has 64x the area of 4x4.
-  // shortcut: a smooth synthetic map; real terrain packs larger (rolling hills: ~40 MB), see the WP 2.2 report.
-  const fixed = dnts.reduce((n, path) => n + files.get(path).length, 0);
-  assert.ok((share.bytes - fixed) * 64 + fixed < 40e6, `share extrapolates to ${(((share.bytes - fixed) * 64 + fixed) / 1e6).toFixed(1)} MB`);
+});
+
+test('a 32x32 rolling-hills map exports under 50 MB with the Share preset', { skip, timeout: 180_000 }, async () => {
+  const doc = createMap({ sx: 32, sz: 32 });
+  doc.settings.name = 'Share Bound Test';
+  generate(doc, 'hills', { players: 4, seed: 7 });
+  const { bytes } = await exportMap(doc, outDir, { quality: 'share' });
+  assert.ok(bytes <= 50e6, `${(bytes / 1e6).toFixed(1)} MB`);
 });
 
 test('a doc mistake fails before the texture bake starts', async () => {

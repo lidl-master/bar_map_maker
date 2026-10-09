@@ -1,34 +1,33 @@
 # Workbench (live progress)
 
-Updated by the lead after every round. Bars: [bars.md](bars.md).
+Updated by the lead. Bars and pace rules: [bars.md](bars.md). Contracts: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
-## Wave 0: setup (in progress)
+## Wave 0: setup — done
+- Node 24.21 (D:\tools\node, on PATH), git, prototype in `legacy/`, Electron 44 + Playwright, thermo-nuclear skill active.
+- Secure Electron skeleton (4 tests; security controls proven by mutation).
+- Tools: SMF/SMT validator, BAR locator, headless engine check, blind A/B pairs.
+- **Volcano King 1.0 loads in BAR's headless engine**: 900 frames, lava 60→59, 90 metal spots, 10 geos, BAR install untouched (SHA-256 of 30,496 entries).
+- Critic round 1 blocked the engine-check verdict; round 2 fixed it (exit code + quit frame + map errors; a broken `lava.lua` now fails in 33 s).
+- Skipped (pace): engine pick from launcher config, A/B keys outside repo, smf.py unused option, Node ≥ 24.2 note.
 
-| Item | Status |
-|---|---|
-| Node 24.21.0 portable at `D:\tools\node`, on user PATH | done |
-| git repo, baseline commit, prototype moved to `legacy/` | done |
-| Electron 44.7.0 + Playwright 1.64.0 (caches on D:) | done |
-| Thermo-nuclear skill active in `.claude/skills/` | done |
-| WP 0.1 Electron skeleton + smoke test | merged; round 2 (screenshot to temp dir, fatal load errors) |
-| WP 0.2 Tools: format validator, BAR locator, headless engine check, blind A/B pairs | merged; **critic blocked** → round 2 (engine-check verdict, map-error detection, A/B keys outside repo) |
-| First engine check of Volcano King | **loads cleanly**: 900 frames, lava 60→59, 90 metal spots, 10 geos (confirmed by builder and critic) |
-
-### Round 1 critic findings (blind)
-- G0 pass (13 Node + 12 Python tests; security controls proven by mutation).
-- G1 pass (Volcano King valid; independent header parse agrees).
-- G2 pass (Volcano King loads; BAR install unchanged, verified by SHA-256 of 30,496 entries).
-- G4 **block**: the engine check's verdict ignored the exit code and the quit frame. A probe map with a broken `mapconfig/lava.lua` showed "0 map problems" and failed only by timing out.
+## Wave 1: working core — building (4 builders in parallel)
+| WP | Scope | Status |
+|---|---|---|
+| 1.1 | Map files: SMF/SMT/DXT, metal, features, grass, dedupe, mapinfo/lava writers, biomes + simple bake, .sd7 export (workers), install with md5 sidecar | building |
+| 1.2 | Sandboxed Lua reader for mapinfo.lua / mapconfig (19-map corpus) | building |
+| 1.3 | Terrain engine: MapDoc, symmetry, history, generators, brushes, placement, Volcano KotH respecting players | building |
+| 1.4 | Editor app: app:// protocol, preload IPC, New Map, tools, 2D/3D, pathing view, export/install with confirm | building |
+| smooth | Integrate the four, remove stand-ins, end-to-end: new map → export → engine check | after builders |
+| critic | One pass, blockers only | after smoothing |
 
 ## Gates
-
 | Gate | Status |
 |---|---|
-| G0 unit tests | pass (round 1) |
-| G1 format validator | pass (round 1) |
-| G2 headless engine load | pass on Volcano King (tool verdict being hardened) |
-| G3 in-engine screenshots | Wave 1 |
-| G4 code quality | block → fixing (round 2) |
+| G0 unit tests | pass (Wave 0) |
+| G1 format validator | pass (Wave 0) |
+| G2 headless engine load | pass (Wave 0, hardened) |
+| G3 in-engine screenshots | Wave 2 |
+| G4 code quality | Wave 0 blockers fixed |
 | G5 UX journeys | Wave 4 |
-| G6 performance | Wave 4 |
+| G6 performance | Wave 1 (export ≤ 20 s), Wave 4 |
 | G7 checklist | Wave 2 |

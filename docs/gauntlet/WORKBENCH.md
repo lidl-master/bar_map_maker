@@ -57,3 +57,15 @@ Brief: [wave3.md](wave3.md).
 | 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | merged (19/19 installed maps round-trip exactly; 32×32 opens in 2.7 s; BAR's own spot finder ported) |
 | 3.2 | Extend/crop per side in whole units, resize; undoable whole-doc swap; original tile/metal grids shift | merged (71/71 tests; seam ≤ 2 elmos near the old edge) |
 | 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning, export cancel | building |
+
+## Wave 4: standalone app and UX — started
+Brief: [wave4.md](wave4.md).
+
+| WP | Scope | Status |
+|---|---|---|
+| 4.1 | Settings, offline, cold start, portable build / installer | after Wave 2–3 merges |
+| 4.2 | Play-test in BAR vs BARb (isolated, no install), Check map (headless verdict + G7 checklist with one-click fixes) | building |
+| 4.3 | Start-box + maps-metadata helpers, G6 bench and perf fixes | after merges (needs a quiet machine for timings) |
+| 4.4 | UX driver + 4 persona task-card runs (G5) | after 4.1–4.3 |
+| critic | Blockers-only code pass over main (Waves 2–3) | running |
+| 2.7 | In-game look polish from the blind critics' gaps (slope stripes, cliff stretch, plateau detail, other biomes) | building |

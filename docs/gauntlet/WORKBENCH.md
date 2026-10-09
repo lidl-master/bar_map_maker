@@ -36,3 +36,15 @@ Screenshots: `screenshots/wave1-*.png`.
 
 ## Wave 2: game-standard look + commercial-grade UI — building
 Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR screenshots.
+
+| WP | Scope | Status |
+|---|---|---|
+| 2.1 | Texture library: 24 CC0 ambientCG materials → albedo, DNTS (layout from the engine shader), thumbnails, licence manifest | merged |
+| 2.2 | Full BAR texture stack export | building |
+| 2.3 | Tree/rock scatter with BAR built-in features, O(1) object ids | merged |
+| 2.4 | Commercial-grade UI: Inter + Lucide, welcome, New Map, editor shell, Look tab, feedback states, 125% layout | merged (61/61 tests) |
+| 2.5 | G3 in-engine screenshot tool (fixed camera presets, isolated windowed BAR) | merged |
+| critic | Blind UI A/B, Wave 2 vs Wave 1 (3 pairs) | new UI preferred 3/3 (confidence 0.93 / 0.78 / 0.92) |
+
+## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)
+Brief: [wave3.md](wave3.md). 3.1 open + original textures, 3.2 extend/crop/resize: building. 3.3 derivative export: after 2.2.

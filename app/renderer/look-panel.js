@@ -15,14 +15,15 @@ export function buildLook(editor) {
   note(biome, 'Sets ground colours, sky, sun and water. Painted areas keep their material.');
   biome.append(el('div', { class: 'swatch-grid', role: 'radiogroup', 'aria-label': 'Biome' }, ...biomeChoices('look-biome', doc.biome, (key) => {
     doc.biome = key;
-    doc.settings.sunDir = [...BIOMES[key].sunDir];
+    if (!doc.original) doc.settings.sunDir = [...BIOMES[key].sunDir]; // an opened map keeps its own lighting
     editor.lookChanged();
     buildLook(editor); // material colours follow the biome
     editor.refreshToolPanel();
   })));
-  // Some BAR maps light from the south (Volcano King); an export needs the sun in the north.
+  // Some BAR maps light from the south (Volcano King); a new map's export needs the sun in the north (a derivative of
+  // an opened map keeps the original's lighting, src/bar warns instead).
   const [x, y, z] = doc.settings.sunDir;
-  if (!(z < 0)) {
+  if (!doc.original && !(z < 0)) {
     biome.append(el('p', { class: 'note warn' }, icon('triangle-alert'), 'The sun is in the south. Exported maps need it in the north.'),
       btn('Move sun north', {
         class: 'btn accent-icon block',

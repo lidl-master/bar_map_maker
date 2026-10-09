@@ -4,7 +4,8 @@
 import { editCount } from './autosave.js';
 import { $, el, segmented } from './dom.js';
 import { closeExportPanel, exportDone, exportFailed, exportProgress, refreshExportPanel, startExport } from './export-panel.js';
-import { toast } from './feedback.js';
+import { readyToDerive } from './derivative.js';
+import { confirmDialog, toast } from './feedback.js';
 import { icon } from './icons.js';
 
 // src/bar export presets (WP 2.2).
@@ -13,7 +14,7 @@ const QUALITY = {
   standard: { label: 'Standard', help: 'Full texture detail. A larger archive, fine for local play and testing.' },
 };
 
-let busy = null, barFound = false, cancelRequested = false; // busy: null | 'export' | 'install'
+let busy = null, barFound = false, cancelRequested = false; // busy: null | 'prepare' (checks before an export) | 'export' | 'install'
 let lastExport = null; // {archivePath, doc, edits}: the archive Check map and Play-test use while the map is unchanged
 let quality = savedQuality();
 
@@ -86,11 +87,30 @@ function doneActions(archivePath) {
   ];
 }
 
-/** Exports the open map; resolves with the archive path, or null when cancelled or failed (the card says why). */
-export async function exportMap(editor) {
+// Runs the checks before an export with the export buttons disabled (no spinner: the user is answering a dialog).
+async function withBusy(fn) {
+  setBusy('prepare');
+  try {
+    return await fn();
+  } catch (error) {
+    toast(error.message, 'error');
+    return false;
+  } finally {
+    setBusy(null);
+  }
+}
+
+/**
+ * Exports the open map; resolves with the archive path, or null when cancelled or failed (the card says why).
+ * A map opened from an archive first gets its own version and the licence check (derivative.js); an archive of the
+ * same name that this app did not write is only replaced when the user confirms.
+ */
+export async function exportMap(editor, replace = false) {
   if (busy) return null;
+  const derivative = Boolean(editor.doc.original);
+  if (derivative && !replace && !(await withBusy(() => readyToDerive(editor)))) return null;
   cancelRequested = false;
-  startExport(editor.doc.settings.name, () => {
+  startExport(editor.doc.settings.name, derivative, () => {
     cancelRequested = true;
     window.studio.cancelExport();
   });
@@ -98,13 +118,23 @@ export async function exportMap(editor) {
   const exported = { doc: editor.doc, edits: editCount() }; // the map as it is sent; edits during the export are not in it
   let result;
   try {
-    result = await window.studio.exportMap(editor.doc, { quality });
+    result = await window.studio.exportMap(editor.doc, { quality, replace });
   } catch (error) {
     console.error(error);
     exportFailed(error.message, () => [['Try again', { class: 'btn accent-icon', disabled: busy !== null, onclick: () => exportMap(editor) }, 'file-output']]);
     return null;
   } finally {
     setBusy(null);
+  }
+  if (result.exists) {
+    closeExportPanel();
+    const file = result.exists.split(/[\\/]/).pop();
+    const ok = await confirmDialog({
+      title: `Replace ${file}?`,
+      text: `${result.exists} already exists and was not written by BAR Map Studio. Replacing it deletes that file.`,
+      ok: 'Replace',
+    });
+    return ok ? exportMap(editor, true) : null;
   }
   if (result.cancelled) {
     closeExportPanel();

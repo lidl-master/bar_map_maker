@@ -8,15 +8,21 @@ import { dedupeTiles, TILE_BYTES, writeSmt } from './smt.js';
 const SQUARE = 8; // elmos between heightmap samples
 const GEO_FEATURE = 'GeoVent'; // BAR's geothermal vent feature def
 
-// Heights as the SMF stores them: height = min + raw * (max - min) / 65536, with whole-elmo limits.
-function quantizeHeights(heights) {
+/**
+ * Heights as the SMF stores them: height = min + raw * (max - min) / 65536, with whole-elmo limits; or with the range
+ * `keep` ([min, max], an opened map's own range) while every height still fits it, so untouched heights come back
+ * bit-identical.
+ * @returns {{minHeight: number, maxHeight: number, raw: Uint16Array}}
+ */
+export function quantizeHeights(heights, keep = null) {
   let lo = Infinity, hi = -Infinity;
   for (const h of heights) {
     if (h < lo) lo = h;
     if (h > hi) hi = h;
   }
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) throw new Error('heights contain a non-finite value');
-  const minHeight = Math.floor(lo), maxHeight = Math.max(Math.ceil(hi), minHeight + 1);
+  const fits = ([min, max]) => Math.round((lo - min) * (65536 / (max - min))) >= 0 && Math.round((hi - min) * (65536 / (max - min))) <= 65535;
+  const [minHeight, maxHeight] = keep && fits(keep) ? keep : [Math.floor(lo), Math.max(Math.ceil(hi), Math.floor(lo) + 1)];
   const scale = 65536 / (maxHeight - minHeight), raw = new Uint16Array(heights.length);
   for (let k = 0; k < heights.length; k++) raw[k] = Math.min(65535, Math.round((heights[k] - minHeight) * scale));
   return { minHeight, maxHeight, raw };
@@ -25,7 +31,8 @@ function quantizeHeights(heights) {
 // Degrees -> engine heading (65536 per turn) in the signed 16-bit range the engine casts it to.
 const heading = (degrees) => ((((Math.round((degrees * 65536) / 360) + 32768) % 65536) + 65536) % 65536) - 32768;
 
-function smfFeatures(doc) {
+/** The doc's geo and feature objects as SMF features (geo -> GeoVent; features keep their def name and heading). */
+export function smfFeatures(doc) {
   const width = doc.sx * 512, depth = doc.sz * 512;
   return doc.objects.filter((o) => o.type === 'geo' || o.type === 'feature').map((o) => {
     if (!(o.x >= 0 && o.x <= width && o.z >= 0 && o.z <= depth)) throw new Error(`${o.type} ${o.id} at (${o.x}, ${o.z}) is outside the map`);

@@ -20,7 +20,9 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
  * Extend (positive) or crop (negative) each side by whole map units. The kept part is copied exactly; new ground
  * continues the edge and eases towards the map's low ground. Objects shift with the map; those outside a crop are
  * dropped (compare object counts by type to report them). doc.original's tileIndex and metalMap shift too (-1 and 0 in
- * new areas). Throws a RangeError when a side of the result is not an even 2..32 units or a crop removes the whole map.
+ * new areas) and its offset (where the archive's map sits, in units) moves by (west, north), so the export can shift
+ * the original's other map-wide data. Throws a RangeError when a side of the result is not an even 2..32 units or a
+ * crop removes the whole map.
  */
 export function extendMap(doc, { west = 0, east = 0, north = 0, south = 0 }) {
   if (![west, east, north, south].every(Number.isInteger)) throw new RangeError('maps extend and crop by whole units');
@@ -36,8 +38,11 @@ export function extendMap(doc, { west = 0, east = 0, north = 0, south = 0 }) {
   next.objects = doc.objects.map((o) => ({ ...o, x: o.x + placed[0], z: o.z + placed[1] })).filter((o) => o.x >= 0 && o.z >= 0 && o.x <= w && o.z <= h);
   if (doc.original) {
     const regrid = (src, per, fill) => src && paste(src, doc.sx * per, new src.constructor(sx * per * sz * per).fill(fill), sx * per, west * per, north * per);
-    const { tileIndex, metalMap } = doc.original;
-    next.original = { ...doc.original, tilesX: sx * TILES, tilesZ: sz * TILES, tileIndex: regrid(tileIndex, TILES, -1), metalMap: regrid(metalMap, METAL, 0) };
+    const { tileIndex, metalMap, offset: [ox, oz] } = doc.original;
+    next.original = {
+      ...doc.original, tilesX: sx * TILES, tilesZ: sz * TILES, tileIndex: regrid(tileIndex, TILES, -1), metalMap: regrid(metalMap, METAL, 0),
+      offset: [ox + west, oz + north],
+    };
   }
   return next;
 }
@@ -82,7 +87,7 @@ function keptSymmetry(doc, sx, sz, [x0, z0, x1, z1]) {
 }
 
 /** Copies grid src (rows of w cells) into dst (rows of nw cells), moved by (dx, dz) cells; cells outside dst are dropped. */
-function paste(src, w, dst, nw, dx, dz) {
+export function paste(src, w, dst, nw, dx, dz) {
   const h = src.length / w, nh = dst.length / nw, x0 = Math.max(0, dx), x1 = Math.min(nw, w + dx);
   for (let z = Math.max(0, dz); z < Math.min(nh, h + dz); z++) dst.set(src.subarray((z - dz) * w + x0 - dx, (z - dz) * w + x1 - dx), z * nw + x0);
   return dst;

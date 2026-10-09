@@ -14,18 +14,23 @@ Set only on a map opened from an archive. Builders may add fields; changing thes
  * @property {string} archive    path it was opened from (read-only); the export reads the archive's files again from here
  * @property {{name, version, author, description, licence: string|null}} info  from readMapInfo
  * @property {{path: string, size: number}[]} files  every file of the archive (listing only: the bytes stay in the archive)
+ * @property {[number, number]} size    the archive's map size in units (WP 3.3)
+ * @property {[number, number]} offset  where the archive's map sits in the doc, in units: its north-west corner (WP 3.3;
+ *                               extendMap adds west / north, a crop makes it negative; [0, 0] when opened)
  * @property {number} tilesX     tiles across = doc.sx * 16 (1 tile = 32 elmos)
  * @property {number} tilesZ     tiles down   = doc.sz * 16
  * @property {Int32Array|null} tileIndex  tilesX * tilesZ, index into the original tiles; -1 = no original tile (area added by extend); null after resizeMap (no original tile anywhere)
  * @property {Uint8Array} tileMips  8 bytes per original tile: its 4×4 DXT1 mip (the tile's last 8 bytes), for the editor's preview
- * @property {Uint8Array|null} metalMap  (sx*32) * (sz*32) bytes, shifted with the map; null once metal objects were edited or after resizeMap
+ * @property {Uint8Array|null} metalMap  (sx*32) * (sz*32) bytes, shifted with the map (0 on new ground); null after resizeMap.
+ *                               Edits of metal objects do not change it: the export compares them with BAR's spots of it
  * @property {number} maxMetal
  * @property {number} minHeight  the height range the heights were read with (mapinfo smf.minheight/maxheight, else the SMF
  * @property {number} maxHeight  header): untouched heights quantise back to the SMF's raw values with exactly this range
  */
 ```
 - WP 3.1 change: `files` (bytes) and `tiles` are not carried in the doc. A 32×32 map's SMT alone is 178 MB, which would cross IPC twice and sit in the autosave. The export re-reads `archive` (`readArchive(archive)` for pass-through, `readMapData(files, readMapInfo(files)).tiles` for the tile bytes in SMF order, the order `tileIndex` counts in) and should check the archive still matches `files` (sizes) before it trusts `tileIndex`.
-- Metal spots: shown and edited as `metal` objects (found like BAR's spot finder, `luarules/gadgets/api_resource_spot_finder.lua`: 8-connected metal pixels, the outer pixel ring ignored → one spot at the centre of the blob's bounding box, as BAR places it, value = sum × maxMetal / 1000; a blob wider than 6 extractor radii makes it a metal map with no spots). While `metalMap` is non-null the export writes it unchanged.
+- Metal spots: shown and edited as `metal` objects (found like BAR's spot finder, `luarules/gadgets/api_resource_spot_finder.lua`: 8-connected metal pixels, the outer pixel ring ignored → one spot at the centre of the blob's bounding box, as BAR places it, value = sum × maxMetal / 1000; a blob wider than 6 extractor radii makes it a metal map with no spots). The export (WP 3.3) writes `metalMap` unchanged while the doc's metal objects are exactly its spots; otherwise only the edited spots change (removed / moved blobs cleared, new ones stamped, untouched ones keep their pixels).
+- WP 3.3 export of a doc with `original` (details in docs/ARCHITECTURE.md, `src/bar` exportMap): a derivative. It needs a name or version of its own (`SAME_NAME` otherwise; the UI suggests `<version>-edit1`), passes every file it does not rebuild through byte for byte, credits the original in mapinfo (description "Based on <name> <version> by <author>. …", author "<user> (original by <author>)"), keeps the original's mapinfo code intact (wrapped, with a patch of only what changed), and warns before export when the original's licence says ND or NC. `mapinfo.lua` must stay self-contained: the engine's archive scanner reads it before the archive is mounted, so it cannot `VFS.Include` files of its own archive.
 - Geovents (`GeoVent` feature) become `geo` objects; every other SMF feature becomes a `feature` object with its `name` and `rot`. Start positions come from mapinfo `teams`.
 - Settings come from mapinfo (wind, tidal, gravity, extractor radius, void water, sunDir), lava from `mapconfig/lava.lua` when present. `doc.biome` is the closest match (used only for re-texturing and new areas).
 

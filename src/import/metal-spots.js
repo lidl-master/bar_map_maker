@@ -3,29 +3,34 @@
 // (the value BAR shows on the spot). Like BAR, the outermost pixel ring is ignored, and a map whose metal blobs
 // span more than 6 extractor radii is a "metal map" with no spots at all.
 
-const METAL_PIXEL = 16; // elmos per metal map pixel
+const PIXEL = 16; // elmos per metal map pixel
 
 /**
- * The 8-connected groups of metal pixels, ignoring the outermost pixel ring.
- * @returns {{x0: number, x1: number, z0: number, z1: number, sum: number}[]} bounding boxes in
- *   pixels (inclusive) and byte sum, in row-major order of their first pixel
+ * @typedef {Object} MetalBlob  8-connected metal pixels (the outer ring ignored)
+ * @property {number[]} pixels  indices into the metal map
+ * @property {number} sum  their metal bytes added up
+ * @property {[number, number, number, number]} box  [x0, z0, x1, z1] in pixels, inclusive
  */
+
+/** Every blob, in row-major order of its first pixel. @returns {MetalBlob[]} */
 export function metalBlobs(metal, width, height) {
   const seen = new Uint8Array(width * height), stack = [], blobs = [];
   const inside = (x, z) => x >= 1 && x < width - 1 && z >= 1 && z < height - 1;
   for (let z = 1; z < height - 1; z++) {
     for (let x = 1; x < width - 1; x++) {
       if (!metal[z * width + x] || seen[z * width + x]) continue;
-      const blob = { x0: x, x1: x, z0: z, z1: z, sum: 0 };
+      const pixels = [];
+      let sum = 0, x0 = x, x1 = x, z0 = z, z1 = z;
       seen[z * width + x] = 1;
       stack.push(z * width + x);
       while (stack.length) {
         const k = stack.pop(), px = k % width, pz = (k - px) / width;
-        blob.sum += metal[k];
-        if (px < blob.x0) blob.x0 = px;
-        if (px > blob.x1) blob.x1 = px;
-        if (pz < blob.z0) blob.z0 = pz;
-        if (pz > blob.z1) blob.z1 = pz;
+        pixels.push(k);
+        sum += metal[k];
+        if (px < x0) x0 = px;
+        if (px > x1) x1 = px;
+        if (pz < z0) z0 = pz;
+        if (pz > z1) z1 = pz;
         for (let dz = -1; dz <= 1; dz++) {
           for (let dx = -1; dx <= 1; dx++) {
             const q = k + dz * width + dx;
@@ -36,14 +41,22 @@ export function metalBlobs(metal, width, height) {
           }
         }
       }
-      blobs.push(blob);
+      blobs.push({ pixels, sum, box: [x0, z0, x1, z1] });
     }
   }
   return blobs;
 }
 
+/** A blob as BAR's spot: the centre of its bounding box (pixel centres are at 16 * i + 8 elmos) and its value. */
+export function blobSpot({ sum, box: [x0, z0, x1, z1] }, maxMetal) {
+  return { x: ((x0 + x1 + 1) * PIXEL) / 2, z: ((z0 + z1 + 1) * PIXEL) / 2, metal: (sum * maxMetal) / 1000 };
+}
+
 /** A blob's larger bounding-box side in elmos, as BAR measures it against 6 extractor radii. */
-export const blobSpan = ({ x0, x1, z0, z1 }) => Math.max(x1 - x0, z1 - z0) * METAL_PIXEL;
+export const blobSpan = ({ box: [x0, z0, x1, z1] }) => Math.max(x1 - x0, z1 - z0) * PIXEL;
+
+/** True when the blobs make a metal map (BAR finds no spots on it): one spans more than 6 extractor radii. */
+export const isMetalField = (blobs, extractorRadius) => blobs.some((blob) => blobSpan(blob) > 6 * extractorRadius);
 
 /**
  * @param {Uint8Array} metal  width * height metal map bytes
@@ -54,7 +67,5 @@ export const blobSpan = ({ x0, x1, z0, z1 }) => Math.max(x1 - x0, z1 - z0) * MET
  */
 export function findMetalSpots(metal, width, height, { maxMetal, extractorRadius }) {
   const blobs = metalBlobs(metal, width, height);
-  if (blobs.some((blob) => blobSpan(blob) > 6 * extractorRadius)) return [];
-  // Pixel centres are at 16 * i + 8 elmos.
-  return blobs.map(({ x0, x1, z0, z1, sum }) => ({ x: ((x0 + x1 + 1) * METAL_PIXEL) / 2, z: ((z0 + z1 + 1) * METAL_PIXEL) / 2, metal: (sum * maxMetal) / 1000 }));
+  return isMetalField(blobs, extractorRadius) ? [] : blobs.map((blob) => blobSpot(blob, maxMetal));
 }

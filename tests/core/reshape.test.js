@@ -16,6 +16,7 @@ function opened() {
   doc.original = {
     archive: 'x.sd7', info: { name: 'X' }, files: new Map([['maps/x.smf', new Uint8Array(4)]]), tiles: new Uint8Array(680 * 4),
     tilesX, tilesZ, tileIndex: Int32Array.from({ length: tilesX * tilesZ }, (_, k) => k), metalMap: metal, maxMetal: 2,
+    size: [4, 4], offset: [0, 0],
   };
   return doc;
 }
@@ -50,6 +51,8 @@ test('extend by every side combination keeps the old map exactly, shifted', () =
     assertShifted(doc.original.metalMap, 128, next.original.metalMap, next.sx * 32, sides.west * 32, sides.north * 32, 0, `${label} metalMap`);
     assert.equal(next.original.tilesX, next.sx * 16);
     assert.equal(next.original.tilesZ, next.sz * 16);
+    assert.deepEqual(next.original.offset, [sides.west, sides.north], `${label} offset`);
+    assert.equal(next.original.size, doc.original.size, `${label}: original.size is the archive's`);
     for (const k of ['tiles', 'files', 'info']) assert.equal(next.original[k], doc.original[k], `${label}: original.${k} passes through`);
   }
   assert.deepEqual({ ...doc, original: null }, before, 'the input doc is not modified');
@@ -78,6 +81,8 @@ test('a crop drops the objects outside and slices every grid', () => {
   assertShifted(doc.heights, doc.W, next.heights, next.W, -64, -64, null, 'heights');
   assertShifted(doc.original.tileIndex, 64, next.original.tileIndex, 32, -16, -16, null, 'tileIndex');
   assertShifted(doc.original.metalMap, 128, next.original.metalMap, 64, -32, -32, null, 'metalMap');
+  assert.deepEqual(next.original.offset, [-1, -1]);
+  assert.deepEqual(extendMap(next, { west: 3, east: -1 }).original.offset, [2, -1], 'offsets add up');
 });
 
 test('invalid results throw', () => {

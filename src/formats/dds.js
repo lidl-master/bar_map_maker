@@ -1,13 +1,14 @@
-// DDS textures (BC1 = DXT1, BC3 = DXT5) with a full box-filtered mip chain, as BAR maps ship them.
+// DDS textures (BC1 = DXT1, BC2 = DXT3, BC3 = DXT5) with a full box-filtered mip chain, as BAR maps ship them.
 // Recoil's DDS loader (nv_dds) flips rows on load, so files store the image bottom row (south) first; callers pass
 // images top-down as everywhere else. Big images are encoded in horizontal strips on worker threads: encodeStrip
 // does every mip level that is still at least one block row tall inside the strip, and assembleDds joins the strips
-// and finishes the small levels.
+// and finishes the small levels. readDds + decodeBlock / encodeBlock let derivative exports edit existing files
+// block by block (src/bar).
 import { concatBytes } from './bytes.js';
-import { encodeColorBlock } from './dxt.js';
+import { decodeColorBlock, encodeColorBlock } from './dxt.js';
 
-const FOURCC = { bc1: 'DXT1', bc3: 'DXT5' };
-const BLOCK_BYTES = { bc1: 8, bc3: 16 };
+const FOURCC = { bc1: 'DXT1', bc2: 'DXT3', bc3: 'DXT5' };
+export const BLOCK_BYTES = { bc1: 8, bc2: 16, bc3: 16 };
 
 /** Next mip level of an RGBA image: 2x2 box filter; an odd last row or column is dropped (1 stays 1). */
 export function halveRgba(rgba, width, height) {
@@ -44,19 +45,58 @@ function encodeAlphaBlock(out, o) {
   out[o + 5] = second & 255; out[o + 6] = (second >> 8) & 255; out[o + 7] = second >> 16;
 }
 
-/** One mip level as BC1/BC3 blocks; edge blocks of sizes that are not a multiple of 4 repeat the last texel. */
+// BC2 alpha block: 4 bits per texel, texel 0 in the low nibble of the first byte.
+function encodeExplicitAlpha(out, o) {
+  for (let p = 0; p < 16; p += 2) out[o + p / 2] = Math.round(alpha[p] / 17) | (Math.round(alpha[p + 1] / 17) << 4);
+}
+
+/** 16 RGBA texels (row-major, from texels[s]) as one BC1/BC2/BC3 block at out[o]. */
+export function encodeBlock(texels, format, out, o, s = 0) {
+  for (let p = 0; p < 16; p++) {
+    const t = s + p * 4;
+    rgb[p * 3] = texels[t]; rgb[p * 3 + 1] = texels[t + 1]; rgb[p * 3 + 2] = texels[t + 2];
+    alpha[p] = texels[t + 3];
+  }
+  if (format === 'bc3') encodeAlphaBlock(out, o);
+  else if (format === 'bc2') encodeExplicitAlpha(out, o);
+  encodeColorBlock(rgb, out, o + BLOCK_BYTES[format] - 8);
+}
+
+const alphas = new Uint8Array(8);
+
+/** The BC1/BC2/BC3 block at bytes[o] as 16 RGBA texels (row-major) into out[d..d+63]. */
+export function decodeBlock(bytes, o, format, out, d = 0) {
+  if (format === 'bc1') return decodeColorBlock(bytes, o, out, d);
+  decodeColorBlock(bytes, o + 8, out, d, true);
+  if (format === 'bc2') {
+    for (let p = 0; p < 16; p++) out[d + p * 4 + 3] = ((bytes[o + (p >> 1)] >> ((p & 1) * 4)) & 15) * 17;
+    return;
+  }
+  const a0 = bytes[o], a1 = bytes[o + 1];
+  alphas[0] = a0;
+  alphas[1] = a1;
+  for (let j = 1; j < 7; j++) {
+    alphas[j + 1] = a0 > a1 ? ((7 - j) * a0 + j * a1) / 7 : j < 5 ? ((5 - j) * a0 + j * a1) / 5 : j === 5 ? 0 : 255;
+  }
+  for (let half = 0; half < 2; half++) {
+    const bits = bytes[o + 2 + half * 3] | (bytes[o + 3 + half * 3] << 8) | (bytes[o + 4 + half * 3] << 16);
+    for (let p = 0; p < 8; p++) out[d + (half * 8 + p) * 4 + 3] = alphas[(bits >> (3 * p)) & 7];
+  }
+}
+
+const block = new Uint8Array(64);
+
+/** One mip level as BC1/BC2/BC3 blocks; edge blocks of sizes that are not a multiple of 4 repeat the last texel. */
 export function encodeLevel(rgba, width, height, format) {
   const bw = Math.ceil(width / 4), bh = Math.ceil(height / 4), size = BLOCK_BYTES[format];
   const out = new Uint8Array(bw * bh * size);
   for (let by = 0, o = 0; by < bh; by++) {
     for (let bx = 0; bx < bw; bx++, o += size) {
       for (let p = 0; p < 16; p++) {
-        const x = Math.min(bx * 4 + (p & 3), width - 1), y = Math.min(by * 4 + (p >> 2), height - 1), s = (y * width + x) * 4;
-        rgb[p * 3] = rgba[s]; rgb[p * 3 + 1] = rgba[s + 1]; rgb[p * 3 + 2] = rgba[s + 2];
-        alpha[p] = rgba[s + 3];
+        const x = Math.min(bx * 4 + (p & 3), width - 1), y = Math.min(by * 4 + (p >> 2), height - 1);
+        block.set(rgba.subarray((y * width + x) * 4, (y * width + x) * 4 + 4), p * 4);
       }
-      if (format === 'bc3') encodeAlphaBlock(out, o);
-      encodeColorBlock(rgb, out, o + size - 8);
+      encodeBlock(block, format, out, o);
     }
   }
   return out;
@@ -109,7 +149,8 @@ export function assembleDds(strips, width, height, format) {
 /** A whole image (small ones, such as a 1024² DNTS texture) as a DDS file. */
 export const encodeDds = (rgba, width, height, format) => assembleDds([encodeStrip(rgba, width, height, format)], width, height, format);
 
-function writeDds(levels, width, height, format) {
+/** A DDS file from its encoded mip levels (largest first, rows bottom-first like every DDS here). */
+export function writeDds(levels, width, height, format) {
   const out = new Uint8Array(128 + levels.reduce((n, l) => n + l.length, 0));
   const dv = new DataView(out.buffer);
   const u32 = (o, v) => dv.setUint32(o, v, true);
@@ -127,6 +168,28 @@ function writeDds(levels, width, height, format) {
   let o = 128;
   for (const level of levels) { out.set(level, o); o += level.length; }
   return out;
+}
+
+/** Size of one level: block-compressed rows of ceil(w / 4) blocks. */
+export const levelBytes = (width, height, format) => Math.ceil(width / 4) * Math.ceil(height / 4) * BLOCK_BYTES[format];
+
+/**
+ * A block-compressed DDS file split into its mip levels (as stored: rows bottom-first). Throws on anything else
+ * (uncompressed, DX10 headers, cube maps): callers decide what to do with such files.
+ * @returns {{width: number, height: number, format: 'bc1'|'bc2'|'bc3', levels: Uint8Array[]}}
+ */
+export function readDds(bytes) {
+  const { width, height, mips, fourCC } = readDdsHeader(bytes);
+  const format = Object.keys(FOURCC).find((f) => FOURCC[f] === fourCC);
+  if (!format) throw new Error(`DDS format ${JSON.stringify(fourCC)} is not BC1, BC2 or BC3`);
+  const levels = [];
+  for (let l = 0, o = 128, w = width, h = height; l < Math.max(1, mips); l++, w = Math.max(1, w >> 1), h = Math.max(1, h >> 1)) {
+    const size = levelBytes(w, h, format);
+    if (o + size > bytes.length) throw new Error(`DDS: mip ${l} (${w}x${h}) is past the end of the file`);
+    levels.push(bytes.subarray(o, o + size));
+    o += size;
+  }
+  return { width, height, format, levels };
 }
 
 /** Mip count and level sizes of a DDS file, for checks. @returns {{width, height, fourCC, mips, bytes}} */

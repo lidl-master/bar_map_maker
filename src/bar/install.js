@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { copyFile, rename, rm } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { gzipSync } from 'node:zlib';
 
@@ -28,6 +28,17 @@ function sameMap(archivePath, mapsDir) {
     }
   }
   return { name, files };
+}
+
+/**
+ * Throws (code 'BAR_MAPS_DIR') when `dir` is the BAR maps folder or inside it: exports go elsewhere, and only Install
+ * (which asks first and writes the md5 sidecar BAR expects) writes there.
+ */
+export function checkExportDir(dir, mapsDir) {
+  const rel = relative(resolve(mapsDir), resolve(dir));
+  if (rel === '' || !(rel.startsWith('..') || isAbsolute(rel))) {
+    throw Object.assign(new Error(`${dir} is BAR's own maps folder. Choose another export folder, and use Install to BAR to put a map into BAR.`), { code: 'BAR_MAPS_DIR' });
+  }
 }
 
 /**

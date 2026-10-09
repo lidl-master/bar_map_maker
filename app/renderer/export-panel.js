@@ -3,12 +3,12 @@
 // error with Try again. Esc dismisses a finished card.
 import { $, btn, clamp, el } from './dom.js';
 import { toast } from './feedback.js';
+import { EXPORT_STEPS } from '../../src/bar/steps.js';
 import { icon } from './icons.js';
 
-// The exporter's progress labels in order (src/bar exportMap onProgress). 'Preparing map' is this side: sending the map
-// and, on the first export, asking for the folder.
-// shortcut: mirrors src/bar/export.js (WP 2.2 labels); move this plan into src/bar as EXPORT_STEPS when smoothing.
-const PLAN = ['Preparing map', 'Loading materials', 'Baking texture', 'Encoding textures', 'Packing archive'];
+// The exporter's progress labels in order (src/bar EXPORT_STEPS: a new map, or a derivative of an opened one).
+// 'Preparing map' is this side: sending the map and, on the first export, asking for the folder.
+const plan = (derivative) => ['Preparing map', ...EXPORT_STEPS[derivative ? 'derivative' : 'map']];
 const MIN_FILL = 0.02; // the bar always shows that something runs
 
 const seconds = (ms) => (ms < 100 ? '<0.1 s' : `${(ms / 1000).toFixed(1)} s`);
@@ -67,7 +67,7 @@ function render() {
     phase === 'running' ? el('div', { class: 'progress', role: 'progressbar', 'aria-valuenow': String(Math.round(fill * 100)) }, bar) : null,
     el('ol', { class: 'ep-steps' }, ...steps.map(stepRow)),
     phase === 'done' ? pathRow(state.result.archivePath) : null,
-    phase === 'done' ? warningList(state.result.report?.warnings ?? []) : null,
+    phase === 'done' ? warningList(state.result.report.warnings) : null,
     phase === 'error' ? el('div', { class: 'ep-error', role: 'alert' }, state.error) : null,
     el('div', { class: 'ep-actions' }, ...state.actions().map(([label, attrs, iconName]) => btn(label, attrs, iconName)),
       phase === 'running'
@@ -77,10 +77,10 @@ function render() {
   panel.hidden = false;
 }
 
-/** onCancel: the Cancel button while it runs. */
-export function startExport(name, onCancel) {
+/** derivative: the map was opened from an archive (its own step list); onCancel: the Cancel button while it runs. */
+export function startExport(name, derivative, onCancel) {
   const now = Date.now();
-  state = { phase: 'running', name, steps: PLAN.map((label) => ({ label })), fraction: 0, start: now, actions: () => [], onCancel };
+  state = { phase: 'running', name, steps: plan(derivative).map((label) => ({ label })), fraction: 0, start: now, actions: () => [], onCancel };
   state.steps[0].start = now;
   render();
 }

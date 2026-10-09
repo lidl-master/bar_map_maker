@@ -59,6 +59,8 @@ export async function importMap(files, { archive, listing }) {
     archive,
     info: { name: info.name, version: info.version, author: info.author, description: info.description, licence: info.licence },
     files: listing,
+    size: [sx, sz],
+    offset: [0, 0], // where the archive's map sits in the doc, in units (extendMap moves it)
     tilesX: sx * 16,
     tilesZ: sz * 16,
     tileIndex: smf.tileIndex,

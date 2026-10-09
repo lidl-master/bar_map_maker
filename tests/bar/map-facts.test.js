@@ -42,7 +42,7 @@ test('grass on open ground reaches the exported grass map of a grassless biome',
   const without = await readMapFacts((await exportMap(doc, outDir, { quality: 'share' })).archivePath);
   assert.equal(without.grass, 0);
   doc.settings.openGrass = true;
-  const withGrass = await readMapFacts((await exportMap(doc, outDir, { quality: 'share' })).archivePath);
+  const withGrass = await readMapFacts((await exportMap(doc, outDir, { quality: 'share', replace: true })).archivePath);
   assert.ok(withGrass.grass > 0.3, `grass on ${withGrass.grass}`);
   assert.ok(Math.abs(withGrass.grass - docFacts(doc).grass) < 1e-9, 'the doc predicts the exported grass map');
 });

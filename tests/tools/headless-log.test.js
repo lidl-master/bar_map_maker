@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { failures, parseEngineLog, QUIT_FRAME } from '../../tools/engine/headless-check.js';
+import { parseEngineLog } from '../../tools/engine/bar-game.js';
+import { failures, QUIT_FRAME } from '../../tools/engine/headless-check.js';
 
 const T = '[t=00:00:17.313553][f=-000001] ';
 // Verbatim from the critic's probe map (a Volcano King copy with an extra comma in mapconfig/lava.lua).

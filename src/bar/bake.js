@@ -6,9 +6,11 @@ import { Worker } from 'node:worker_threads';
 import { assembleDds, encodeDxt1Mips } from '../formats/index.js';
 import { bakeMaterials, finishMinimap, materialTable, MATERIAL_LIBRARY } from '../look/index.js';
 import { decodePng, TEXTURE_ROOT } from '../look/library-load.js';
+import { EXPORT_STEPS } from './steps.js';
 
 const BAKE_WORKER = new URL('./bake-worker.js', import.meta.url);
 export const STRIP_ROWS = 4; // SMT tile rows per worker job (128 elmos): small jobs keep every core busy to the end
+const [LOADING, BAKING, ENCODING] = EXPORT_STEPS.map;
 
 // A copy in shared memory, so every worker reads the same array instead of getting its own copy.
 function shared(array) {
@@ -81,7 +83,7 @@ const concat = (arrays) => {
  * @returns {Promise<import('../formats/map-files.js').BakedTexture>}
  */
 export async function bakeTexture(doc, plan, onProgress, signal) {
-  onProgress(0, 'Loading materials');
+  onProgress(0, LOADING);
   // Splat detail textures: the library PNG as is, or BC3 DDS encoded by the workers alongside the first strips.
   const dntsIds = [...new Set(plan.splats.map((s) => s.id))];
   const dnts = new Map(plan.dnts === 'png' ? dntsIds.map((id) => [id, new Uint8Array(readFileSync(libraryPath(id, 'dnts')))]) : []);
@@ -90,9 +92,9 @@ export async function bakeTexture(doc, plan, onProgress, signal) {
   await bakeJobs(doc, plan, jobs, (result) => {
     if (result.dnts) dnts.set(result.dnts, result.dds);
     else strips[result.strip] = result;
-    onProgress((0.75 * strips.filter(Boolean).length) / strips.length, 'Baking texture');
+    onProgress((0.75 * strips.filter(Boolean).length) / strips.length, BAKING);
   }, signal);
-  onProgress(0.75, 'Encoding textures');
+  onProgress(0.75, ENCODING);
   const width = doc.sx * 512, height = doc.sz * 512;
   const dds = (layer, elmos, format) => assembleDds(strips.map((s) => s[layer]), width / elmos, height / elmos, format);
   const grass = concat(strips.map((s) => s.grass));
@@ -115,6 +117,6 @@ export async function bakeTexture(doc, plan, onProgress, signal) {
  * shortcut: the workers still bake and encode the stack layers of each strip (~10% of the work) and whole strips even
  * when only an east or west band is new; give bakeStrip a column range if derivative exports get slow.
  */
-export function bakeTileStrips(doc, plan, strips, onStrip, signal) {
-  return bakeJobs(doc, plan, strips, (result) => onStrip(result.strip, result.tiles), signal);
+export async function bakeTileStrips(doc, plan, strips, onStrip, signal) {
+  if (strips.length) await bakeJobs(doc, plan, strips, (result) => onStrip(result.strip, result.tiles), signal);
 }

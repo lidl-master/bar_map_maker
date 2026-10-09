@@ -1,14 +1,16 @@
 // Export a MapDoc as a BAR map archive: a new map (everything baked), or a derivative of an opened map
 // (derivative.js: the original's files pass through, only what changed is rebuilt). Node-only.
-import { rmSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, rmSync, statSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 import { writeSd7 } from '../archive/index.js';
 import { buildMapFiles } from '../formats/index.js';
 import { bakeTexture } from './bake.js';
 import { deriveMapFiles } from './derivative.js';
 import { archiveFileName } from './derive-rules.js';
+import { EXPORT_STEPS } from './steps.js';
 
 const NEVER = new AbortController().signal; // the signal of an export nobody can cancel
+const PACKING = EXPORT_STEPS.map.at(-1);
 
 /**
  * @typedef {Object} ExportReport
@@ -16,7 +18,7 @@ const NEVER = new AbortController().signal; // the signal of an export nobody ca
  * @property {number} bytes  archive size
  * @property {number} passedThrough  files copied unchanged from the original map (0 for a new map)
  * @property {string[]} regenerated  archive paths this export wrote
- * @property {string[]} warnings  what the user should know about the result (empty for a new map)
+ * @property {string[]} warnings  what the user should know about the result (none for a new map)
  */
 
 // A new map: every file comes from the doc and the bake.
@@ -26,20 +28,27 @@ async function newMapFiles(doc, { quality, onProgress, signal }) {
 }
 
 /**
- * @param {import('../core/index.js').MapDoc} doc  with doc.original: a derivative of that map (derivative.js)
+ * @param {import('../core/index.js').MapDoc} doc  with doc.original: a derivative of that map (derivative.js), which
+ *   must have its own name or version (else an Error with code 'SAME_NAME')
  * @param {string} outDir
- * @param {{onProgress?: (fraction: number, label: string) => void, quality?: 'standard'|'share', signal?: AbortSignal}} [options]
+ * @param {{onProgress?: (fraction: number, label: string) => void, quality?: 'standard'|'share', signal?: AbortSignal,
+ *   replace?: boolean}} [options]
  *   quality: src/look QUALITY preset (Share: flat-colour diffuse and smaller stack textures, <= 50 MB for 32x32);
  *   signal: aborting stops the workers and 7-Zip, deletes the partial archive and rejects with signal.reason
- *   (an AbortError unless the caller gave another reason)
+ *   (an AbortError unless the caller gave another reason);
+ *   replace: write over an existing archive of the same name (else an Error with code 'EXISTS' and its archivePath,
+ *   before any work)
  * @returns {Promise<ExportReport>}
  */
-export async function exportMap(doc, outDir, { onProgress = () => {}, quality = 'standard', signal = NEVER } = {}) {
+export async function exportMap(doc, outDir, { onProgress = () => {}, quality = 'standard', signal = NEVER, replace = false } = {}) {
   const archivePath = join(resolve(outDir), archiveFileName(doc.settings));
+  if (!replace && existsSync(archivePath)) {
+    throw Object.assign(new Error(`${basename(archivePath)} already exists in ${resolve(outDir)}`), { code: 'EXISTS', archivePath });
+  }
   const build = doc.original ? deriveMapFiles : newMapFiles;
   const { files, report } = await build(doc, { quality, onProgress, signal });
   signal.throwIfAborted();
-  onProgress(0.9, 'Packing archive');
+  onProgress(0.9, PACKING);
   await writeSd7(files, archivePath, { signal }); // shortcut: no progress inside 7-Zip
   if (signal.aborted) { // cancelled in the moment 7-Zip finished: the user asked for no archive
     rmSync(archivePath, { force: true });

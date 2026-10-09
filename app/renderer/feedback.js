@@ -20,12 +20,17 @@ export function toast(message, kind = 'info', ms = kind === 'error' ? 9000 : 400
   setTimeout(dismiss, ms);
 }
 
-/** The app's confirm dialog. Resolves true when the user confirms. */
-export function confirmDialog({ title, text, ok }) {
+/**
+ * The app's confirm dialog. Resolves true when the user confirms. tone 'danger' (the action loses something: red) or
+ * 'warn' (the user should know something first: amber icon, primary button).
+ */
+export function confirmDialog({ title, text, ok, tone = 'danger' }) {
   const dialog = $('dlgConfirm');
   $('cfTitle').textContent = title;
   $('cfText').textContent = text;
   $('cfOk').textContent = ok;
+  $('cfOk').className = tone === 'warn' ? 'btn primary' : 'btn danger-fill';
+  dialog.querySelector('.confirm-icon').classList.toggle('warn', tone === 'warn');
   return new Promise((resolve) => {
     const finish = (answer) => {
       $('cfOk').onclick = $('cfCancel').onclick = dialog.onclose = null;
@@ -37,6 +42,35 @@ export function confirmDialog({ title, text, ok }) {
     dialog.onclose = () => finish(false); // Esc
     dialog.showModal();
     $('cfCancel').focus();
+  });
+}
+
+/**
+ * Asks for one short text value. Resolves with the trimmed value, or null when cancelled. OK stays disabled while
+ * valid(value) is false.
+ */
+export function promptDialog({ title, text, label, value, ok, valid = (v) => v !== '' }) {
+  const dialog = $('dlgPrompt'), input = $('prValue');
+  $('prTitle').textContent = title;
+  $('prText').textContent = text;
+  $('prLabel').textContent = label;
+  $('prOk').textContent = ok;
+  input.value = value;
+  const check = () => { $('prOk').disabled = !valid(input.value.trim()); };
+  check();
+  return new Promise((resolve) => {
+    const finish = (answer) => {
+      $('prOk').onclick = $('prCancel').onclick = dialog.onclose = input.oninput = input.onkeydown = null;
+      if (dialog.open) dialog.close();
+      resolve(answer);
+    };
+    input.oninput = check;
+    input.onkeydown = (e) => { if (e.key === 'Enter' && !$('prOk').disabled) finish(input.value.trim()); };
+    $('prOk').onclick = () => finish(input.value.trim());
+    $('prCancel').onclick = () => finish(null);
+    dialog.onclose = () => finish(null); // Esc
+    dialog.showModal();
+    input.select();
   });
 }
 

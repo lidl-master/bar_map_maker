@@ -53,7 +53,10 @@ export function originalColor(doc, preview, i, j) {
   return rgb;
 }
 
-/** The biome whose lowland and highland colours are closest to the texture's average colour. */
+/**
+ * The biome whose typical ground colour (3 parts lowland, 1 part highland: most of a map is lowland) is closest to the
+ * texture's average colour. An equal mix picked the dark volcanic biome for most green BAR maps.
+ */
 export function closestBiome({ rgba }) {
   const sum = [0, 0, 0];
   let n = 0;
@@ -65,7 +68,7 @@ export function closestBiome({ rgba }) {
   const mean = sum.map((v) => v / Math.max(1, n));
   const distance = (biome) => {
     const ground = roleColor(biome, 'ground'), high = roleColor(biome, 'high');
-    return mean.reduce((d, v, c) => d + (v - (ground[c] + high[c]) / 2) ** 2, 0);
+    return mean.reduce((d, v, c) => d + (v - (3 * ground[c] + high[c]) / 4) ** 2, 0);
   };
   return Object.keys(BIOMES).reduce((best, key) => (distance(BIOMES[key]) < distance(BIOMES[best]) ? key : best));
 }

@@ -26,16 +26,34 @@ function readSettings() {
   }
 }
 
-/** Asks for the export folder and remembers it; null when the user cancels. */
+const saveSettings = (changes) => writeFileSync(settingsFile(), JSON.stringify({ ...readSettings(), ...changes }, null, 2));
+
+// The BAR maps folder, or null without a BAR install (then no folder is off limits).
+function barMapsDir(bar) {
+  try {
+    return bar.locateBar().mapsDir;
+  } catch {
+    return null;
+  }
+}
+
+/** Asks for the export folder and remembers it; null when the user cancels. Refuses BAR's own maps folder. */
 async function chooseExportDir(window) {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
     title: 'Choose the folder for exported maps',
     properties: ['openDirectory', 'createDirectory'],
   });
   if (canceled || !filePaths.length) return null;
-  writeFileSync(settingsFile(), JSON.stringify({ ...readSettings(), exportDir: filePaths[0] }, null, 2));
+  const bar = await loadBar(), mapsDir = barMapsDir(bar);
+  if (mapsDir) bar.checkExportDir(filePaths[0], mapsDir);
+  saveSettings({ exportDir: filePaths[0] });
   return filePaths[0];
 }
+
+// Archives this app wrote (any session): exporting again may replace them without asking.
+const MAX_REMEMBERED = 500;
+const writtenByUs = (archivePath) => (readSettings().exportedFiles ?? []).includes(archivePath);
+const rememberWritten = (archivePath) => saveSettings({ exportedFiles: [...new Set([...(readSettings().exportedFiles ?? []), archivePath])].slice(-MAX_REMEMBERED) });
 
 const QUALITIES = ['share', 'standard']; // export presets (src/bar, WP 2.2)
 
@@ -129,25 +147,46 @@ export function registerStudioIpc(origin, servedFile) {
     }
   });
 
-  handle('studio:exportMap', async (event, doc, { quality } = {}) => {
+  // Exports the doc. {exists: archivePath} when that file exists and this app did not write it: the page asks the user
+  // and calls again with replace: true.
+  handle('studio:exportMap', async (event, doc, { quality, replace = false } = {}) => {
     if (!QUALITIES.includes(quality)) throw new Error(`Unknown export quality "${quality}"`);
-    const { exportMap } = await loadBar();
+    const bar = await loadBar();
     // The first export asks where maps go (the user keeps big files off C:); later exports reuse the choice.
     const outDir = readSettings().exportDir ?? await chooseExportDir(BrowserWindow.fromWebContents(event.sender));
     if (!outDir) return { cancelled: true };
+    const mapsDir = barMapsDir(bar);
+    if (mapsDir) bar.checkExportDir(outDir, mapsDir); // also a folder chosen before this rule existed
     await mkdir(outDir, { recursive: true });
     await running?.settled; // one export at a time: a cancelled one may still be writing its archive
     const controller = new AbortController(), { signal } = controller;
     const onProgress = (fraction, label) => { if (!signal.aborted) event.sender.send('studio:progress', { label, fraction }); };
-    // shortcut: exportMap does not stop on `signal` yet (smoothing step: make the bake and 7-Zip honour it). Until then a
-    // cancelled export finishes in the background, is never offered for install, and the next export waits for it.
-    const job = exportMap(doc, outDir, { onProgress, quality, signal });
+    const target = path.join(path.resolve(outDir), bar.archiveFileName(doc.settings));
+    const job = bar.exportMap(doc, outDir, { onProgress, quality, signal, replace: replace === true || writtenByUs(target) });
     running = { controller, settled: job.then(() => {}, () => {}) };
     const aborted = new Promise((resolve) => signal.addEventListener('abort', () => resolve(null), { once: true }));
-    const result = await Promise.race([job, aborted]);
+    let result;
+    try {
+      result = await Promise.race([job, aborted]);
+    } catch (error) {
+      if (signal.aborted) return { cancelled: true };
+      if (error.code === 'EXISTS') return { exists: error.archivePath };
+      throw error;
+    }
     if (!result || signal.aborted) return { cancelled: true };
     exported.add(result.archivePath);
-    return { archivePath: result.archivePath, bytes: result.bytes, report: result.report }; // report: {warnings} from WP 3.3
+    rememberWritten(result.archivePath);
+    const { archivePath, bytes, passedThrough, regenerated, warnings } = result;
+    return { archivePath, bytes, report: { passedThrough, regenerated, warnings } };
+  });
+
+  // Before exporting a map opened from an archive: name clash, the version to suggest (one no archive in the export
+  // or BAR maps folder has yet) and the original's licence. doc: {settings, original}.
+  handle('studio:checkDerivative', async (_event, doc) => {
+    const bar = await loadBar();
+    const dirs = [readSettings().exportDir, barMapsDir(bar)].filter(Boolean);
+    const taken = (version) => dirs.some((dir) => existsSync(path.join(dir, bar.archiveFileName({ ...doc.settings, version }))));
+    return bar.checkDerivative(doc, taken);
   });
 
   handle('studio:cancelExport', () => { running?.controller.abort(); });

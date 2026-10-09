@@ -32,6 +32,9 @@ before(async () => {
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.locator('#welcome').waitFor(); // the app has booted on its welcome screen
+  // The template cards are built where Welcome's buttons get their handlers: before that, a click on New map does
+  // nothing (seen when the suite runs heavy export tests in parallel).
+  await page.locator('#wTemplates .tpl-card').first().waitFor();
 });
 
 after(async () => {

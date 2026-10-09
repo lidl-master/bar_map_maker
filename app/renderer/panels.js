@@ -68,7 +68,11 @@ function buildMap(editor) {
 
   const info = section(panel, 'Map info');
   text(info, 'Name', s, 'name', () => editor.renamed()).dataset.field = 'name'; // kept in step with the top bar's name
-  text(info, 'Version', s, 'version', changed);
+  text(info, 'Version', s, 'version', changed).dataset.field = 'version'; // derivative.js sets a new version on export
+  if (doc.original) {
+    const { name, version, author } = doc.original.info;
+    value(info, 'Based on', `${[name, version].filter(Boolean).join(' ')} by ${author || 'unknown author'}`);
+  }
   text(info, 'Author', s, 'author', changed);
   text(info, 'Description', s, 'description', changed, true);
 

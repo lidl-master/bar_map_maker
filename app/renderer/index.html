@@ -248,6 +248,23 @@
   </footer>
 </dialog>
 
+<!-- Prompt: one short text value (an opened map's new version); filled by feedback.js promptDialog -->
+<dialog id="dlgPrompt" class="modal small" aria-labelledby="prTitle">
+  <div class="confirm">
+    <span class="confirm-icon info"><i data-icon="info"></i></span>
+    <div class="grow">
+      <h2 id="prTitle"></h2>
+      <p id="prText"></p>
+      <label class="prompt-field"><span id="prLabel"></span><input id="prValue" class="field" type="text" spellcheck="false" maxlength="40"></label>
+    </div>
+  </div>
+  <footer class="modal-foot">
+    <span class="spacer"></span>
+    <button id="prCancel" class="btn">Cancel</button>
+    <button id="prOk" class="btn primary"></button>
+  </footer>
+</dialog>
+
 <!-- Long jobs: covers the map views, or the whole window on the welcome screen. -->
 <div id="loading" class="loading" hidden>
   <div class="loading-card">

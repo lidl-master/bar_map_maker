@@ -200,6 +200,10 @@ dialog.modal::backdrop { background: rgba(6, 8, 11, 0.66); animation: fade-in va
 /* ---- confirm */
 .confirm { display: flex; gap: var(--s-4); padding: var(--s-6) var(--s-6) var(--s-5); }
 .confirm-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: var(--danger-soft); color: var(--danger); flex: none; }
+.confirm-icon.warn { background: rgba(245, 184, 74, 0.14); color: var(--warn); }
+.confirm-icon.info { background: var(--accent-soft); color: var(--accent); }
+.confirm .grow { flex: 1; min-width: 0; }
+.prompt-field { display: flex; flex-direction: column; gap: var(--s-1); margin-top: var(--s-4); color: var(--text-2); font-size: var(--fs-12); }
 .confirm h2 { font-size: var(--fs-15); font-weight: 600; margin-bottom: var(--s-1); }
 .confirm p { color: var(--text-2); font-size: var(--fs-13); }
 

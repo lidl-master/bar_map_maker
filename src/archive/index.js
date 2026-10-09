@@ -11,11 +11,12 @@ export const TEMP_ROOT = resolve(import.meta.dirname, '../../.engine-tmp');
 
 const run = promisify(execFile);
 
-async function sevenZ(args, cwd) {
+async function sevenZ(args, cwd, signal) {
   try {
     // -bsp0: no progress on stdout (callers that do not read stdout add -bso0); errors still go to stderr.
-    return (await run(sevenZip.path7za, [...args, '-bsp0', '-y'], { cwd, windowsHide: true, maxBuffer: 64 << 20 })).stdout;
+    return (await run(sevenZip.path7za, [...args, '-bsp0', '-y'], { cwd, windowsHide: true, maxBuffer: 64 << 20, signal })).stdout;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason; // killed on purpose: not a 7-Zip failure
     // execFile rejects on any non-zero exit (7-Zip: 1 warning, 2 fatal, 7 bad command line, 8 out of memory).
     const action = { a: 'pack', l: 'list', x: 'extract' }[args[0]];
     throw new Error(`7-Zip could not ${action} the archive (exit ${error.code}): ${String(error.stderr || error.message).trim()}`);
@@ -58,8 +59,11 @@ export async function readArchive(archivePath, only = []) {
   }
 }
 
-/** Packs files (Map of archive path -> bytes) into a non-solid LZMA2 .sd7, replacing outPath atomically. */
-export async function writeSd7(files, outPath) {
+/**
+ * Packs files (Map of archive path -> bytes) into a non-solid LZMA2 .sd7, replacing outPath atomically.
+ * Aborting signal kills 7-Zip, leaves outPath as it was and rejects with signal.reason.
+ */
+export async function writeSd7(files, outPath, { signal } = {}) {
   const dir = tempDir('pack-');
   const partial = `${resolve(outPath)}.partial`; // 7-Zip `a` appends to an existing archive, so always start fresh
   try {
@@ -72,7 +76,7 @@ export async function writeSd7(files, outPath) {
     rmSync(partial, { force: true });
     // -mx=1 (fast) in 1 MB LZMA2 chunks spread over every core: a detailed 32x32 map (310 MB, mostly DXT) packs in
     // ~3 s instead of ~5 s with 8 MB chunks or ~13 s at -mx=3, for 1% and ~10% more bytes (Wave 1 used -mx=7).
-    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=1m', '-mx=1', '-mmt=on', '-ms=off', '-bso0', partial, '.'], dir);
+    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=1m', '-mx=1', '-mmt=on', '-ms=off', '-bso0', partial, '.'], dir, signal);
     renameSync(partial, outPath);
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Standalone map maker and editor for Beyond All Reason",
   "license": "UNLICENSED",
+  "type": "module",
   "main": "app/main.js",
   "scripts": {
     "start": "electron .",

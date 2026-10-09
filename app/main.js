@@ -18,4 +18,8 @@ app.whenReady().then(() => {
   });
   // shortcut: file:// is fine while the renderer only loads our own static files; move to a custom app:// protocol before it loads anything from user disk.
   return mainWindow.loadFile(path.join(import.meta.dirname, 'renderer', 'index.html'));
+}).catch((error) => {
+  // A window without its shell is useless; fail loudly instead of leaving it blank.
+  console.error('BAR Map Studio failed to start:', error);
+  app.exit(1);
 });

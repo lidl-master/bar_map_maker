@@ -55,7 +55,8 @@ export async function writeSd7(files, outPath) {
       writeFileSync(target, bytes);
     }
     rmSync(partial, { force: true });
-    await sevenZ(['a', '-t7z', '-m0=LZMA2', '-mx=7', '-ms=off', partial, '.'], dir);
+    // c=8m: 8 MB LZMA2 chunks keep every core busy on one big SMT (178 MB: 15 s instead of 68 s, 1% larger).
+    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=8m', '-mx=7', '-ms=off', partial, '.'], dir);
     renameSync(partial, outPath);
   } finally {
     rmSync(dir, { recursive: true, force: true });

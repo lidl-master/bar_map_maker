@@ -65,5 +65,8 @@ test('lava config is BAR-shaped when lava is on, null when off', async () => {
 test('file base names are file-system safe', () => {
   assert.equal(mapFileBase('  My Map: v2 / final  '), 'My_Map_v2_final');
   assert.equal(mapFileBase('1.0.4'), '1.0.4');
+  assert.equal(mapFileBase('..\\evil'), 'evil');
+  assert.equal(mapFileBase('../../evil'), 'evil');
+  assert.equal(mapFileBase('<b>x</b>'), 'b_x_b');
   assert.throws(() => mapFileBase(' ?! '), /file name/);
 });

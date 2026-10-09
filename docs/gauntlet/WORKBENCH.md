@@ -53,6 +53,6 @@ Brief: [wave3.md](wave3.md).
 
 | WP | Scope | Status |
 |---|---|---|
-| 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | building |
+| 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | merged (19/19 installed maps round-trip exactly; 32×32 opens in 2.7 s; BAR's own spot finder ported) |
 | 3.2 | Extend/crop per side in whole units, resize; undoable whole-doc swap; original tile/metal grids shift | merged (71/71 tests; seam ≤ 2 elmos near the old edge) |
 | 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning | after 2.2 |

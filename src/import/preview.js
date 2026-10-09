@@ -1,7 +1,10 @@
 // An opened map's own texture for the editor views, from the 4x4 mip of each SMT tile: one DXT1 block per 32-elmo
 // tile, so one texel per heightmap square. Pure, without Lua: the renderer imports this file directly.
 import { decodeDxt1 } from '../formats/dxt.js';
-import { BIOMES, MATERIALS } from '../look/biomes.js';
+import { BIOMES, libraryMaterial, paintMaterialId } from '../look/biomes.js';
+
+// Average colour of the library material a biome uses for a role (WP 2.2: biomes name library materials).
+const roleColor = (biome, role) => libraryMaterial(biome.materials[role]).avgColor;
 
 /**
  * @param {{tilesX: number, tilesZ: number, tileIndex: Int32Array, tileMips: Uint8Array}} original  doc.original
@@ -43,7 +46,7 @@ export function originalColor(doc, preview, i, j) {
   if (!rgba[o + 3]) return null;
   const rgb = [rgba[o], rgba[o + 1], rgba[o + 2]], k = j * doc.W + i, id = doc.paint[k], h = doc.heights[k];
   const { lava, voidWater } = doc.settings, biome = BIOMES[doc.biome];
-  if (id) mix(rgb, biome[MATERIALS[id - 1].key], doc.paintWeight[k] / 255);
+  if (id) mix(rgb, libraryMaterial(paintMaterialId(biome, id)).avgColor, doc.paintWeight[k] / 255);
   if (lava.enabled && h < lava.level) mix(rgb, LAVA, 0.85);
   else if (h < 0 && voidWater) mix(rgb, VOID, 0.85);
   else if (h < 0) mix(rgb, biome.water.base.map((v) => v * 255), Math.min(0.85, 0.35 + -h / 120));
@@ -60,6 +63,9 @@ export function closestBiome({ rgba }) {
     n++;
   }
   const mean = sum.map((v) => v / Math.max(1, n));
-  const distance = ({ ground, high }) => mean.reduce((d, v, c) => d + (v - (ground[c] + high[c]) / 2) ** 2, 0);
+  const distance = (biome) => {
+    const ground = roleColor(biome, 'ground'), high = roleColor(biome, 'high');
+    return mean.reduce((d, v, c) => d + (v - (ground[c] + high[c]) / 2) ** 2, 0);
+  };
   return Object.keys(BIOMES).reduce((best, key) => (distance(BIOMES[key]) < distance(BIOMES[best]) ? key : best));
 }

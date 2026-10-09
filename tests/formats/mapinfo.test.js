@@ -4,7 +4,11 @@ import { LuaFactory } from 'wasmoon';
 import { mapFileBase, writeLavaConfig, writeMapInfo } from '../../src/formats/index.js';
 import { testMap } from '../helpers/test-map.js';
 
-const extras = { fileBase: 'Studio_Test_Hills', minHeight: -20, maxHeight: 500, maxMetal: 1 };
+const textures = {
+  resources: { splatDistrTex: 'Studio_Test_Hills_splat.dds', splatDetailNormalTex1: 'dnts_grass_lush.png' },
+  splats: [{ scale: 1 / 128, mult: 0.6 }, { scale: 1 / 160, mult: 0.7 }, { scale: 1 / 128, mult: 0.8 }, { scale: 1 / 160, mult: 0.6 }],
+};
+const extras = { fileBase: 'Studio_Test_Hills', minHeight: -20, maxHeight: 500, maxMetal: 1, textures };
 let lua;
 before(async () => { lua = await new LuaFactory().createEngine(); });
 after(() => lua.global.close());
@@ -32,6 +36,9 @@ test('mapinfo carries heights, metal, files, teams, and a normalised northern su
   assert.ok(z < 0 && y > 0);
   assert.ok(Math.abs(Math.hypot(x, y, z) - 1) < 1e-3);
   assert.ok(info.water, 'terrain below 0 without lava or void water gets a water block');
+  assert.deepEqual(info.resources, { ...textures.resources, splatDetailNormalDiffuseAlpha: 1 });
+  assert.deepEqual(info.splats.texScales, textures.splats.map((s) => s.scale));
+  assert.deepEqual(info.splats.texMults, textures.splats.map((s) => s.mult));
 });
 
 test('sun in the south or below the horizon is refused', () => {

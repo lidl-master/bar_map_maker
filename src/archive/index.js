@@ -70,8 +70,9 @@ export async function writeSd7(files, outPath) {
       writeFileSync(target, bytes);
     }
     rmSync(partial, { force: true });
-    // c=8m: 8 MB LZMA2 chunks keep every core busy on one big SMT (178 MB: 15 s instead of 68 s, 1% larger).
-    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=8m', '-mx=7', '-ms=off', '-bso0', partial, '.'], dir);
+    // -mx=1 (fast) in 1 MB LZMA2 chunks spread over every core: a detailed 32x32 map (310 MB, mostly DXT) packs in
+    // ~3 s instead of ~5 s with 8 MB chunks or ~13 s at -mx=3, for 1% and ~10% more bytes (Wave 1 used -mx=7).
+    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=1m', '-mx=1', '-mmt=on', '-ms=off', '-bso0', partial, '.'], dir);
     renameSync(partial, outPath);
   } finally {
     rmSync(dir, { recursive: true, force: true });

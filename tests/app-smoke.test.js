@@ -13,7 +13,8 @@ let app;
 let page;
 
 before(async () => {
-  app = await electron.launch({ args: [repoRoot], timeout: 30_000 });
+  // A fresh userData, so a test run never reads or writes the user's own maps and settings.
+  app = await electron.launch({ args: [repoRoot, `--user-data-dir=${path.join(repoRoot, '.engine-tmp', 'smoke', 'user-data')}`], timeout: 30_000 });
   page = await app.firstWindow();
   await page.locator('body[data-ready="1"]').waitFor(); // booted: every handler is bound
 });

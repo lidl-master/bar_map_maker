@@ -9,7 +9,7 @@ import { bakeMaterials, finishMinimap, materialTable, MATERIAL_LIBRARY } from '.
 import { decodePng, TEXTURE_ROOT } from '../look/library-load.js';
 
 const BAKE_WORKER = new URL('./bake-worker.js', import.meta.url);
-const STRIP_ROWS = 8; // SMT tile rows per worker job (256 elmos)
+const STRIP_ROWS = 4; // SMT tile rows per worker job (128 elmos): small jobs keep every core busy to the end
 
 // A copy in shared memory, so every worker reads the same array instead of getting its own copy.
 function shared(array) {

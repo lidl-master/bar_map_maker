@@ -97,26 +97,44 @@ export function checkPaint(doc) {
   if (max > MATERIALS.length) throw new Error(`unknown paint material id ${max}`);
 }
 
+/** Index into ROLES of the roles that share flat ground (by height), in flatWeights order. */
+export const FLAT_ROLES = [0, 1, 4, 5, 6];
+
 /**
- * Role weights (sum 1) at height h (elmos) with squared gradient g2, written to out (ROLES order).
+ * How flat ground (<= 27°) at height h splits into ground, high, sand, seabed and snow (sum 1), written to
+ * out[o..o+4] in FLAT_ROLES order. Smooth in h, so the bake computes it per heightmap sample and interpolates.
  * @param {number} patch  patchAt() at this point
  * @param {number} edge  edgeAt() at this point
  */
-export function roleWeights(biome, h, g2, patch, edge, out) {
-  const g2e = g2 * (1 + EDGE_JITTER * edge);
-  const cliff = smoothstep(CLIFF[0], CLIFF[1], g2e), steep = smoothstep(STEEP[0], STEEP[1], g2e);
-  const flat = 1 - steep; // steep is 1 wherever cliff > 0
+export function flatWeights(biome, h, patch, edge, out, o = 0) {
   const split = (h - biome.highStart) / (biome.highEnd - biome.highStart) + PATCH * patch + PATCH_FINE * edge;
   const high = smoothstep(0, 1, split);
   const sand = h < biome.sandTop ? 1 - smoothstep(biome.sandTop / 2, biome.sandTop, h) : 0;
   const seabed = h < 0 ? smoothstep(0, 24, -h) : 0;
   const snow = smoothstep(biome.snowLine - 25, biome.snowLine + 25, h);
-  const keep = flat * (1 - seabed) * (1 - snow); // each later layer covers the ones before it
-  out[0] = (1 - high) * (1 - sand) * keep;
-  out[1] = high * (1 - sand) * keep;
+  const keep = (1 - seabed) * (1 - snow); // each later layer covers the ones before it
+  out[o] = (1 - high) * (1 - sand) * keep;
+  out[o + 1] = high * (1 - sand) * keep;
+  out[o + 2] = sand * keep;
+  out[o + 3] = seabed * (1 - snow);
+  out[o + 4] = snow;
+}
+
+/** Share of bot slope or cliff (steep) and of cliff alone at squared gradient g2: [steep, cliff] in out. */
+export function steepWeights(g2, edge, out) {
+  const g2e = g2 * (1 + EDGE_JITTER * edge);
+  out[0] = smoothstep(STEEP[0], STEEP[1], g2e); // 1 wherever cliff > 0
+  out[1] = smoothstep(CLIFF[0], CLIFF[1], g2e);
+}
+
+const flatScratch = new Float32Array(5), steepScratch = new Float32Array(2);
+
+/** Role weights (sum 1) at height h (elmos) with squared gradient g2, written to out (ROLES order). */
+export function roleWeights(biome, h, g2, patch, edge, out) {
+  flatWeights(biome, h, patch, edge, flatScratch);
+  steepWeights(g2, edge, steepScratch);
+  const [steep, cliff] = steepScratch;
+  FLAT_ROLES.forEach((r, i) => { out[r] = (1 - steep) * flatScratch[i]; });
   out[2] = steep - cliff;
   out[3] = cliff;
-  out[4] = sand * keep;
-  out[5] = seabed * (1 - snow) * flat;
-  out[6] = snow * flat;
 }

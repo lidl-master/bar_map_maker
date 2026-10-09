@@ -17,16 +17,17 @@ const LINE_INDEX = [1, 3, 2, 0]; // c1, 1/3 of the way, 2/3, c0 -> BC1 palette i
 
 /** px: 16 RGB texels (48 values, row-major). Writes the 8-byte BC1 colour block at out[o]. */
 export function encodeColorBlock(px, out, o) {
-  let mr = 0, mg = 0, mb = 0;
-  for (let i = 0; i < 48; i += 3) { mr += px[i]; mg += px[i + 1]; mb += px[i + 2]; }
-  mr /= 16; mg /= 16; mb /= 16;
-  let rr = 0, rg = 0, rb = 0, gg = 0, gb = 0, bb = 0;
+  // Mean and covariance in one pass (sums of products minus 16 x the product of the means).
+  let mr = 0, mg = 0, mb = 0, rr = 0, rg = 0, rb = 0, gg = 0, gb = 0, bb = 0;
   for (let i = 0; i < 48; i += 3) {
-    const r = px[i] - mr, g = px[i + 1] - mg, b = px[i + 2] - mb;
+    const r = px[i], g = px[i + 1], b = px[i + 2];
+    mr += r; mg += g; mb += b;
     rr += r * r; rg += r * g; rb += r * b; gg += g * g; gb += g * b; bb += b * b;
   }
+  mr /= 16; mg /= 16; mb /= 16;
+  rr -= 16 * mr * mr; rg -= 16 * mr * mg; rb -= 16 * mr * mb; gg -= 16 * mg * mg; gb -= 16 * mg * mb; bb -= 16 * mb * mb;
   let ax = 0.577, ay = 0.577, az = 0.577;
-  for (let it = 0; it < 4; it++) {
+  for (let it = 0; it < 3; it++) {
     const nx = rr * ax + rg * ay + rb * az, ny = rg * ax + gg * ay + gb * az, nz = rb * ax + gb * ay + bb * az;
     const len = Math.sqrt(nx * nx + ny * ny + nz * nz); // (Math.hypot is several times slower)
     if (len < 1e-6) break;

@@ -5,7 +5,7 @@
 // textures), blended by the rules.js role weights and paint, times broad tone variation, gentle shading from the
 // northern sun and thin, wobbly topolines. Traversability reads from the materials themselves: vehicle ground,
 // bot slope and cliff materials meet at 27° and 54° with a 2° blend.
-import { edgeAt, lookOf, patchAt, roleWeights, smoothstep, swapAt, toneAt, wobbleAt } from './rules.js';
+import { edgeAt, FLAT_ROLES, flatWeights, lookOf, patchAt, roleWeights, smoothstep, steepWeights, swapAt, toneAt, wobbleAt } from './rules.js';
 
 const SQUARE = 8; // elmos between heightmap samples
 const TILE = 32; // texels (elmos) per SMT tile side
@@ -98,8 +98,18 @@ export function materialTable(albedo, tileElmos) {
  * @param {BakeLayers} layers
  */
 export function prepareBake(doc, tables, layers) {
-  const look = lookOf(doc);
-  return { doc, look, layers, sun: unitSun(doc), tables: look.slots.map((s) => tables.get(s.id) ?? null) };
+  const look = lookOf(doc), slotTables = look.slots.map((s) => tables.get(s.id) ?? null);
+  return { doc, look, layers, sun: unitSun(doc), tables: slotTables, transposed: slotTables.map((t) => t && transposedColors(t)) };
+}
+
+// A table's colours (RGB) transposed, so the bake reads the second, transposed copy of a material along rows too
+// (reading the table down its columns misses the cache on every texel).
+function transposedColors(table) {
+  const T = Math.round(Math.sqrt(table.length / TABLE_STRIDE)), out = new Float32Array(T * T * 3);
+  for (let y = 0; y < T; y++) {
+    for (let x = 0; x < T; x++) for (let c = 0; c < 3; c++) out[(x * T + y) * 3 + c] = table[(y * T + x) * TABLE_STRIDE + c];
+  }
+  return out;
 }
 
 /** Library ids the bake of `doc` reads: the biome's role materials and every painted material. */
@@ -142,17 +152,18 @@ function occlusion(doc, i, j) {
 }
 
 // Per-sample inputs of heightmap rows j0 .. j0 + rows - 1; light = shading towards the sun and ambient occlusion
-// (sun null: neither) times broad tone.
-function sampleRows(doc, sun, j0, rows) {
-  const { W } = doc, n = W * rows;
-  const grid = { h: new Float32Array(n), gx: new Float32Array(n), gz: new Float32Array(n), patch: new Float32Array(n), edge: new Float32Array(n), light: new Float32Array(n), wobble: new Float32Array(n), swap: new Float32Array(n) };
+// (sun null: neither) times broad tone; flat0..4 = flatWeights().
+function sampleRows(doc, biome, sun, j0, rows) {
+  const { W } = doc, n = W * rows, f = () => new Float32Array(n), flat = new Float32Array(5);
+  const grid = { h: f(), gx: f(), gz: f(), edge: f(), light: f(), wobble: f(), swap: f(), flat0: f(), flat1: f(), flat2: f(), flat3: f(), flat4: f() };
   for (let r = 0; r < rows; r++) {
     for (let i = 0; i < W; i++) {
       const k = r * W + i, x = i * SQUARE, z = (j0 + r) * SQUARE;
       grid.h[k] = doc.heights[(j0 + r) * W + i];
       [grid.gx[k], grid.gz[k]] = gradient(doc, i, j0 + r);
-      grid.patch[k] = patchAt(x, z);
       grid.edge[k] = edgeAt(x, z);
+      flatWeights(biome, grid.h[k], patchAt(x, z), grid.edge[k], flat);
+      for (let q = 0; q < 5; q++) grid[`flat${q}`][k] = flat[q];
       grid.light[k] = (sun ? shade(sun, grid.gx[k], grid.gz[k]) * occlusion(doc, i, j0 + r) : 1) * (1 + TONE * toneAt(x, z));
       grid.wobble[k] = wobbleAt(x, z);
       grid.swap[k] = swapAt(x, z);
@@ -169,9 +180,9 @@ function sampleRows(doc, sun, j0, rows) {
  *   grass: one density per SMT tile (0 or 255)
  */
 export function bakeStrip(ctx, tz0, rows) {
-  const { doc, look, layers, sun, tables } = ctx, { W } = doc, { biome, slots, roleSlot, paintSlot } = look;
+  const { doc, look, layers, sun, tables, transposed } = ctx, { W } = doc, { biome, slots, roleSlot, paintSlot } = look;
   const tilesX = doc.sx * 16, wE = tilesX * TILE, hE = rows * TILE, z0 = tz0 * TILE, j0 = tz0 * 4;
-  const grid = sampleRows(doc, layers.diffuse === 1 ? sun : null, j0, rows * 4 + 1);
+  const grid = sampleRows(doc, biome, layers.diffuse === 1 ? sun : null, j0, rows * 4 + 1);
   const paint = doc.paint.subarray(j0 * W, (j0 + rows * 4 + 1) * W), paintWeight = doc.paintWeight.subarray(j0 * W, (j0 + rows * 4 + 1) * W);
   for (const s of new Set([...roleSlot, ...paintSlot.filter((s, p) => p && paint.includes(p))])) {
     if (!tables[s]) throw new Error(`bake: no albedo for material "${slots[s].id}"`);
@@ -186,15 +197,17 @@ export function bakeStrip(ctx, tz0, rows) {
   const gloss = Float32Array.from(slots, (s) => s.gloss), grassy = Uint8Array.from(slots, (s) => s.grass);
   // Share preset (diffuse > 1): average material colours only (the splat detail textures add the grain in-engine).
   const detail = layers.diffuse === 1, avg = Float32Array.from(slots.flatMap((s) => s.avgColor)), gain = Float32Array.from(slots, (s) => s.gain);
-  const rw = new Float32Array(7), sw = new Float32Array(11), ss = new Int32Array(11), corner = [0, 1, W, W + 1], cw = new Float32Array(4);
+  const sw = new Float32Array(11), ss = new Int32Array(11), corner = [0, 1, W, W + 1], cw = new Float32Array(4), steepness = new Float32Array(2);
+  const flatSlot = Int32Array.from(FLAT_ROLES, (r) => roleSlot[r]);
   // The sample fields interpolated to the current texel row (z); per texel only the x interpolation is left.
-  const fields = [grid.h, grid.gx, grid.gz, grid.patch, grid.edge, grid.light, grid.wobble, grid.swap];
-  const [H, GX, GZ, PATCH, EDGE, LIGHT, WOB, SWAP] = fields.map(() => new Float32Array(W));
+  const fields = [grid.h, grid.gx, grid.gz, grid.edge, grid.light, grid.wobble, grid.swap, grid.flat0, grid.flat1, grid.flat2, grid.flat3, grid.flat4];
+  const rowsOf = fields.map(() => new Float32Array(W));
+  const [H, GX, GZ, EDGE, LIGHT, WOB, SWAP, ...FLAT] = rowsOf;
   // Table offsets: rowBase[s] for the current texel row plus column[s][x]; the second copy of each material is
-  // transposed and shifted by half a repeat (row2 + column2).
+  // transposed and shifted by half a repeat (row2 + column2 into the transposed colours).
   const rowBase = new Int32Array(slots.length), row2 = new Int32Array(slots.length);
   const column = Array.from(sizes, (T) => (T ? Int32Array.from({ length: wE }, (_, x) => (x % T) * TABLE_STRIDE) : null));
-  const column2 = Array.from(sizes, (T) => (T ? Int32Array.from({ length: wE }, (_, x) => ((x + (T >> 1)) % T) * T * TABLE_STRIDE) : null));
+  const column2 = Array.from(sizes, (T) => (T ? Int32Array.from({ length: wE }, (_, x) => ((x + (T >> 1)) % T) * 3) : null));
 
   for (let y = 0; y < hE; y++) {
     const zW = z0 + y, fz = (y + 0.5) / SQUARE, b = fz | 0, v = fz - b;
@@ -202,9 +215,9 @@ export function bakeStrip(ctx, tz0, rows) {
     const gRow = (y >> 5) * tilesX;
     for (let s = 0; s < slots.length; s++) {
       rowBase[s] = sizes[s] ? (zW % sizes[s]) * sizes[s] * TABLE_STRIDE : 0;
-      row2[s] = sizes[s] ? ((zW + (sizes[s] >> 1)) % sizes[s]) * TABLE_STRIDE : 0;
+      row2[s] = sizes[s] ? ((zW + (sizes[s] >> 1)) % sizes[s]) * sizes[s] * 3 : 0;
     }
-    [H, GX, GZ, PATCH, EDGE, LIGHT, WOB, SWAP].forEach((row, f) => {
+    rowsOf.forEach((row, f) => {
       const field = fields[f];
       for (let i = 0; i < W; i++) row[i] = field[b * W + i] * (1 - v) + field[(b + 1) * W + i] * v;
     });
@@ -212,9 +225,17 @@ export function bakeStrip(ctx, tz0, rows) {
       const a = x >> 3, u = ((x & 7) + 0.5) / SQUARE, k = b * W + a;
       const h = H[a] + (H[a + 1] - H[a]) * u, gx = GX[a] + (GX[a + 1] - GX[a]) * u, gz = GZ[a] + (GZ[a + 1] - GZ[a]) * u;
       const g2 = gx * gx + gz * gz;
-      roleWeights(biome, h, g2, PATCH[a] + (PATCH[a + 1] - PATCH[a]) * u, EDGE[a] + (EDGE[a + 1] - EDGE[a]) * u, rw);
+      steepWeights(g2, EDGE[a] + (EDGE[a + 1] - EDGE[a]) * u, steepness);
+      const steep = steepness[0], cliff = steepness[1], flat = 1 - steep;
       let n = 0;
-      for (let r = 0; r < 7; r++) if (rw[r] > 1e-3) { sw[n] = rw[r]; ss[n++] = roleSlot[r]; }
+      if (flat > 1e-3) {
+        for (let q = 0; q < 5; q++) {
+          const w = flat * (FLAT[q][a] + (FLAT[q][a + 1] - FLAT[q][a]) * u);
+          if (w > 1e-3) { sw[n] = w; ss[n++] = flatSlot[q]; }
+        }
+      }
+      if (steep - cliff > 1e-3) { sw[n] = steep - cliff; ss[n++] = roleSlot[2]; }
+      if (cliff > 1e-3) { sw[n] = cliff; ss[n++] = roleSlot[3]; }
       if (paint[k] | paint[k + 1] | paint[k + W] | paint[k + W + 1]) {
         cw[0] = (1 - u) * (1 - v); cw[1] = u * (1 - v); cw[2] = (1 - u) * v; cw[3] = u * v;
         for (let c = 0; c < 4; c++) {
@@ -236,8 +257,8 @@ export function bakeStrip(ctx, tz0, rows) {
       for (let i = 0; i < n; i++) {
         const s = ss[i], w = sw[i], tab = tables[s], o = rowBase[s] + column[s][x];
         if (detail) {
-          const o2 = row2[s] + column2[s][x], w1 = w * gain[s] * (1 - swap), w2 = w * gain[s] * swap;
-          cr += w1 * tab[o] + w2 * tab[o2]; cg += w1 * tab[o + 1] + w2 * tab[o2 + 1]; cb += w1 * tab[o + 2] + w2 * tab[o2 + 2];
+          const t2 = transposed[s], o2 = row2[s] + column2[s][x], w1 = w * gain[s] * (1 - swap), w2 = w * gain[s] * swap;
+          cr += w1 * tab[o] + w2 * t2[o2]; cg += w1 * tab[o + 1] + w2 * t2[o2 + 1]; cb += w1 * tab[o + 2] + w2 * t2[o2 + 2];
         } else { cr += w * avg[s * 3]; cg += w * avg[s * 3 + 1]; cb += w * avg[s * 3 + 2]; }
         rx += w * relief[s] * tab[o + 3]; rz += w * relief[s] * tab[o + 4];
         sp += w * spec[s] * (1 + 3 * tab[o + 5]); gl += w * gloss[s];
@@ -248,9 +269,8 @@ export function bakeStrip(ctx, tz0, rows) {
       let m = LIGHT[a] + (LIGHT[a + 1] - LIGHT[a]) * u;
       // Erosion streaks down bot slopes and cliffs (strongest on cliffs), projected along x or z by the facing;
       // in the diffuse only with albedo detail (Share keeps its flat blocks plain).
-      const steep = rw[2] + rw[3];
       if (steep > 0) {
-        const facingX = (gx * gx) / g2, cliffy = steep * (0.4 + 0.6 * rw[3]);
+        const facingX = (gx * gx) / g2, cliffy = steep * (0.4 + 0.6 * cliff);
         const ix = ((zW & 127) * 64 + ((x >> 3) & 63)) * 2, iz = ((x & 127) * 64 + ((zW >> 3) & 63)) * 2;
         if (detail) m *= 1 + STREAK_DARK * cliffy * (facingX * STREAK[ix] + (1 - facingX) * STREAK[iz]);
         rz += STREAK_RELIEF * cliffy * facingX * STREAK[ix + 1];
@@ -352,7 +372,12 @@ function normalBytes(acc, texels) {
 // Every f x f block of the diffuse to its average colour, so DXT1 stores flat blocks (Share preset).
 function flattenBlocks(rgb, w, h, f) {
   const small = boxDown(rgb, w, h, f), sw = w / f;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) rgb.set(small.subarray(((y / f | 0) * sw + (x / f | 0)) * 3, ((y / f | 0) * sw + (x / f | 0)) * 3 + 3), (y * w + x) * 3);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const s = ((y / f | 0) * sw + (x / f | 0)) * 3, o = (y * w + x) * 3;
+      rgb[o] = small[s]; rgb[o + 1] = small[s + 1]; rgb[o + 2] = small[s + 2];
+    }
+  }
 }
 
 // Box-filtered RGB, factor f smaller in each direction.

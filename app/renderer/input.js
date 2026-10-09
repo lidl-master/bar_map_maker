@@ -2,12 +2,13 @@
 // src/terrain's brush() and ramp() and src/core's addObject() apply the map's symmetry themselves.
 import { addObject, moveGroup } from '../../src/core/index.js';
 import { brush, ramp } from '../../src/terrain/index.js';
-import { $ } from './dom.js';
-import { toast } from './feedback.js';
+import { $, formatInt } from './dom.js';
+import { pointTip, toast } from './feedback.js';
 import { findObject } from './objects.js';
 import { PATHING, heightAt } from './sample.js';
 import { shortcutFor } from './shortcuts.js';
 import { toolById } from './tools.js';
+import { hideReadout, readout } from './viewport.js';
 
 const OBJECT_TYPES = ['metal', 'geo', 'start'];
 
@@ -79,13 +80,13 @@ export function bindInput(editor) {
     const ha = heightAt(doc, a.x, a.z), hb = heightAt(doc, w.x, w.z), len = Math.hypot(w.x - a.x, w.z - a.z);
     const angle = (Math.atan2(Math.abs(hb - ha), Math.max(1, len)) * 180) / Math.PI;
     const who = angle <= PATHING.vehicle ? 'all units' : angle <= PATHING.bot ? 'bots only' : 'too steep for ground units';
-    editor.setHint(`Ramp ${Math.round(len)} elmos long, ${Math.round(ha)} → ${Math.round(hb)} elmos, ${angle.toFixed(1)}° (${who})`);
+    readout('triangle-right', `Ramp ${formatInt(len)} elmos · ${formatInt(ha)} → ${formatInt(hb)} elmos · ${angle.toFixed(1)}° · ${who}`);
   }
 
   function endRamp() {
     const doc = editor.doc, { a, b } = rampDrag;
     rampDrag = view.rampPreview = null;
-    editor.setHint(toolById('ramp').hint);
+    hideReadout();
     if (Math.hypot(b.x - a.x, b.z - a.z) < 8) return;
     editor.history.begin(doc, 'ramp');
     const rect = ramp(doc, a, b, editor.settings.ramp);
@@ -150,6 +151,8 @@ export function bindInput(editor) {
       view.hover = findObject(editor.doc, w.x, w.z, pickRadius(), pickTypes());
       canvas.style.cursor = view.hover ? 'move' : 'crosshair';
     }
+    const idle = !pan && !stroke && !rampDrag && !drag && !view.hover;
+    pointTip(idle ? view.guideAt(sx, sy) : null, e.clientX, e.clientY);
     view.invalidate();
   });
 
@@ -174,6 +177,7 @@ export function bindInput(editor) {
   canvas.addEventListener('pointerup', pointerUp);
   canvas.addEventListener('pointercancel', pointerUp);
   canvas.addEventListener('pointerleave', () => {
+    pointTip(null);
     view.cursor = null;
     editor.showCursor(null);
     view.invalidate();

@@ -1,15 +1,45 @@
-// Export and Install to BAR, through window.studio (the preload bridge). The main process asks before installing.
-import { $, el } from './dom.js';
-import { closeExportPanel, exportDone, exportFailed, exportProgress, startExport } from './export-panel.js';
+// Export and Install to BAR, through window.studio (the preload bridge), plus the Export options popover (quality preset,
+// export folder). One busy state drives the top bar and the export card, so their buttons always agree.
+// The main process asks before installing.
+import { $, el, segmented } from './dom.js';
+import { closeExportPanel, exportDone, exportFailed, exportProgress, refreshExportPanel, startExport } from './export-panel.js';
 import { toast } from './feedback.js';
 import { icon } from './icons.js';
 
-let exporting = false, barFound = false;
+// src/bar export presets (WP 2.2).
+const QUALITY = {
+  share: { label: 'Share · ≤ 50 MB', help: 'Keeps the archive under 50 MB for sharing and downloads; textures are slightly softer.' },
+  standard: { label: 'Standard', help: 'Full texture detail. A larger archive, fine for local play and testing.' },
+};
+
+let busy = null, barFound = false, cancelRequested = false; // busy: null | 'export' | 'install'
+let quality = savedQuality();
+
+function savedQuality() {
+  try {
+    const key = localStorage.getItem('exportQuality');
+    return Object.hasOwn(QUALITY, key ?? '') ? key : 'share';
+  } catch {
+    return 'share'; // storage unavailable: the default preset
+  }
+}
+
+function setQuality(key) {
+  quality = key;
+  $('qualityHelp').textContent = QUALITY[key].help;
+  try { localStorage.setItem('exportQuality', key); } catch { /* a preference only; the default applies next time */ }
+}
 
 export function bindBarActions(editor) {
   window.studio.onProgress(exportProgress);
   $('btnExport').addEventListener('click', () => exportMap(editor));
   $('btnInstall').addEventListener('click', () => installMap(editor));
+  $('qualityChoice').append(segmented(Object.entries(QUALITY).map(([key, q]) => [key, q.label]), quality, setQuality, 'block'));
+  setQuality(quality);
+  $('btnExportDir').addEventListener('click', () => {
+    $('exportOptions').hidePopover();
+    changeExportDir();
+  });
   window.studio.locateBar().then(
     (bar) => {
       barFound = true;
@@ -19,7 +49,7 @@ export function bindBarActions(editor) {
       showBar('missing', 'BAR not found', error.message);
       $('btnInstall').dataset.tip = 'Beyond All Reason was not found on this computer';
     },
-  ).finally(() => setExporting(exporting));
+  ).finally(() => setBusy(busy));
 }
 
 function showBar(state, label, tip) {
@@ -29,7 +59,7 @@ function showBar(state, label, tip) {
   node.querySelector('.label').textContent = label;
 }
 
-export async function changeExportDir() {
+async function changeExportDir() {
   try {
     const dir = await window.studio.chooseExportDir();
     if (dir) toast(`Maps will be exported to ${dir}`, 'ok', 6000);
@@ -38,34 +68,47 @@ export async function changeExportDir() {
   }
 }
 
-function setExporting(busy) {
-  exporting = busy;
-  $('btnExport').disabled = busy;
-  $('btnInstall').disabled = busy || !barFound;
-  $('btnExport').replaceChildren(icon(busy ? 'loader-circle' : 'package', busy ? 'spin' : ''), el('span', {}, busy ? 'Exporting…' : 'Export'));
+function setBusy(next) {
+  busy = next;
+  $('btnExport').disabled = $('btnExportOptions').disabled = busy !== null;
+  $('btnInstall').disabled = busy !== null || !barFound;
+  const exporting = busy === 'export';
+  $('btnExport').replaceChildren(icon(exporting ? 'loader-circle' : 'file-output', exporting ? 'spin' : ''), el('span', {}, exporting ? 'Exporting…' : 'Export'));
+  refreshExportPanel();
 }
 
-/** Exports the open map; resolves with the archive path, or null when cancelled or failed (the panel says why). */
+function doneActions(archivePath) {
+  return () => [
+    ['Show in folder', { class: 'btn', onclick: () => window.studio.showInFolder(archivePath).catch((error) => toast(error.message, 'error')) }, 'folder-open'],
+    ...(barFound ? [[busy === 'install' ? 'Installing…' : 'Install to BAR', { class: 'btn accent-icon', disabled: busy !== null, onclick: () => installArchive(archivePath) }, 'hard-drive-download']] : []),
+  ];
+}
+
+/** Exports the open map; resolves with the archive path, or null when cancelled or failed (the card says why). */
 export async function exportMap(editor) {
-  if (exporting) return null;
-  startExport(editor.doc.settings.name);
-  setExporting(true);
+  if (busy) return null;
+  cancelRequested = false;
+  startExport(editor.doc.settings.name, () => {
+    cancelRequested = true;
+    window.studio.cancelExport();
+  });
+  setBusy('export');
   let result;
   try {
-    result = await window.studio.exportMap(editor.doc, { quality: editor.exportQuality });
+    result = await window.studio.exportMap(editor.doc, { quality });
   } catch (error) {
     console.error(error);
-    exportFailed(error.message, [['Try again', { class: 'btn primary', onclick: () => exportMap(editor) }, 'package']]);
+    exportFailed(error.message, () => [['Try again', { class: 'btn accent-icon', disabled: busy !== null, onclick: () => exportMap(editor) }, 'file-output']]);
     return null;
   } finally {
-    setExporting(false);
+    setBusy(null);
   }
   if (result.cancelled) {
     closeExportPanel();
-    toast('Export cancelled: no export folder was chosen.', 'warn');
+    toast(cancelRequested ? 'Export cancelled.' : 'Export cancelled: no export folder was chosen.', 'warn');
     return null;
   }
-  exportDone(result, barFound ? [['Install to BAR', { class: 'btn primary', onclick: () => installArchive(result.archivePath) }, 'hard-drive-download']] : []);
+  exportDone(result, doneActions(result.archivePath));
   return result.archivePath;
 }
 
@@ -75,6 +118,8 @@ async function installMap(editor) {
 }
 
 async function installArchive(archivePath) {
+  if (busy) return;
+  setBusy('install');
   try {
     const result = await window.studio.installMap(archivePath);
     if (result.cancelled) {
@@ -86,5 +131,7 @@ async function installArchive(archivePath) {
     toast(`Installed ${result.installedPath}${replaced}. Restart BAR to see it.`, 'ok', 8000);
   } catch (error) {
     toast(`Install failed: ${error.message}`, 'error');
+  } finally {
+    setBusy(null);
   }
 }

@@ -18,7 +18,7 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-/** A button with an optional leading icon: btn('Generate', { class: 'btn primary', onclick }, 'sparkles'). */
+/** A button with an optional leading icon: btn('Generate', { class: 'btn primary', onclick }, 'mountain'). */
 export const btn = (label, attrs, iconName) => el('button', attrs, iconName ? icon(iconName) : null, label);
 
 /** An inspector section with a title; returns it for the caller to fill. */
@@ -97,6 +97,50 @@ export function segmented(options, current, onChange, className = '') {
   }
   mark(current);
   return group;
+}
+
+/** A [−][value][+] stepper (one segmented control), bound to obj[key] as an integer clamped to [min, max]. */
+export function stepper(obj, key, { min, max, label, id, onChange }) {
+  const input = el('input', { id, class: 'num', type: 'number', min, max, step: 1, 'aria-label': label });
+  const show = () => {
+    input.value = obj[key];
+    down.disabled = obj[key] <= min;
+    up.disabled = obj[key] >= max;
+  };
+  const set = (v, rewrite = true) => {
+    obj[key] = clamp(Math.round(+v) || min, min, max);
+    if (rewrite) show();
+    onChange?.(obj[key]);
+  };
+  const down = el('button', { type: 'button', 'aria-label': `${label}: one fewer`, onclick: () => set(obj[key] - 1) }, icon('minus'));
+  const up = el('button', { type: 'button', 'aria-label': `${label}: one more`, onclick: () => set(obj[key] + 1) }, icon('plus'));
+  input.addEventListener('input', () => set(input.value, false)); // typing: keep the field as typed until it is left
+  input.addEventListener('change', () => set(input.value));
+  show();
+  return el('div', { class: 'stepper', role: 'group', 'aria-label': label }, down, input, up);
+}
+
+/**
+ * The one key-cap component: keys('Ctrl+Shift+Z'), alternatives keys(['Ctrl+Y', 'Ctrl+Shift+Z']), and a mouse gesture in
+ * plain text: keys('Shift', 'wheel'), keys([], 'Right-click').
+ */
+export function keys(combos, mouse) {
+  const node = el('span', { class: 'keys' });
+  [combos].flat().forEach((combo, n) => {
+    if (n) node.append(el('span', { class: 'or' }, 'or'));
+    combo.split('+').forEach((k, i) => node.append(...(i ? [el('span', { class: 'plus' }, '+')] : []), el('kbd', {}, k)));
+  });
+  if (mouse) node.append(...(node.childElementCount ? [el('span', { class: 'plus' }, '+')] : []), el('span', { class: 'mouse' }, mouse));
+  return node;
+}
+
+/** Replaces every <span data-keys="Ctrl+N"> placeholder in the static markup with key caps (its classes are kept). */
+export function hydrateKeys(root = document) {
+  for (const node of root.querySelectorAll('span[data-keys]')) {
+    const caps = keys(node.dataset.keys);
+    caps.classList.add(...node.classList);
+    node.replaceWith(caps);
+  }
 }
 
 /** A card-style radio: a visually hidden <input type=radio> (keyboard, focus) followed by the designed body. */

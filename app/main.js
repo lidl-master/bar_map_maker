@@ -41,7 +41,8 @@ app.on('web-contents-created', (_event, contents) => {
 
 // Not a top-level await: Electron waits for the ESM entry to finish evaluating, so awaiting ready here deadlocks under Playwright.
 app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  // Every permission is refused except writing text to the clipboard (the export card's Copy path).
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'clipboard-sanitized-write'));
   protocol.handle('app', serveAppFile);
   registerStudioIpc(APP_ORIGIN, servedFile);
   // No default menu: its Ctrl+R reload would silently throw away the open map. Text editing keys work without it on Windows.

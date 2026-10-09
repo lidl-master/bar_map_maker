@@ -3,12 +3,12 @@
 // (the value BAR shows on the spot). Like BAR, the outermost pixel ring is ignored, and a map whose metal blobs
 // span more than 6 extractor radii is a "metal map" with no spots at all.
 
-export const METAL_PIXEL = 16; // elmos per metal map pixel
+const METAL_PIXEL = 16; // elmos per metal map pixel
 
 /**
  * The 8-connected groups of metal pixels, ignoring the outermost pixel ring.
- * @returns {{x0: number, x1: number, z0: number, z1: number, pixels: number, sum: number}[]} bounding boxes in
- *   pixels (inclusive), pixel count and byte sum, in row-major order of their first pixel
+ * @returns {{x0: number, x1: number, z0: number, z1: number, sum: number}[]} bounding boxes in
+ *   pixels (inclusive) and byte sum, in row-major order of their first pixel
  */
 export function metalBlobs(metal, width, height) {
   const seen = new Uint8Array(width * height), stack = [], blobs = [];
@@ -16,12 +16,11 @@ export function metalBlobs(metal, width, height) {
   for (let z = 1; z < height - 1; z++) {
     for (let x = 1; x < width - 1; x++) {
       if (!metal[z * width + x] || seen[z * width + x]) continue;
-      const blob = { x0: x, x1: x, z0: z, z1: z, pixels: 0, sum: 0 };
+      const blob = { x0: x, x1: x, z0: z, z1: z, sum: 0 };
       seen[z * width + x] = 1;
       stack.push(z * width + x);
       while (stack.length) {
         const k = stack.pop(), px = k % width, pz = (k - px) / width;
-        blob.pixels++;
         blob.sum += metal[k];
         if (px < blob.x0) blob.x0 = px;
         if (px > blob.x1) blob.x1 = px;

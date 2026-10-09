@@ -68,7 +68,8 @@ export async function playtest(archivePath, { workDir, difficulty = 'medium', si
   if (existsSync(userSettings)) copyFileSync(userSettings, join(runDir, 'springsettings.cfg')); // a copy: BAR's own is never written
 
   const started = performance.now();
-  const child = spawn(exe, args, { cwd: runDir, stdio: 'ignore' });
+  // detached: BAR keeps running when the Studio closes (a plain child would be in Node's kill-on-close job object).
+  const child = spawn(exe, args, { cwd: runDir, stdio: 'ignore', detached: true });
   await new Promise((resolve, reject) => {
     child.once('spawn', resolve);
     child.once('error', reject);

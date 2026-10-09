@@ -4,7 +4,8 @@ import path from 'node:path';
 import { _electron as electron } from 'playwright';
 
 const repoRoot = path.join(import.meta.dirname, '..');
-const screenshotPath = path.join(repoRoot, 'docs', 'gauntlet', 'screenshots', 'wave0-app.png');
+// Gitignored, so test runs never dirty the committed docs/gauntlet/screenshots/wave0-app.png.
+const screenshotPath = path.join(repoRoot, '.engine-tmp', 'screenshots', 'wave0-app.png');
 
 /** @type {import('playwright').ElectronApplication} */
 let app;

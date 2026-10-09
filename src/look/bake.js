@@ -9,7 +9,7 @@ import { lookOf, patchAt, roleWeights, smoothstep, swapAt, toneAt, wobbleAt } fr
 
 const SQUARE = 8; // elmos between heightmap samples
 const TILE = 32; // texels (elmos) per SMT tile side
-const SHADING = 0.3; // share of hill-shading baked in (the engine lights the ground as well)
+const SHADING = 0.15; // share of hill-shading baked in (the engine lights the ground as well)
 const TONE = 0.1; // broad brightness variation
 const TOPO_STEP = 40; // elmos of height between topolines
 const TOPO_DARK = 0.12; // darkening at the centre of a topoline
@@ -22,6 +22,29 @@ const VENT_SCORCH = [24, 20, 18];
 const LAVA = [255, 96, 16];
 const VOID = [12, 12, 16];
 const TABLE_STRIDE = 6; // r, g, b, d(lum)/dx, d(lum)/dz, lum - mean (lum 0..1)
+const STREAK_RELIEF = 0.7; // tilt of the erosion streaks on bot slopes and cliffs, in the detail normals
+const STREAK_DARK = 0.18; // their darkening in the diffuse
+
+// Erosion streaks for steep ground: a periodic ridge pattern, fine (3-14 elmos) across the fall line and coarse
+// (128-512 elmos) along it. STREAK[u * 64 + v] = [height -1..1, d(height)/du per elmo]; u: 128 elmos across at
+// 1 per elmo, v: 512 elmos along at 8 per entry. Sums of whole-period sines, so it tiles.
+const STREAK = (() => {
+  const waves = [[9, 1, 1, 0.3], [14, 2, 0.8, 1.9], [21, -1, 0.6, 4.1], [27, 3, 0.45, 2.6], [34, -2, 0.35, 5.3], [41, 1, 0.25, 0.8]];
+  const norm = waves.reduce((n, w) => n + w[2], 0), out = new Float32Array(128 * 64 * 2);
+  for (let u = 0; u < 128; u++) {
+    for (let v = 0; v < 64; v++) {
+      let h = 0, d = 0;
+      for (const [f, g, amp, phase] of waves) {
+        const angle = 2 * Math.PI * ((f * u) / 128 + (g * v) / 64) + phase;
+        h += amp * Math.sin(angle);
+        d += amp * ((2 * Math.PI * f) / 128) * Math.cos(angle);
+      }
+      out[(u * 64 + v) * 2] = h / norm;
+      out[(u * 64 + v) * 2 + 1] = d / norm;
+    }
+  }
+  return out;
+})();
 
 /**
  * A library material's albedo resampled (box filter) to 1 texel per elmo over one repeat of tileElmos, with its
@@ -187,9 +210,13 @@ export function bakeStrip(ctx, tz0, rows) {
         for (let c = 0; c < 4; c++) {
           const p = paint[k + corner[c]];
           if (!p) continue;
-          const amount = (paintWeight[k + corner[c]] / 255) * cw[c];
+          // Height blend: the painted material's own light grains show through first, so stroke edges follow
+          // its texture instead of a soft airbrush line.
+          const slot = paintSlot[p], a0 = (paintWeight[k + corner[c]] / 255) * cw[c];
+          const grain = tables[slot][rowBase[slot] + column[slot][x] + 5];
+          const amount = Math.min(1, Math.max(0, a0 + 4 * a0 * (1 - a0) * grain));
           for (let i = 0; i < n; i++) sw[i] *= 1 - amount;
-          sw[n] = amount; ss[n++] = paintSlot[p];
+          sw[n] = amount; ss[n++] = slot;
         }
       }
 
@@ -211,6 +238,15 @@ export function bakeStrip(ctx, tz0, rows) {
       // Topolines on gently sloping ground (~2-26°): thin dark lines every TOPO_STEP elmos of height, bent by
       // the wobble noise, plus a matching groove in the detail normals.
       let m = LIGHT[a] + (LIGHT[a + 1] - LIGHT[a]) * u;
+      // Erosion streaks down bot slopes and cliffs (strongest on cliffs), projected along x or z by the facing.
+      const steep = rw[2] + rw[3];
+      if (steep > 0) {
+        const facingX = (gx * gx) / g2, cliffy = steep * (0.4 + 0.6 * rw[3]);
+        const ix = ((zW & 127) * 64 + ((x >> 3) & 63)) * 2, iz = ((x & 127) * 64 + ((zW >> 3) & 63)) * 2;
+        m *= 1 + STREAK_DARK * cliffy * (facingX * STREAK[ix] + (1 - facingX) * STREAK[iz]);
+        rz += STREAK_RELIEF * cliffy * facingX * STREAK[ix + 1];
+        rx += STREAK_RELIEF * cliffy * (1 - facingX) * STREAK[iz + 1];
+      }
       const slope = Math.sqrt(g2);
       if (slope > 0.03 && slope < 0.5) {
         const f = (h + WOB[a] + (WOB[a + 1] - WOB[a]) * u) / TOPO_STEP, d = f - Math.round(f), dist = (Math.abs(d) * TOPO_STEP) / slope;

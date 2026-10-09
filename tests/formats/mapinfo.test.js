@@ -41,11 +41,11 @@ test('mapinfo carries heights, metal, files, teams, and a normalised northern su
   assert.deepEqual(info.splats.texMults, textures.splats.map((s) => s.mult));
 });
 
-test('sun in the south or below the horizon is refused', () => {
+test('sun in the south or below the horizon is refused; a southern sun names the fix', () => {
   for (const sunDir of [[0.3, 0.8, 0.5], [0.3, 0.8, 0], [0.3, -0.2, -0.5], [NaN, 1, -1]]) {
     const doc = testMap();
     doc.settings.sunDir = sunDir;
-    assert.throws(() => writeMapInfo(doc, extras), /sunDir/);
+    assert.throws(() => writeMapInfo(doc, extras), sunDir[1] > 0 && sunDir[2] >= 0 ? /Move the sun to the north in the Look tab/ : /sunDir/);
   }
 });
 

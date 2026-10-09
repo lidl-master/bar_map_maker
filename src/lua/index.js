@@ -9,7 +9,7 @@ const decoder = new TextDecoder();
 let factory;
 
 /** Engine-style VFS path: forward slashes, no leading './' or '/', lower case. */
-const vfsPath = (path) => String(path).replaceAll('\\', '/').replace(/^\.?\/+/, '').toLowerCase();
+export const vfsPath =(path) => String(path).replaceAll('\\', '/').replace(/^\.?\/+/, '').toLowerCase();
 const globToRegExp = (glob) =>
   new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*').replaceAll('?', '.')}$`, 'i');
 

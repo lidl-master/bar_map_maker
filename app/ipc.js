@@ -1,8 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { QUALITY } from '../src/look/index.js';
 
 const barModule = pathToFileURL(path.join(import.meta.dirname, '..', 'src', 'bar', 'index.js')).href;
 
@@ -37,8 +39,6 @@ async function chooseExportDir(window) {
   return filePaths[0];
 }
 
-const QUALITIES = ['share', 'standard']; // export presets (src/bar, WP 2.2)
-
 /** Asks for a map archive anywhere on disk; null when the user cancels. */
 async function chooseMapArchive(window) {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
@@ -50,22 +50,23 @@ async function chooseMapArchive(window) {
 }
 
 // Minimap thumbnails of the BAR maps, cached per archive version in userData (32 KB each): reading one means
-// extracting the archive's SMF, which takes up to a second.
+// extracting the archive's SMF, which takes up to a second. A cache file is [sx, sz, …256×256 DXT1], written whole
+// (temp file, then rename); one of any other length (an older crash) is read again from the archive.
+const THUMB_BYTES = 2 + 256 * 256 / 2;
+
 async function cachedThumb(bar, file) {
   const { size, mtimeMs } = statSync(file);
   const cache = path.join(app.getPath('userData'), 'map-thumbs', `${path.basename(file)}-${size}-${Math.round(mtimeMs)}.bin`);
-  try {
-    const bytes = new Uint8Array(await readFile(cache)); // [sx, sz, …256×256 DXT1]
-    return { sx: bytes[0], sz: bytes[1], size: 256, dxt1: bytes.subarray(2) };
-  } catch {
-    const thumb = await bar.readMinimapThumb(file);
-    await mkdir(path.dirname(cache), { recursive: true });
-    const bytes = new Uint8Array(2 + thumb.dxt1.length);
-    bytes.set([thumb.sx, thumb.sz]);
-    bytes.set(thumb.dxt1, 2);
-    await writeFile(cache, bytes);
-    return thumb;
-  }
+  const bytes = new Uint8Array(await readFile(cache).catch(() => []));
+  if (bytes.length === THUMB_BYTES) return { sx: bytes[0], sz: bytes[1], size: 256, dxt1: bytes.subarray(2) };
+  const thumb = await bar.readMinimapThumb(file);
+  const out = new Uint8Array(THUMB_BYTES), temp = `${cache}.${randomUUID()}.tmp`;
+  out.set([thumb.sx, thumb.sz]);
+  out.set(thumb.dxt1, 2);
+  await mkdir(path.dirname(cache), { recursive: true });
+  await writeFile(temp, out);
+  await rename(temp, cache).catch(() => rm(temp, { force: true })); // another request cached it first
+  return thumb;
 }
 
 /**
@@ -125,12 +126,13 @@ export function registerStudioIpc(origin, servedFile) {
       onProgress(0.9, 'Building the editor view');
       return doc;
     } catch (error) {
-      throw new Error(`${path.basename(archive)}: ${error.message}`);
+      const name = path.basename(archive); // named once: src/archive's refusals already name it
+      throw new Error(error.message.includes(name) ? error.message : `${name}: ${error.message}`);
     }
   });
 
   handle('studio:exportMap', async (event, doc, { quality } = {}) => {
-    if (!QUALITIES.includes(quality)) throw new Error(`Unknown export quality "${quality}"`);
+    if (!Object.keys(QUALITY).includes(quality)) throw new Error(`Unknown export quality "${quality}"`);
     const { exportMap } = await loadBar();
     // The first export asks where maps go (the user keeps big files off C:); later exports reuse the choice.
     const outDir = readSettings().exportDir ?? await chooseExportDir(BrowserWindow.fromWebContents(event.sender));

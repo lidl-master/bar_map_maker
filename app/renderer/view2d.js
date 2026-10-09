@@ -135,7 +135,7 @@ export class View2D {
           mask[o + 3] = cls === 'none' ? 255 : 0;
           rgb = PATHING_LEGEND[cls].color.map((c) => grey + (c - grey) * PATHING_ALPHA);
         } else {
-          // shortcut: the original texture is drawn without the preview's water and lava tint; revisit if users miss it in 2D.
+          // An opened map: its own texture with paint and the water / lava tint (originalColor); else the biome preview.
           rgb = (this.original && originalColor(doc, this.original, i, j)) ?? previewColor(doc, i, j);
         }
         data[o] = rgb[0];

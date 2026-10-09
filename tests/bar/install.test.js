@@ -37,6 +37,14 @@ test('installs with an md5 sidecar and removes the same map under the other exte
   assert.equal(gunzipSync(readFileSync(`${installedPath}.md5.gz`)).toString('latin1'), `${md5}  my_map_1.0.sd7\n`);
 });
 
+test('a failed install leaves no partial file in the maps folder', async () => {
+  const mapsDir = join(root, 'maps-fail'), archive = join(root, 'stuck_1.0.sd7');
+  mkdirSync(join(mapsDir, 'stuck_1.0.sd7'), { recursive: true }); // a folder where the archive goes: the rename fails
+  writeFileSync(archive, 'archive bytes');
+  await assert.rejects(installMap(archive, { mapsDir }));
+  assert.deepEqual(readdirSync(mapsDir), ['stuck_1.0.sd7']);
+});
+
 test('refuses files that are not map archives', async () => {
   await assert.rejects(installMap(join(root, 'notes.txt'), { mapsDir: root }), /not a map archive/);
 });

@@ -22,5 +22,7 @@ export function findObject(doc, x, z, radius, types) {
 export function counts(doc) {
   const of = (type) => doc.objects.filter((o) => o.type === type);
   const metal = of('metal');
-  return { starts: of('start').length, metal: metal.length, metalTotal: metal.reduce((s, o) => s + o.metal, 0), geos: of('geo').length };
+  return {
+    starts: of('start').length, metal: metal.length, metalTotal: metal.reduce((s, o) => s + o.metal, 0), geos: of('geo').length, features: of('feature').length,
+  };
 }

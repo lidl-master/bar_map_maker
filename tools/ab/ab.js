@@ -1,18 +1,19 @@
 // Blind A/B image pairs for visual critics.
-//   node tools/ab/ab.js <pair-id> <ours.png> <reference.png>  writes docs/gauntlet/ab/<pair-id>/{A,B}.png
+//   node tools/ab/ab.js <pair-id> <ours.png> <reference.png>  writes <AB root>/pairs/<pair-id>/{A,B}.png
 //   node tools/ab/ab.js --reveal <pair-id>                     prints which image was which
-// The key lives in docs/gauntlet/.keys/<pair-id>.json (gitignored). Keep pair ids neutral: critics see them.
+// The AB root is outside the repo (BMS_AB_ROOT, default ../tools/bar-map-studio/ab next to the repo), so critics
+// working in the repo never come across the keys in <AB root>/keys/. Keep pair ids neutral: critics see them.
 import { randomInt } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-const REPO = resolve(import.meta.dirname, '../..');
+const AB_ROOT = process.env.BMS_AB_ROOT ?? resolve(import.meta.dirname, '../../../tools/bar-map-studio/ab');
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PAIR_ID = /^[a-z0-9][a-z0-9._-]*$/i;
 
 function pairPaths(root, id) {
   if (!PAIR_ID.test(id)) throw new Error(`pair id must match ${PAIR_ID}: ${id}`);
-  return { pairDir: join(root, 'docs', 'gauntlet', 'ab', id), keyFile: join(root, 'docs', 'gauntlet', '.keys', `${id}.json`) };
+  return { pairDir: join(root, 'pairs', id), keyFile: join(root, 'keys', `${id}.json`) };
 }
 
 export function makePair(root, id, ours, reference) {
@@ -41,9 +42,9 @@ export function reveal(root, id) {
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.length === 2 && args[0] === '--reveal') {
-    console.log(JSON.stringify(reveal(REPO, args[1]), null, 2));
+    console.log(JSON.stringify(reveal(AB_ROOT, args[1]), null, 2));
   } else if (args.length === 3) {
-    console.log(makePair(REPO, ...args));
+    console.log(makePair(AB_ROOT, ...args));
   } else {
     console.error('usage: node tools/ab/ab.js <pair-id> <ours.png> <reference.png> | --reveal <pair-id>');
     process.exitCode = 2;

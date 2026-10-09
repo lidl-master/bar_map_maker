@@ -1,11 +1,13 @@
-// Mouse and keyboard: pan/zoom, brush strokes, ramps, placing/moving/deleting objects, shortcuts.
+// Mouse and keyboard: pan/zoom, brush strokes, ramps, placing/moving/deleting objects, and the shortcut table's keys.
 // src/terrain's brush() and ramp() and src/core's addObject() apply the map's symmetry themselves.
 import { addObject, moveGroup } from '../../src/core/index.js';
 import { brush, ramp } from '../../src/terrain/index.js';
-import { $, clamp, toast } from './dom.js';
+import { $ } from './dom.js';
+import { toast } from './feedback.js';
 import { findObject } from './objects.js';
 import { PATHING, heightAt } from './sample.js';
-import { TOOLS, toolById } from './tools.js';
+import { shortcutFor } from './shortcuts.js';
+import { toolById } from './tools.js';
 
 const OBJECT_TYPES = ['metal', 'geo', 'start'];
 
@@ -77,13 +79,13 @@ export function bindInput(editor) {
     const ha = heightAt(doc, a.x, a.z), hb = heightAt(doc, w.x, w.z), len = Math.hypot(w.x - a.x, w.z - a.z);
     const angle = (Math.atan2(Math.abs(hb - ha), Math.max(1, len)) * 180) / Math.PI;
     const who = angle <= PATHING.vehicle ? 'all units' : angle <= PATHING.bot ? 'bots only' : 'too steep for ground units';
-    $('hint').textContent = `Ramp: ${Math.round(len)} elmos long, ${Math.round(ha)} → ${Math.round(hb)} elmos, slope ${angle.toFixed(1)}° (${who})`;
+    editor.setHint(`Ramp ${Math.round(len)} elmos long, ${Math.round(ha)} → ${Math.round(hb)} elmos, ${angle.toFixed(1)}° (${who})`);
   }
 
   function endRamp() {
     const doc = editor.doc, { a, b } = rampDrag;
     rampDrag = view.rampPreview = null;
-    $('hint').textContent = toolById('ramp').hint;
+    editor.setHint(toolById('ramp').hint);
     if (Math.hypot(b.x - a.x, b.z - a.z) < 8) return;
     editor.history.begin(doc, 'ramp');
     const rect = ramp(doc, a, b, editor.settings.ramp);
@@ -173,50 +175,34 @@ export function bindInput(editor) {
   canvas.addEventListener('pointercancel', pointerUp);
   canvas.addEventListener('pointerleave', () => {
     view.cursor = null;
+    editor.showCursor(null);
     view.invalidate();
   });
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const tool = editor.tool, kind = toolById(tool).kind;
-    if (e.shiftKey && (kind === 'brush' || kind === 'ramp')) resizeBrush(e.deltaY + e.deltaX < 0 ? 1.1 : 0.9);
+    const kind = toolById(editor.tool).kind;
+    if (e.shiftKey && (kind === 'brush' || kind === 'ramp')) editor.resizeBrush(e.deltaY + e.deltaX < 0 ? 1.1 : 0.9);
     else view.zoomAt(...local(e), 1.0018 ** -e.deltaY);
   }, { passive: false });
 
-  function resizeBrush(factor) {
-    const key = editor.tool === 'ramp' ? 'width' : 'radius', s = editor.settings[editor.tool];
-    if (s?.[key] === undefined) return;
-    s[key] = clamp(Math.round(s[key] * factor), 16, 1500);
-    editor.updateCursor();
-    editor.refreshToolPanel();
-  }
-
-  // ---- keyboard (the prototype's shortcuts)
+  // ---- keyboard: everything in the shortcut table, plus Space held for panning
   window.addEventListener('keydown', (e) => {
     if (document.querySelector('dialog[open]') || e.target.closest('input, textarea, select')) return;
-    const key = e.key.toLowerCase(), tool = !e.altKey && TOOLS.find((t) => t.key.toLowerCase() === key);
-    const actions = e.ctrlKey || e.metaKey
-      ? {
-        z: () => (e.shiftKey ? editor.redo() : editor.undo()),
-        y: () => editor.redo(),
-        n: () => editor.openNewMap(),
-        e: () => $('btnExport').click(),
-      }
-      : {
-        ' ': () => { spaceDown = true; canvas.style.cursor = 'grab'; },
-        home: () => view.fit(),
-        delete: () => editor.deleteSelected(),
-        backspace: () => editor.deleteSelected(),
-        '[': () => resizeBrush(0.87),
-        ']': () => resizeBrush(1.15),
-        ...(tool ? { [key]: () => editor.setTool(tool.id) } : {}),
-      };
-    if (!actions[key]) return;
+    const inEditor = document.body.dataset.screen === 'editor';
+    if (e.key === ' ' && inEditor && !e.target.closest('button')) { // Space on a focused button still presses it
+      e.preventDefault();
+      spaceDown = true;
+      canvas.style.cursor = 'grab';
+      return;
+    }
+    const shortcut = shortcutFor(e);
+    if (!shortcut || !(inEditor || shortcut.global)) return;
     e.preventDefault();
-    actions[key]();
+    shortcut.run(editor);
   });
   window.addEventListener('keyup', (e) => {
-    if (e.key !== ' ') return;
+    if (e.key !== ' ' || !spaceDown) return;
     spaceDown = false;
     editor.updateCursor();
   });

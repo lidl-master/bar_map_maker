@@ -1,14 +1,25 @@
-// 3D preview with three.js: the heightmap as a mesh textured with the 2D view's image, water or lava plane, markers.
+// 3D preview with three.js: the heightmap as a mesh textured with the 2D view's image, water or lava plane, markers,
+// and trees and rocks as one instanced mesh per kind (maps carry thousands of them).
 // Orbit camera: left-drag rotate, right-drag pan, wheel zoom.
 import * as THREE from '../../node_modules/three/build/three.module.js';
+import { BIOMES } from '../../src/look/index.js';
 import { heightAt, worldSize } from './sample.js';
 import { TEAM_COLORS } from './view2d.js';
 
 const MAX_SEGMENTS = 384; // mesh resolution cap; plenty for a preview of a 32×32 map
 
+// One low-poly shape per feature kind, standing on the ground (y = 0 at its base).
+const FEATURE_KINDS = {
+  tree: { geometry: new THREE.ConeGeometry(16, 72, 6).translate(0, 36, 0), color: 0x2c5a2a },
+  rock: { geometry: new THREE.DodecahedronGeometry(13, 0).scale(1, 0.6, 1), color: 0x8f8a80 },
+};
+const kindOf = (o) => (o.name.startsWith('rocks') ? 'rock' : 'tree');
+
 export class View3D {
   visible = false;
+  showFeatures = true;
   #orbit = { yaw: 0.6, pitch: 0.85, dist: 6000, tx: 0, tz: 0 };
+  #framed = true; // the camera still shows the whole map (the user has not moved it): keep doing so on resize
   #raf = 0;
 
   constructor(container, sourceCanvas) {
@@ -26,7 +37,8 @@ export class View3D {
     this.liquid = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshLambertMaterial({ transparent: true }));
     this.liquid.rotation.x = -Math.PI / 2;
     this.markers = new THREE.Group();
-    this.scene.add(this.liquid, this.markers);
+    this.features = new THREE.Group();
+    this.scene.add(this.liquid, this.markers, this.features);
     this.#bindControls(this.renderer.domElement);
   }
 
@@ -40,6 +52,7 @@ export class View3D {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y, o = this.#orbit;
       drag.x = e.clientX;
       drag.y = e.clientY;
+      this.#framed = false;
       if (drag.button === 0) {
         o.yaw -= dx * 0.006;
         o.pitch = Math.min(1.5, Math.max(0.08, o.pitch + dy * 0.005));
@@ -53,6 +66,7 @@ export class View3D {
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.#orbit.dist = Math.min(80000, Math.max(300, this.#orbit.dist * 1.0015 ** e.deltaY));
+      this.#framed = false;
       this.render();
     }, { passive: false });
   }
@@ -70,7 +84,9 @@ export class View3D {
     geometry.translate(w / 2, 0, h / 2);
     this.mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ map: this.texture }));
     this.scene.add(this.mesh);
-    Object.assign(this.#orbit, { tx: w / 2, tz: h / 2, dist: Math.max(w, h) * 1.15 });
+    Object.assign(this.#orbit, { tx: w / 2, tz: h / 2 });
+    this.#framed = true;
+    this.#frame();
     this.update();
   }
 
@@ -92,7 +108,9 @@ export class View3D {
     this.liquid.material.color.set(lava.enabled ? 0xff5a10 : 0x2a6f8a);
     this.liquid.material.opacity = lava.enabled ? 0.92 : 0.55;
     this.sun.position.set(...doc.settings.sunDir);
+    this.scene.background.setRGB(...BIOMES[doc.biome].sky, THREE.SRGBColorSpace);
     this.#updateMarkers();
+    this.#updateFeatures();
     this.render();
   }
 
@@ -112,12 +130,40 @@ export class View3D {
     }
   }
 
+  // Rebuilt with the markers: heights may have changed under them.
+  #updateFeatures() {
+    for (const mesh of this.features.children.splice(0)) { mesh.material.dispose(); mesh.dispose(); }
+    if (!this.showFeatures) return;
+    const byKind = { tree: [], rock: [] };
+    for (const o of this.doc.objects) if (o.type === 'feature') byKind[kindOf(o)].push(o);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    for (const [kind, list] of Object.entries(byKind)) {
+      if (!list.length) continue;
+      const { geometry, color } = FEATURE_KINDS[kind];
+      const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshLambertMaterial({ color, flatShading: true }), list.length);
+      list.forEach((o, i) => {
+        const size = 0.8 + ((o.id * 2654435761) % 1000) / 2500; // 0.8..1.2, steady per feature
+        m.compose(p.set(o.x, heightAt(this.doc, o.x, o.z), o.z), q.setFromAxisAngle(up, ((o.rot ?? 0) * Math.PI) / 180), s.setScalar(size));
+        mesh.setMatrixAt(i, m);
+      });
+      this.features.add(mesh);
+    }
+  }
+
+  // Far enough back that the whole map fits, also in a tall, narrow split pane.
+  #frame() {
+    if (!this.#framed || !this.doc) return;
+    const [w, h] = worldSize(this.doc);
+    this.#orbit.dist = Math.max(w, h) * 1.15 * Math.max(1, 1 / this.camera.aspect);
+  }
+
   resize() {
     const r = this.container.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return;
     this.renderer.setSize(r.width, r.height);
     this.camera.aspect = r.width / r.height;
     this.camera.updateProjectionMatrix();
+    this.#frame();
     this.render();
   }
 

@@ -31,7 +31,7 @@ before(async () => {
   page = await app.firstWindow();
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.locator('#dlgNew[open]').waitFor(); // the editor has booted and offers a new map
+  await page.locator('#welcome').waitFor(); // the app has booted on its welcome screen
 });
 
 after(async () => {
@@ -39,19 +39,19 @@ after(async () => {
   assert.deepEqual(errors, []);
 });
 
-const countOf = async (label) => Number(new RegExp(`${label} (\\d+)`).exec(await page.textContent('#stCounts'))[1]);
+const countOf = async (type) => Number((await page.textContent(`#stCounts [data-count=${type}]`)).replaceAll(',', ''));
 
 async function newMap({ size, players, template, biome }) {
-  if (!(await page.locator('#dlgNew[open]').count())) await page.click('#btnNew');
+  if (!(await page.locator('#dlgNew[open]').count())) await page.click(await page.isVisible('#welcome') ? '#wNew' : '#btnNew');
   await page.fill('#nmWidth', String(size));
   await page.fill('#nmHeight', String(size));
   await page.fill('#nmPlayers', String(players));
-  await page.selectOption('#nmBiome', biome);
-  await page.locator('#nmTemplates .tpl', { hasText: template }).click();
+  await page.click(`#nmBiome [data-value=${biome}]`);
+  await page.locator('#nmTemplates .tpl-pick', { hasText: template }).click();
   await page.click('#nmCreate');
-  await page.waitForFunction((title) => document.getElementById('mapTitle').textContent.endsWith(title), `${size}×${size}`);
-  await page.locator('#busy').waitFor({ state: 'hidden' });
-  assert.equal(await countOf('Starts'), players);
+  await page.waitForFunction((meta) => document.getElementById('mapMeta').textContent.startsWith(meta), `${size} × ${size}`);
+  await page.locator('#loading').waitFor({ state: 'hidden' });
+  assert.equal(await countOf('start'), players);
   assert.equal(await page.isDisabled('#btnUndo'), true, 'a new map starts with an empty history');
 }
 
@@ -60,8 +60,8 @@ async function rename(name) {
   const field = page.locator('#tab-map input[type=text]').first();
   // Map names are text, never markup.
   await field.fill('<b>x</b>');
-  assert.match(await page.textContent('#mapTitle'), /^<b>x<\/b> · /);
-  assert.equal(await page.locator('#mapTitle *').count(), 0);
+  assert.equal(await page.inputValue('#mapName'), '<b>x</b>');
+  assert.equal(await page.title(), '<b>x</b> — BAR Map Studio');
   await field.fill(name);
 }
 
@@ -77,27 +77,28 @@ async function edit() {
   assert.equal(await page.isDisabled('#btnUndo'), false, 'the stroke is undoable');
 
   await page.click('#toolbar [data-tool=metal]');
-  const metal = await countOf('Metal spots');
+  const metal = await countOf('metal');
   // A click next to an existing spot selects it instead; try a few places.
   for (const [fx, fz] of [[0.1, 0.55], [-0.45, 0.6], [0.55, -0.1], [0.3, 0.3]]) {
     await page.mouse.click(cx + r * fx, cy + r * fz);
-    if (await countOf('Metal spots') > metal) break;
+    if (await countOf('metal') > metal) break;
   }
-  const placed = await countOf('Metal spots');
+  const placed = await countOf('metal');
   assert.ok(placed > metal, 'a metal spot (and its mirrored copies) was placed');
   await page.click('#btnUndo');
-  assert.equal(await countOf('Metal spots'), metal);
+  assert.equal(await countOf('metal'), metal);
   assert.equal(await page.isDisabled('#btnRedo'), false);
   await page.click('#btnRedo');
-  assert.equal(await countOf('Metal spots'), placed);
+  assert.equal(await countOf('metal'), placed);
   assert.equal(await page.isDisabled('#btnRedo'), true);
 }
 
 async function exportMap(fileName) {
   await page.click('#btnExport');
-  await page.locator('#busy').waitFor({ state: 'hidden', timeout: 180_000 });
+  await page.waitForFunction(() => document.getElementById('exportPanel').dataset.state !== 'running', null, { timeout: 180_000 });
+  assert.equal(await page.getAttribute('#exportPanel', 'data-state'), 'done', await page.textContent('#exportPanel'));
   const archive = path.join(exportDir, fileName);
-  assert.ok(existsSync(archive), `${archive} was written (toast: ${await page.textContent('#toast')})`);
+  assert.ok(existsSync(archive), `${archive} was written`);
   return archive;
 }
 
@@ -127,7 +128,7 @@ test('Rolling hills 12×12, 4 players: edit, export, install confirm (cancelled)
     dialog.showMessageBox = async (_window, options) => { globalThis.installPrompt = options; return { response: 1 }; };
   });
   await page.click('#btnInstall');
-  await page.waitForFunction(() => document.getElementById('toast').textContent.startsWith('Install cancelled'), null, { timeout: 180_000 });
+  await page.waitForFunction(() => document.getElementById('toasts').textContent.includes('Install cancelled'), null, { timeout: 180_000 });
   const prompt = await app.evaluate(() => globalThis.installPrompt);
   assert.match(prompt.message, new RegExp(path.basename(archive).replaceAll('.', '\\.')));
   assert.match(prompt.detail, /BAR maps folder:\n.+maps\n\nNo existing file is replaced\./);
@@ -135,9 +136,9 @@ test('Rolling hills 12×12, 4 players: edit, export, install confirm (cancelled)
 
 test('Volcano – King of the Hill 16×16, 8 players: symmetry locked, edit, export with lava and 8 starts', async () => {
   await page.click('#btnNew');
-  await page.locator('#nmTemplates .tpl', { hasText: 'Volcano' }).click();
-  assert.equal(await page.inputValue('#nmSymmetry'), 'mirrorX');
-  assert.equal(await page.isDisabled('#nmSymmetry'), true);
+  await page.locator('#nmTemplates .tpl-pick', { hasText: 'Volcano' }).click();
+  assert.equal(await page.getAttribute('#nmSymmetry input:checked', 'value'), 'mirrorX');
+  assert.equal(await page.isDisabled('#nmSymmetry input[value=rot180]'), true, 'the template locks its symmetry');
   await newMap({ size: 16, players: 8, template: 'Volcano', biome: 'volcanic' });
   await rename('Studio E2E Volcano');
   await edit();

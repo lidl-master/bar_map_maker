@@ -1,5 +1,6 @@
 // The one icon set: Lucide (ISC, npm `lucide`), 24×24 line icons in currentColor; size and stroke come from .icon in tokens.css.
 // Icons are built with createElementNS from Lucide's node lists: no markup is ever parsed.
+import ArrowDownToDot from '../../node_modules/lucide/dist/esm/icons/arrow-down-to-dot.mjs';
 import ArrowDownToLine from '../../node_modules/lucide/dist/esm/icons/arrow-down-to-line.mjs';
 import ArrowLeft from '../../node_modules/lucide/dist/esm/icons/arrow-left.mjs';
 import ArrowRight from '../../node_modules/lucide/dist/esm/icons/arrow-right.mjs';
@@ -7,64 +8,72 @@ import ArrowUpFromLine from '../../node_modules/lucide/dist/esm/icons/arrow-up-f
 import AudioWaveform from '../../node_modules/lucide/dist/esm/icons/audio-waveform.mjs';
 import Box from '../../node_modules/lucide/dist/esm/icons/box.mjs';
 import Check from '../../node_modules/lucide/dist/esm/icons/check.mjs';
-import Circle from '../../node_modules/lucide/dist/esm/icons/circle.mjs';
+import ChevronDown from '../../node_modules/lucide/dist/esm/icons/chevron-down.mjs';
 import CircleAlert from '../../node_modules/lucide/dist/esm/icons/circle-alert.mjs';
 import CircleCheck from '../../node_modules/lucide/dist/esm/icons/circle-check.mjs';
 import CircleDot from '../../node_modules/lucide/dist/esm/icons/circle-dot.mjs';
 import Clock from '../../node_modules/lucide/dist/esm/icons/clock.mjs';
 import Columns2 from '../../node_modules/lucide/dist/esm/icons/columns-2.mjs';
+import Copy from '../../node_modules/lucide/dist/esm/icons/copy.mjs';
 import Crop from '../../node_modules/lucide/dist/esm/icons/crop.mjs';
 import Crosshair from '../../node_modules/lucide/dist/esm/icons/crosshair.mjs';
 import Dice5 from '../../node_modules/lucide/dist/esm/icons/dice-5.mjs';
 import Equal from '../../node_modules/lucide/dist/esm/icons/equal.mjs';
-import FilePlus from '../../node_modules/lucide/dist/esm/icons/file-plus.mjs';
+import Eraser from '../../node_modules/lucide/dist/esm/icons/eraser.mjs';
+import FileOutput from '../../node_modules/lucide/dist/esm/icons/file-output.mjs';
 import Flag from '../../node_modules/lucide/dist/esm/icons/flag.mjs';
 import Flame from '../../node_modules/lucide/dist/esm/icons/flame.mjs';
 import FolderOpen from '../../node_modules/lucide/dist/esm/icons/folder-open.mjs';
 import FolderSearch from '../../node_modules/lucide/dist/esm/icons/folder-search.mjs';
+import Footprints from '../../node_modules/lucide/dist/esm/icons/footprints.mjs';
 import HardDriveDownload from '../../node_modules/lucide/dist/esm/icons/hard-drive-download.mjs';
-import ImageIcon from '../../node_modules/lucide/dist/esm/icons/image.mjs';
 import Info from '../../node_modules/lucide/dist/esm/icons/info.mjs';
 import Keyboard from '../../node_modules/lucide/dist/esm/icons/keyboard.mjs';
+import Layers from '../../node_modules/lucide/dist/esm/icons/layers.mjs';
 import LoaderCircle from '../../node_modules/lucide/dist/esm/icons/loader-circle.mjs';
 import Lock from '../../node_modules/lucide/dist/esm/icons/lock.mjs';
 import MapIcon from '../../node_modules/lucide/dist/esm/icons/map.mjs';
+import MapPlus from '../../node_modules/lucide/dist/esm/icons/map-plus.mjs';
 import Minus from '../../node_modules/lucide/dist/esm/icons/minus.mjs';
+import Mountain from '../../node_modules/lucide/dist/esm/icons/mountain.mjs';
 import MountainSnow from '../../node_modules/lucide/dist/esm/icons/mountain-snow.mjs';
 import Mouse from '../../node_modules/lucide/dist/esm/icons/mouse.mjs';
 import MousePointer2 from '../../node_modules/lucide/dist/esm/icons/mouse-pointer-2.mjs';
-import Package from '../../node_modules/lucide/dist/esm/icons/package.mjs';
 import Paintbrush from '../../node_modules/lucide/dist/esm/icons/paintbrush.mjs';
 import Plus from '../../node_modules/lucide/dist/esm/icons/plus.mjs';
 import Redo2 from '../../node_modules/lucide/dist/esm/icons/redo-2.mjs';
-import Route from '../../node_modules/lucide/dist/esm/icons/route.mjs';
-import Scan from '../../node_modules/lucide/dist/esm/icons/scan.mjs';
+import RotateCcw from '../../node_modules/lucide/dist/esm/icons/rotate-ccw.mjs';
 import Scaling from '../../node_modules/lucide/dist/esm/icons/scaling.mjs';
-import Sparkles from '../../node_modules/lucide/dist/esm/icons/sparkles.mjs';
+import Scan from '../../node_modules/lucide/dist/esm/icons/scan.mjs';
+import Spline from '../../node_modules/lucide/dist/esm/icons/spline.mjs';
 import Square from '../../node_modules/lucide/dist/esm/icons/square.mjs';
+import SquareCenterlineDashedVertical from '../../node_modules/lucide/dist/esm/icons/square-centerline-dashed-vertical.mjs';
+import Tag from '../../node_modules/lucide/dist/esm/icons/tag.mjs';
 import Trash from '../../node_modules/lucide/dist/esm/icons/trash.mjs';
 import Trees from '../../node_modules/lucide/dist/esm/icons/trees.mjs';
 import TriangleAlert from '../../node_modules/lucide/dist/esm/icons/triangle-alert.mjs';
 import TriangleRight from '../../node_modules/lucide/dist/esm/icons/triangle-right.mjs';
 import Undo2 from '../../node_modules/lucide/dist/esm/icons/undo-2.mjs';
-import Users from '../../node_modules/lucide/dist/esm/icons/users.mjs';
-import WavesHorizontal from '../../node_modules/lucide/dist/esm/icons/waves-horizontal.mjs';
 import X from '../../node_modules/lucide/dist/esm/icons/x.mjs';
 
 const ICONS = {
-  'arrow-down-to-line': ArrowDownToLine, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight, 'arrow-up-from-line': ArrowUpFromLine,
-  'audio-waveform': AudioWaveform, box: Box, check: Check, circle: Circle, 'circle-alert': CircleAlert, 'circle-check': CircleCheck,
-  'circle-dot': CircleDot, clock: Clock, 'columns-2': Columns2, crop: Crop, crosshair: Crosshair, 'dice-5': Dice5, equal: Equal, 'file-plus': FilePlus,
-  flag: Flag, flame: Flame, 'folder-open': FolderOpen, 'folder-search': FolderSearch, 'hard-drive-download': HardDriveDownload, image: ImageIcon, info: Info,
-  keyboard: Keyboard, 'loader-circle': LoaderCircle, lock: Lock, map: MapIcon, minus: Minus, 'mountain-snow': MountainSnow, mouse: Mouse,
-  'mouse-pointer-2': MousePointer2, package: Package, paintbrush: Paintbrush, plus: Plus, 'redo-2': Redo2, route: Route,
-  scaling: Scaling, scan: Scan, sparkles: Sparkles, square: Square, trash: Trash, trees: Trees, 'triangle-alert': TriangleAlert,
-  'triangle-right': TriangleRight, 'undo-2': Undo2, users: Users, 'waves-horizontal': WavesHorizontal, x: X,
+  'arrow-down-to-dot': ArrowDownToDot, 'arrow-down-to-line': ArrowDownToLine, 'arrow-left': ArrowLeft,
+  'arrow-right': ArrowRight, 'arrow-up-from-line': ArrowUpFromLine, 'audio-waveform': AudioWaveform, box: Box,
+  check: Check, 'chevron-down': ChevronDown, 'circle-alert': CircleAlert, 'circle-check': CircleCheck,
+  'circle-dot': CircleDot, clock: Clock, 'columns-2': Columns2, copy: Copy, crop: Crop, crosshair: Crosshair,
+  'dice-5': Dice5, equal: Equal, eraser: Eraser, 'file-output': FileOutput, flag: Flag, flame: Flame,
+  'folder-open': FolderOpen, 'folder-search': FolderSearch, footprints: Footprints,
+  'hard-drive-download': HardDriveDownload, info: Info, keyboard: Keyboard, layers: Layers,
+  'loader-circle': LoaderCircle, lock: Lock, map: MapIcon, 'map-plus': MapPlus, minus: Minus, mountain: Mountain,
+  'mountain-snow': MountainSnow, mouse: Mouse, 'mouse-pointer-2': MousePointer2, paintbrush: Paintbrush, plus: Plus,
+  'redo-2': Redo2, 'rotate-ccw': RotateCcw, scaling: Scaling, scan: Scan, spline: Spline, square: Square,
+  'square-centerline-dashed-vertical': SquareCenterlineDashedVertical, tag: Tag, trash: Trash, trees: Trees,
+  'triangle-alert': TriangleAlert, 'triangle-right': TriangleRight, 'undo-2': Undo2, x: X,
 };
 
 const NS = 'http://www.w3.org/2000/svg';
 
-/** An <svg class="icon"> for a Lucide icon name; extra classes (e.g. 'lg') are appended. */
+/** An <svg class="icon"> for a Lucide icon name; extra classes (e.g. 'spin') are appended. */
 export function icon(name, className = '') {
   const nodes = ICONS[name];
   if (!nodes) throw new Error(`unknown icon "${name}"`);

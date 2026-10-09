@@ -1,5 +1,5 @@
 // Feedback: toasts, the in-app confirm dialog, tooltips and the loading state for long jobs.
-import { $, clamp, el } from './dom.js';
+import { $, clamp, el, keys } from './dom.js';
 import { icon } from './icons.js';
 
 const TOAST_ICONS = { info: 'info', ok: 'circle-check', warn: 'triangle-alert', error: 'circle-alert' };
@@ -74,18 +74,32 @@ export async function withLoading(title, detail, fn) {
 // ---- tooltips: any element with data-tip (and optional data-key) gets a designed tooltip on hover and keyboard focus.
 let tipTimer = 0, lastHidden = 0, tipFor = null;
 
-function showTip(target) {
-  const tip = $('tooltip');
-  tipFor = target;
-  tip.replaceChildren(target.dataset.tip, ...(target.dataset.key ? [el('kbd', {}, target.dataset.key)] : []));
+/** Shows the tooltip next to rect: right of it in the tool rail, else below (above when there is no room). */
+function placeTip(rect, side, text, key) {
+  const tip = $('tooltip'), gap = 8;
+  tip.replaceChildren(text, ...(key ? [keys(key)] : []));
   tip.hidden = false;
-  const r = target.getBoundingClientRect(), t = tip.getBoundingClientRect(), gap = 8;
-  const right = target.closest('#toolbar');
-  let x = right ? r.right + gap : r.left + r.width / 2 - t.width / 2;
-  let y = right ? r.top + r.height / 2 - t.height / 2 : r.bottom + gap;
-  if (!right && y + t.height > innerHeight - 4) y = r.top - gap - t.height;
+  const t = tip.getBoundingClientRect();
+  let x = side === 'right' ? rect.right + gap : rect.left + rect.width / 2 - t.width / 2;
+  let y = side === 'right' ? rect.top + rect.height / 2 - t.height / 2 : rect.bottom + gap;
+  if (side !== 'right' && y + t.height > innerHeight - 4) y = rect.top - gap - t.height;
   x = Math.max(4, Math.min(innerWidth - t.width - 4, x));
   tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+
+function showTip(target) {
+  tipFor = target;
+  placeTip(target.getBoundingClientRect(), target.closest('#toolbar') ? 'right' : 'below', target.dataset.tip, target.dataset.key);
+}
+
+/** A tooltip for a spot on a canvas (the 2D symmetry centre); text null hides it. */
+export function pointTip(text, clientX, clientY) {
+  if (!text) {
+    if (tipFor === 'point') hideTip();
+    return;
+  }
+  tipFor = 'point';
+  placeTip(new DOMRect(clientX - 8, clientY - 8, 16, 16), 'below', text);
 }
 
 function hideTip() {
@@ -106,7 +120,7 @@ export function bindTooltips() {
   document.addEventListener('pointerover', (e) => {
     const target = e.target.closest?.('[data-tip]');
     if (target) scheduleTip(target);
-    else if (tipFor) hideTip();
+    else hideTip(); // also cancels a tooltip still waiting to appear
   });
   document.addEventListener('focusin', (e) => {
     const target = e.target.closest?.('[data-tip]');

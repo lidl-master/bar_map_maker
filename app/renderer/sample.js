@@ -18,11 +18,14 @@ export function pathingClass(doc, i, j) {
   return slope <= PATHING.vehicle ? 'all' : slope <= PATHING.bot ? 'bots' : 'none';
 }
 
+// Colour-blind safe and muted: teal, amber, magenta (hatched in 2D), two blues, dark red. The 2D view lays them at 65 %
+// over a hillshade, so the relief still reads.
+// short: the legend strip under the 2D map; label: its tooltip and the status bar.
 export const PATHING_LEGEND = {
-  all: { color: [64, 160, 80], label: `All ground units (≤ ${PATHING.vehicle}°)` },
-  bots: { color: [220, 190, 60], label: `Bots only (≤ ${PATHING.bot}°)` },
-  none: { color: [200, 60, 50], label: 'Impassable cliff' },
-  shallow: { color: [90, 150, 220], label: `Shallow water (wade ≤ ${PATHING.wade} elmos)` },
-  deep: { color: [40, 80, 170], label: 'Deep water (ships, hovers)' },
-  lava: { color: [255, 110, 0], label: 'Lava (deadly)' },
+  all: { color: [52, 158, 146], short: `All units ≤ ${PATHING.vehicle}°`, label: `All ground units (≤ ${PATHING.vehicle}°)` },
+  bots: { color: [222, 164, 58], short: `Bots ${PATHING.vehicle}–${PATHING.bot}°`, label: `Bots only (${PATHING.vehicle}–${PATHING.bot}°)` },
+  none: { color: [196, 70, 160], short: 'Impassable', label: `Impassable (> ${PATHING.bot}°)` },
+  shallow: { color: [120, 170, 232], short: 'Shallow water', label: `Shallow water (≤ ${PATHING.wade} elmos)` },
+  deep: { color: [48, 86, 178], short: 'Deep water', label: 'Deep water (ships, hovers)' },
+  lava: { color: [150, 36, 28], short: 'Lava', label: 'Lava (deadly)' },
 };

@@ -42,16 +42,17 @@ function extendPanel(canvas) {
 }
 
 function sideStepper(side) {
-  const input = el('input', { class: 'field', type: 'number', step: 1, 'aria-label': `${SIDES[side]}, in units` });
+  const input = el('input', { class: 'num', type: 'number', step: 1, 'aria-label': `${SIDES[side]}, in units` });
   const set = (v) => {
     const [lo, hi] = bounds(side);
     state[side] = clamp(Math.round(+v) || 0, lo, hi);
     update();
   };
   input.addEventListener('change', () => set(input.value));
-  const minus = el('button', { class: 'btn square', type: 'button', 'aria-label': `Crop one unit ${side}`, onclick: () => set(state[side] - 1) }, icon('minus'));
-  const plus = el('button', { class: 'btn square', type: 'button', 'aria-label': `Add one unit ${side}`, onclick: () => set(state[side] + 1) }, icon('plus'));
-  const node = el('div', { class: `rs-side ${side}` }, el('span', { class: 'rs-label' }, SIDES[side]), el('div', { class: 'stepper' }, minus, input, plus));
+  // The design system's stepper (dom.js stepper()) look; its bounds move with the other sides, so update() sets them.
+  const minus = el('button', { type: 'button', 'aria-label': `Crop one unit ${side}`, 'data-tip': `Crop one unit ${side}`, onclick: () => set(state[side] - 1) }, icon('minus'));
+  const plus = el('button', { type: 'button', 'aria-label': `Add one unit ${side}`, 'data-tip': `Add one unit ${side}`, onclick: () => set(state[side] + 1) }, icon('plus'));
+  const node = el('div', { class: `rs-side ${side}` }, el('span', { class: 'rs-label' }, SIDES[side]), el('div', { class: 'stepper', role: 'group', 'aria-label': SIDES[side] }, minus, input, plus));
   return { side, node, input, minus, plus };
 }
 

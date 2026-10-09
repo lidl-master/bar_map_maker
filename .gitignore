@@ -7,3 +7,4 @@ docs/gauntlet/.keys/
 *.sd7
 *.sdz
 *.log
+__pycache__/

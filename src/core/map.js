@@ -70,12 +70,18 @@ export function orbit(doc, x, z) {
   return out;
 }
 
-/** Add one object per point, all sharing a new symmetry group. Returns the new objects. */
+// Last id handed out, per objects array: one scan seeds it, then each add is O(1), so scattering thousands
+// of features stays fast. Keyed by the array, so replacing doc.objects (undo, a filter, a worker's result)
+// re-seeds the counter instead of handing out ids that are already taken.
+const lastId = new WeakMap();
+
+/** Add one object per point, all sharing a new symmetry group (the first object's id). Returns the new objects. */
 export function addGroup(doc, type, points, props = {}) {
-  let id = 0, group = 0;
-  for (const o of doc.objects) { id = Math.max(id, o.id); group = Math.max(group, o.group ?? 0); }
-  const made = points.map(([x, z]) => ({ id: ++id, type, x, z, group: group + 1, ...props }));
+  let id = lastId.get(doc.objects);
+  if (id === undefined) { id = 0; for (const o of doc.objects) id = Math.max(id, o.id, o.group ?? 0); }
+  const group = id + 1, made = points.map(([x, z]) => ({ id: ++id, type, x, z, group, ...props }));
   doc.objects.push(...made);
+  lastId.set(doc.objects, id);
   return made;
 }
 

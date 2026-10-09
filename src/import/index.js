@@ -2,5 +2,5 @@
 // mapinfo.lua through wasmoon, so the renderer imports preview.js directly instead of this file.
 export { importMap } from './import.js';
 export { readMapData } from './map-data.js';
-export { findMetalSpots } from './metal-spots.js';
+export { blobSpan, findMetalSpots, METAL_PIXEL, metalBlobs } from './metal-spots.js';
 export { closestBiome, originalColor, originalPreview } from './preview.js';

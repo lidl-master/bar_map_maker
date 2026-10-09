@@ -2,4 +2,4 @@
 export { SQUARE, UNIT, createMap, worldSize, sampleHeight, slopeAt, heightRange, images, orbit, addGroup, addObject, moveGroup } from './map.js';
 export { SYMMETRY, symMode, enforceSymmetry, blendSymmetry, symmetrize } from './symmetry.js';
 export { History } from './history.js';
-export { extendMap, resizeMap } from './reshape.js';
+export { extendMap, paste, resizeMap } from './reshape.js';

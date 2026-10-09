@@ -2,12 +2,13 @@
 import { biomeOf } from '../look/biomes.js';
 
 /** A double-quoted Lua string literal; quotes, backslashes and control characters are escaped. */
-function luaString(text) {
+export function luaString(text) {
   const escape = (c) => (c === '\\' || c === '"' ? `\\${c}` : `\\${String(c.charCodeAt(0)).padStart(3, '0')}`);
   return `"${String(text).replace(/[\\"\x00-\x1f\x7f]/g, escape)}"`;
 }
 
-function luaNumber(value, name) {
+/** A Lua number literal; throws (naming the value) unless it is finite. */
+export function luaNumber(value, name) {
   if (!Number.isFinite(value)) throw new Error(`mapinfo: ${name} must be a finite number, got ${value}`);
   return String(value);
 }

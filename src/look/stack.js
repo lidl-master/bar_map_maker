@@ -16,6 +16,10 @@ export const QUALITY = {
 
 // splats.texMults by library class: strength of the splat's detail normal and of its diffuse detail.
 const MULTS = { ground: 0.6, slope: 0.7, cliff: 0.8, shore: 0.6, special: 0.7 };
+// With albedo detail in the diffuse (Standard), cliffs carry side-projected rock and strata in the diffuse and the
+// detail normals; the engine projects splat detail top-down, which stretches into streaks down a wall, so the cliff
+// splat only adds a little grain there.
+const DETAIL_CLIFF_MULT = 0.35;
 
 /**
  * @typedef {Object} TexturePlan
@@ -37,7 +41,7 @@ export function texturePlan(doc, quality) {
     layers: { diffuse: preset.diffuse, splat: preset.splat, spec: preset.spec, normal },
     splats: biomeOf(doc).splats.map((id) => {
       const m = libraryMaterial(id);
-      return { id, scale: 1 / m.tileElmos, mult: MULTS[m.class] };
+      return { id, scale: 1 / m.tileElmos, mult: m.class === 'cliff' && preset.diffuse === 1 ? DETAIL_CLIFF_MULT : MULTS[m.class] };
     }),
     dnts: preset.dnts,
   };

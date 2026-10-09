@@ -27,49 +27,59 @@ export const ROLES = ['ground', 'high', 'slope', 'cliff', 'sand', 'seabed', 'sno
  * @property {number[]} diffuse
  * @property {{base: number[], min: number[], absorb: number[], surface: number[]}} water
  * @property {[number, number, number]} sunDir  default sun for new maps (y up, z < 0 = north)
+ * @property {{id: string, scale: number, cover: number}[]} accents  up to 2 library materials scattered over flat
+ *   ground in organic patches about `scale` elmos across, covering about `cover` of it (macro and meso variation)
  */
 
 const roles = (ground, high, slope, cliff, sand, seabed, snow) => ({ ground, high, slope, cliff, sand, seabed, snow });
+const accent = (id, scale, cover) => ({ id, scale, cover });
 
+// Lighting: the engine shades ground as albedo x (ambient + diffuse x N.L) x 210/255. Flat ground comes out at
+// about its albedo; ambient alone lights the south-facing cliffs the camera sees, so it stays >= ~0.5, and a
+// slightly cool ambient against a warm sun keeps shadows from going muddy.
 /** @type {Record<string, Biome>} */
 export const BIOMES = {
   temperate: {
     label: 'Temperate',
     materials: roles('grass_lush', 'grass_patchy', 'dirt_rocky', 'granite', 'sand_wet', 'mud', 'snow'),
     splats: ['grass_lush', 'dirt_rocky', 'granite', 'sand_wet'],
+    accents: [accent('grass_patchy', 420, 0.12)],
     highStart: 120, highEnd: 380, sandTop: 14, snowLine: 900,
-    sky: [0.55, 0.68, 0.85], fog: [0.62, 0.72, 0.85], sunColor: [1.0, 0.96, 0.88],
-    ambient: [0.58, 0.6, 0.64], diffuse: [0.85, 0.82, 0.76],
-    water: { base: [0.18, 0.32, 0.36], min: [0.02, 0.08, 0.1], absorb: [0.004, 0.0025, 0.0018], surface: [0.75, 0.85, 0.9] },
+    sky: [0.5, 0.64, 0.84], fog: [0.6, 0.7, 0.82], sunColor: [1.0, 0.97, 0.9],
+    ambient: [0.5, 0.54, 0.6], diffuse: [0.95, 0.93, 0.86],
+    water: { base: [0.09, 0.24, 0.3], min: [0.02, 0.06, 0.09], absorb: [0.006, 0.0035, 0.0022], surface: [0.55, 0.7, 0.78] },
     sunDir: [0.35, 0.75, -0.55],
   },
   desert: {
     label: 'Desert',
-    materials: roles('sand_yellow', 'sand_dunes', 'sandstone_layered', 'granite', 'sand_wet', 'dirt_dry', 'sand_dunes'),
-    splats: ['sand_yellow', 'sandstone_layered', 'granite', 'sand_dunes'],
+    materials: roles('sand_yellow', 'sand_dunes', 'sandstone_layered', 'sandstone_cliff', 'sand_wet', 'dirt_dry', 'sand_dunes'),
+    splats: ['sand_yellow', 'sandstone_layered', 'sandstone_cliff', 'sand_dunes'],
+    accents: [accent('dirt_dry', 380, 0.16), accent('pebbles', 70, 0.05)],
     highStart: 100, highEnd: 400, sandTop: 10, snowLine: 1200,
-    sky: [0.78, 0.74, 0.62], fog: [0.86, 0.78, 0.62], sunColor: [1.0, 0.92, 0.78],
-    ambient: [0.62, 0.58, 0.52], diffuse: [0.95, 0.85, 0.7],
-    water: { base: [0.2, 0.34, 0.32], min: [0.05, 0.1, 0.1], absorb: [0.004, 0.003, 0.002], surface: [0.8, 0.85, 0.8] },
+    sky: [0.74, 0.7, 0.6], fog: [0.84, 0.76, 0.62], sunColor: [1.0, 0.93, 0.8],
+    ambient: [0.55, 0.52, 0.5], diffuse: [0.9, 0.82, 0.7],
+    water: { base: [0.1, 0.26, 0.28], min: [0.03, 0.08, 0.09], absorb: [0.006, 0.0035, 0.0025], surface: [0.6, 0.7, 0.68] },
     sunDir: [0.3, 0.8, -0.5],
   },
   arctic: {
     label: 'Arctic',
     materials: roles('snow', 'snow', 'gravel_slate', 'ice_cliff', 'pebbles', 'pebbles', 'snow'),
     splats: ['snow', 'gravel_slate', 'ice_cliff', 'pebbles'],
+    accents: [accent('gravel_slate', 90, 0.06)],
     highStart: 80, highEnd: 300, sandTop: 8, snowLine: 450,
-    sky: [0.7, 0.78, 0.88], fog: [0.82, 0.86, 0.92], sunColor: [0.95, 0.97, 1.0],
-    ambient: [0.6, 0.63, 0.68], diffuse: [0.8, 0.82, 0.85],
-    water: { base: [0.12, 0.22, 0.3], min: [0.02, 0.05, 0.08], absorb: [0.005, 0.003, 0.002], surface: [0.8, 0.88, 0.95] },
+    sky: [0.68, 0.76, 0.88], fog: [0.8, 0.85, 0.92], sunColor: [0.95, 0.97, 1.0],
+    ambient: [0.5, 0.54, 0.6], diffuse: [0.72, 0.74, 0.78],
+    water: { base: [0.07, 0.17, 0.25], min: [0.02, 0.04, 0.07], absorb: [0.006, 0.0035, 0.0022], surface: [0.6, 0.72, 0.82] },
     sunDir: [0.4, 0.55, -0.73],
   },
   volcanic: {
     label: 'Volcanic / lava',
-    materials: roles('ash', 'dirt_dark', 'dirt_rocky', 'basalt', 'regolith', 'lava_rock', 'ash'),
+    materials: roles('ash', 'dirt_dark', 'dirt_rocky', 'basalt', 'scree', 'lava_rock', 'ash'),
     splats: ['ash', 'dirt_rocky', 'basalt', 'lava_rock'],
+    accents: [accent('regolith', 360, 0.2), accent('basalt', 60, 0.07)],
     highStart: 200, highEnd: 1200, sandTop: 20, snowLine: 1400,
-    sky: [0.36, 0.24, 0.2], fog: [0.42, 0.28, 0.22], sunColor: [1.0, 0.78, 0.55],
-    ambient: [0.52, 0.47, 0.46], diffuse: [1.0, 0.82, 0.66],
+    sky: [0.36, 0.24, 0.2], fog: [0.42, 0.28, 0.22], sunColor: [1.0, 0.8, 0.6],
+    ambient: [0.5, 0.46, 0.46], diffuse: [1.0, 0.84, 0.7],
     water: { base: [0.15, 0.18, 0.16], min: [0.04, 0.04, 0.04], absorb: [0.005, 0.004, 0.003], surface: [0.7, 0.7, 0.65] },
     sunDir: [0.45, 0.7, -0.55],
   },
@@ -77,6 +87,7 @@ export const BIOMES = {
     label: 'Lunar',
     materials: roles('regolith', 'ash', 'gravel_slate', 'basalt', 'regolith', 'regolith', 'regolith'),
     splats: ['regolith', 'gravel_slate', 'basalt', 'ash'],
+    accents: [accent('gravel_slate', 320, 0.15), accent('basalt', 60, 0.05)],
     highStart: 80, highEnd: 400, sandTop: 4, snowLine: 1200,
     sky: [0.05, 0.05, 0.08], fog: [0.1, 0.1, 0.12], sunColor: [1.0, 1.0, 1.0],
     ambient: [0.42, 0.42, 0.45], diffuse: [1.0, 1.0, 1.0],
@@ -87,6 +98,7 @@ export const BIOMES = {
     label: 'Red planet',
     materials: roles('dust_red', 'dirt_dry', 'dirt_rocky', 'basalt', 'sand_yellow', 'mud', 'sand_dunes'),
     splats: ['dust_red', 'dirt_rocky', 'basalt', 'dirt_dry'],
+    accents: [accent('dirt_rocky', 360, 0.14), accent('basalt', 60, 0.04)],
     highStart: 100, highEnd: 380, sandTop: 8, snowLine: 1000,
     sky: [0.75, 0.55, 0.42], fog: [0.8, 0.58, 0.45], sunColor: [1.0, 0.9, 0.8],
     ambient: [0.6, 0.52, 0.48], diffuse: [0.95, 0.8, 0.7],
@@ -97,10 +109,11 @@ export const BIOMES = {
     label: 'Tropical',
     materials: roles('grass_lush', 'grass_patchy', 'dirt_rocky', 'basalt', 'sand_yellow', 'sand_wet', 'dirt_dark'),
     splats: ['grass_lush', 'dirt_rocky', 'basalt', 'sand_yellow'],
+    accents: [accent('dirt_dark', 300, 0.06)],
     highStart: 150, highEnd: 450, sandTop: 18, snowLine: 1500,
     sky: [0.5, 0.72, 0.95], fog: [0.65, 0.8, 0.95], sunColor: [1.0, 0.97, 0.9],
-    ambient: [0.6, 0.63, 0.65], diffuse: [0.9, 0.88, 0.82],
-    water: { base: [0.1, 0.45, 0.5], min: [0.0, 0.12, 0.2], absorb: [0.003, 0.0015, 0.001], surface: [0.75, 0.92, 0.95] },
+    ambient: [0.54, 0.58, 0.62], diffuse: [0.95, 0.93, 0.86],
+    water: { base: [0.05, 0.36, 0.44], min: [0.0, 0.1, 0.18], absorb: [0.004, 0.002, 0.0012], surface: [0.6, 0.85, 0.9] },
     sunDir: [0.3, 0.8, -0.5],
   },
 };

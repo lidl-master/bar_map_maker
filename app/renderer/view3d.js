@@ -28,8 +28,8 @@ function skyDome() {
     side: THREE.BackSide, depthTest: false, depthWrite: false,
     uniforms: { top: { value: new THREE.Color(SKY_TOP) }, horizon: { value: new THREE.Color(HORIZON) } },
     vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = (projectionMatrix * modelViewMatrix * vec4(position, 1.0)).xyww; }',
-    fragmentShader: 'uniform vec3 top; uniform vec3 horizon; varying vec3 vDir; '
-      + 'void main() { gl_FragColor = vec4(mix(horizon, top, pow(clamp(normalize(vDir).y, 0.0, 1.0), 0.6)), 1.0); #include <colorspace_fragment> }',
+    fragmentShader: 'uniform vec3 top; uniform vec3 horizon; varying vec3 vDir;\n'
+      + 'void main() {\n  gl_FragColor = vec4(mix(horizon, top, pow(clamp(normalize(vDir).y, 0.0, 1.0), 0.6)), 1.0);\n  #include <colorspace_fragment>\n}',
   });
   const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), material);
   dome.frustumCulled = false;

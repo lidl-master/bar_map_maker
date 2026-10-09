@@ -46,7 +46,7 @@ async function listMaps(app) {
   const cards = maps.map((map) => {
     const frame = thumbFrame(), meta = el('span', { class: 'desc num' }, megabytes(map.sizeMB));
     const card = el('button', { class: 'tpl-card map-card', 'data-file': map.name, 'data-tip': map.name, onclick: () => openMap(app, map.file) },
-      frame, el('span', { class: 'text' }, el('span', { class: 'name' }, map.name), meta));
+      frame, el('span', { class: 'text' }, el('span', { class: 'name' }, map.name.replaceAll('_', '_\u200b')), meta)); // long file names wrap at _
     return { map, card, frame, meta };
   });
   list.replaceChildren(...cards.map((c) => c.card));

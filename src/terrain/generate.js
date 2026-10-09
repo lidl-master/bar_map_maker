@@ -27,7 +27,7 @@ export const TEMPLATES = [
   noiseTemplate('continents', 'Two shores', 'Two land masses facing each other across a sea channel.', { minHeight: -120, maxHeight: 350, water: 30, warp: 0.5, erosion: 0.25 }),
   noiseTemplate('craters', 'Craters', 'Moon-like ground pocked with craters.', { warp: 0.2 }),
   {
-    id: 'volcano-koth', label: 'Volcano – King of the Hill', symmetry: 'mirrorX', build: volcanoKing,
+    id: 'volcano-koth', label: 'Volcano – King of the Hill', short: 'Volcano KotH', symmetry: 'mirrorX', build: volcanoKing,
     description: 'Kings hold a volcano peak; attackers climb from the south.',
     details: 'One-way uphill assault: attackers start in the southern lowlands, the kings hold a volcano summit in the north. '
       + 'Four cliff tiers with ever fewer, narrower ramps; two lava rivers split three lanes. Half the players are kings.',

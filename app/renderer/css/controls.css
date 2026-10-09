@@ -187,6 +187,7 @@ input[type=range]:disabled { cursor: not-allowed; opacity: 0.45; }
 .stepper > button:focus-visible, .stepper > input:focus-visible { outline-offset: -2px; }
 .stepper > input { width: 48px; min-width: 0; border: 0; background: transparent; text-align: center; font-weight: 500; font-variant-numeric: tabular-nums; }
 .stepper:hover { border-color: var(--line-3); }
+.row > .stepper { justify-self: start; }
 
 /* ---- chips (presets) */
 .chips { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-bottom: var(--s-3); }

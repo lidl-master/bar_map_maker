@@ -40,7 +40,7 @@ export function initWelcome(app) {
 /** Refreshes "continue editing" and the recent maps; called whenever the welcome screen is shown. */
 export async function refreshWelcome(app) {
   $('wContinue').hidden = !app.doc;
-  if (app.doc) $('wContinue').querySelector('.label').textContent = `Continue editing ${app.doc.settings.name}`;
+  if (app.doc) $('wContinue').querySelector('.action-text span').textContent = app.doc.settings.name;
   const list = $('recentList');
   try {
     const maps = await listMaps();
@@ -60,7 +60,7 @@ function recentRow(m, app) {
   const editing = app.docKey === m.key;
   return el('button', { class: 'recent', onclick: () => app.openRecent(m.key), 'aria-label': `Open ${m.name}` },
     canvas,
-    el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num' }, `${m.sx}×${m.sz} · ${m.players}p · ${BIOMES[m.biome]?.label ?? m.biome}`)),
+    el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num', 'data-tip': BIOMES[m.biome]?.label ?? m.biome }, `${m.sx}×${m.sz} · ${m.players}p`)),
     el('span', { class: 'when' }, editing ? 'Editing' : when),
-    el('span', { class: 'open-ghost', 'aria-hidden': 'true' }, editing ? 'Continue' : 'Open'));
+    el('span', { class: 'open-ghost', 'aria-hidden': 'true' }, 'Open'));
 }

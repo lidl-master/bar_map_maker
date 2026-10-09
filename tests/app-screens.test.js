@@ -78,6 +78,7 @@ async function placeMetal() {
 
 // Keyboard focus on four kinds of control, each reached with Tab (so :focus-visible applies), cropped and tiled 2×2.
 async function focusControls(size) {
+  await page.click('#toolbar [data-tool=raise]'); // a brush: presets, falloff and sliders in the Tool tab
   const targets = [
     ['Tab', async () => { await page.focus('#tabs [data-tab=tool]'); await page.keyboard.press('Tab'); }],
     ['Slider', async () => { await page.focus('#tab-tool .chips .chip:last-child'); await page.keyboard.press('Tab'); }],
@@ -109,7 +110,8 @@ async function focusControls(size) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.font = '600 12px Inter, sans-serif';
     for (const [n, tile] of list.entries()) {
-      const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${tile.png}`)).blob());
+      // Decoded from bytes: the page's CSP rightly refuses to fetch data: URLs.
+      const img = await createImageBitmap(new Blob([Uint8Array.from(atob(tile.png), (c) => c.charCodeAt(0))], { type: 'image/png' }));
       const x = pad + (n % 2) * (w + pad), y = pad + Math.floor(n / 2) * (h + label + pad);
       ctx.fillStyle = '#adb3bf';
       ctx.fillText(`${tile.label}: keyboard focus`, x, y + 14);
@@ -131,6 +133,7 @@ async function screens(size, { full = true } = {}) {
   await page.locator('#welcome').waitFor();
   await thumbsReady('wTemplates');
   await page.mouse.move(5, 5);
+  await page.waitForTimeout(300); // hover states settle
   await shot('welcome', size);
 
   await page.click('#wTemplates [data-template=hills]');
@@ -157,6 +160,11 @@ async function screens(size, { full = true } = {}) {
   await page.mouse.move(box.x + box.width * 0.36, box.y + box.height * 0.42);
   await page.waitForTimeout(300);
   await shot('editor-2d', size);
+  await page.click('#btnOverlays');
+  await page.locator('#overlayMenu:popover-open').waitFor();
+  await page.waitForTimeout(200);
+  await shot('overlays', size);
+  await page.keyboard.press('Escape');
 
   await page.click('#displayMode [data-mode=pathing]');
   await page.waitForTimeout(800);
@@ -193,6 +201,7 @@ async function screens(size, { full = true } = {}) {
     await page.waitForFunction(() => document.getElementById('exportPanel').dataset.state !== 'running', null, { timeout: 180_000 });
     assert.equal(await page.getAttribute('#exportPanel', 'data-state'), 'done', await page.textContent('#exportPanel'));
     await page.mouse.move(5, 300);
+    await page.waitForTimeout(300);
     await shot('export-done', size);
     await page.keyboard.press('Escape'); // dismisses the finished card
     assert.equal(await page.isHidden('#exportPanel'), true);
@@ -204,7 +213,9 @@ async function screens(size, { full = true } = {}) {
     await page.fill('#mapName', '***');
     await page.click('#btnExport');
     await page.waitForFunction(() => document.getElementById('exportPanel').dataset.state === 'error', null, { timeout: 60_000 });
+    errors.splice(errors.findIndex((e) => e.includes('no letters or digits')), 1); // logged on purpose by the failed export
     await page.mouse.move(5, 300);
+    await page.waitForTimeout(400); // the card rises in
     await shot('export-error', size);
     await page.keyboard.press('Escape');
     await page.fill('#mapName', name);

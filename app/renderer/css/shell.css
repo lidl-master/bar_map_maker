@@ -153,6 +153,7 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 .zoom > button:active { background: var(--press); }
 #zoomLevel { min-width: 44px; text-align: center; font-size: var(--fs-12); font-weight: 500; color: var(--text-1); }
 .zoom-sep { width: 1px; height: 16px; background: var(--line-2); margin: 0 2px; }
+@container (max-width: 460px) { .hint-chip .icon { display: none; } } /* the 3D hint stays on one line */
 /* A narrow pane (split view): the mode switch keeps its icons, the names move to the tooltips. */
 @container (max-width: 500px) {
   #displayMode span { display: none; }

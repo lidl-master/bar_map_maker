@@ -21,7 +21,9 @@ export function initNewMap(onCreate) {
   $('nmTemplates').append(...TEMPLATES.map((t) => {
     const frame = thumbFrame();
     frames.set(t.id, frame);
-    return choice({ name: 'nm-template', value: t.id, checked: t.id === state.template, className: 'tpl-pick', onChange: chooseTemplate }, frame, el('span', { class: 'name' }, t.label));
+    const card = choice({ name: 'nm-template', value: t.id, checked: t.id === state.template, className: 'tpl-pick', onChange: chooseTemplate }, frame, el('span', { class: 'name' }, t.short ?? t.label));
+    if (t.short) card.dataset.tip = t.label;
+    return card;
   }));
   $('nmTemplates').after(el('p', { id: 'nmTemplateDesc', class: 'tpl-desc' }));
   showTemplateDesc();

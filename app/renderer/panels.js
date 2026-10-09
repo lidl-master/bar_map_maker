@@ -76,7 +76,7 @@ function buildMap(editor) {
   value(size, 'Size', `${doc.sx} × ${doc.sz} units`);
   value(size, 'In elmos', `${formatInt(doc.sx * 512)} × ${formatInt(doc.sz * 512)}`);
   value(size, 'Symmetry', SYMMETRY[doc.symmetry].label);
-  size.append(btn('Extend, crop or resize…', { class: 'btn block rs-open', onclick: () => openReshape(editor) }, 'scaling'));
+  size.append(btn('Extend, crop or resize…', { class: 'btn accent-icon block rs-open', onclick: () => openReshape(editor) }, 'scaling'));
 
   const play = section(panel, 'Gameplay');
   slider(play, 'Wind min', s, 'minWind', { min: 0, max: 30, onChange: changed });

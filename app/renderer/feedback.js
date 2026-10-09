@@ -120,7 +120,7 @@ export function bindTooltips() {
   document.addEventListener('pointerover', (e) => {
     const target = e.target.closest?.('[data-tip]');
     if (target) scheduleTip(target);
-    else if (tipFor) hideTip();
+    else hideTip(); // also cancels a tooltip still waiting to appear
   });
   document.addEventListener('focusin', (e) => {
     const target = e.target.closest?.('[data-tip]');

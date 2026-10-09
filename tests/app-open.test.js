@@ -60,6 +60,8 @@ test('the Open screen lists the BAR maps with thumbnails and explains a broken f
   await page.click('#oBrowse');
   await page.locator('#oError:not([hidden])').waitFor({ timeout: 30_000 });
   assert.match(await page.textContent('#oError'), /broken\.sd7/);
+  await page.locator('#loading').waitFor({ state: 'hidden' });
+  await page.waitForTimeout(300); // the next frame is painted
   await shot('open-error');
   await page.click('#oError .btn');
 });
@@ -78,4 +80,21 @@ test('Pyroclast opens with its own texture, objects and name', { skip }, async (
   await page.waitForTimeout(1500);
   await shot('pyroclast-3d');
   await page.click('#viewMode [data-view="2d"]');
+});
+
+test('the autosave keeps doc.original (archive path, tile index, 4x4 mips), not the archive files', { skip }, async () => {
+  await page.click('#btnHome');
+  await page.locator('#recentList .recent').first().waitFor();
+  const saved = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bar-map-studio');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const docs = await new Promise((resolve) => { const r = db.transaction('docs').objectStore('docs').getAll(); r.onsuccess = () => resolve(r.result); });
+    const { original } = docs.find((d) => d.doc.original).doc;
+    return { archive: original.archive, mips: original.tileMips.length, tiles: original.tileIndex.length };
+  });
+  assert.match(saved.archive, /pyroclast_1\.0\.4\.sd7$/);
+  assert.deepEqual([saved.tiles, saved.mips], [16 * 16 * 20 * 16, 81920 * 8]); // Pyroclast: 16 × 20 units, 81,920 SMT tiles
 });

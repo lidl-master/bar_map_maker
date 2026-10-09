@@ -17,7 +17,8 @@ async function sevenZ(args, cwd) {
     return (await run(sevenZip.path7za, [...args, '-bsp0', '-y'], { cwd, windowsHide: true, maxBuffer: 64 << 20 })).stdout;
   } catch (error) {
     // execFile rejects on any non-zero exit (7-Zip: 1 warning, 2 fatal, 7 bad command line, 8 out of memory).
-    throw new Error(`7-Zip ${args[0]} failed (exit ${error.code}): ${String(error.stderr || error.message).trim()}`);
+    const action = { a: 'pack', l: 'list', x: 'extract' }[args[0]];
+    throw new Error(`7-Zip could not ${action} the archive (exit ${error.code}): ${String(error.stderr || error.message).trim()}`);
   }
 }
 

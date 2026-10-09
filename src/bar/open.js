@@ -30,6 +30,8 @@ export async function openMapArchive(archive, onProgress = () => {}) {
   const [listing, files] = await Promise.all([listArchive(archive), readArchive(archive, EDITOR_FILES)]);
   const extracted = performance.now();
   onProgress(0.7, 'Reading heights, metal and textures');
+  // shortcut: importMap runs on the caller's thread (the Electron main process): at most 0.3 s on the installed maps.
+  // Move it to a worker_thread if a map ever takes longer.
   const doc = await importMap(files, { archive, listing });
   return { doc, seconds: { extract: (extracted - start) / 1000, import: (performance.now() - extracted) / 1000 } };
 }

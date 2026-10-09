@@ -23,7 +23,7 @@ Updated by the lead. Bars and pace rules: [bars.md](bars.md). Contracts: [../ARC
 ## Gates
 | Gate | Status |
 |---|---|
-| G0 unit tests | pass (Wave 0) |
+| G0 unit tests | pass (main after Waves 2–4.2: 136 pass, 2 gated engine tests skipped, 121 s; one unexplained file-level failure of tests/bar/export.test.js seen once under heavy parallel load, not reproduced) |
 | G1 format validator | pass (Wave 0) |
 | G2 headless engine load | pass (Wave 0, hardened) |
 | G3 in-engine screenshots | pass (Wave 2: ours preferred in 11/16 blind judgments) |

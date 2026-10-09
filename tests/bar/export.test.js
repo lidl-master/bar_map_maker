@@ -43,12 +43,13 @@ test('exports a 2x2 map whose archive holds a consistent SMF, SMT, mapinfo and t
   const info = await readMapInfo(files);
   assert.equal(info.smtFile, 'maps/Export_Test.smt');
   const resources = Object.entries(info.raw.resources).filter(([key]) => key !== 'splatdetailnormaldiffusealpha'); // raw keys are lower case
-  assert.equal(resources.length, 7, 'splat distribution, 4 splat detail textures, detail normals, specular');
+  assert.equal(resources.length, 8, 'splat distribution, 4 splat detail textures, detail normals, specular, map edge (grass shading)');
   for (const [key, name] of resources) {
     assert.ok(files.has(`maps/${name}`), `${key}: maps/${name} is in the archive`);
     if (name.endsWith('.dds')) assert.ok(readDdsHeader(files.get(`maps/${name}`)).mips > 1, `${name} has mips`);
   }
   assert.equal(info.raw.resources.splatdetailnormaldiffusealpha, 1);
+  assert.equal(info.raw.custom.grassconfig.mapgrasscolormodtex, '$minimap', 'BAR grass keeps the minimap colours');
   assert.equal(Object.values(info.raw.splats.texscales).length, 4);
 });
 

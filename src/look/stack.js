@@ -19,7 +19,7 @@ const MULTS = { ground: 0.6, slope: 0.7, cliff: 0.8, shore: 0.6, special: 0.7 };
 // With albedo detail in the diffuse (Standard), cliffs carry side-projected rock and strata in the diffuse and the
 // detail normals; the engine projects splat detail top-down, which stretches into streaks down a wall, so the cliff
 // splat only adds a little grain there.
-const DETAIL_CLIFF_MULT = 0.35;
+const DETAIL_CLIFF_MULT = 0.25;
 
 /**
  * @typedef {Object} TexturePlan

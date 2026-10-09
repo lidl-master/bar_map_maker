@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assembleDds, encodeDds, encodeStrip, readDdsHeader } from '../../src/formats/index.js';
+import { assembleDds, decodeDxt1, encodeDds, encodeDxt1Mips, encodeStrip, readDdsHeader } from '../../src/formats/index.js';
+import { edgeTexture } from '../../src/formats/map-files.js';
 
 // RGBA test image: top half white, bottom half black, with a horizontal ramp in alpha.
 function image(width, height) {
@@ -43,6 +44,18 @@ test('strip-wise encoding on workers gives the same file as encoding the whole i
     for (let y = 0; y < height; y += rows) strips.push(encodeStrip(whole.slice(y * width * 4, (y + rows) * width * 4), width, rows, format));
     assert.deepEqual(assembleDds(strips, width, height, format), encodeDds(whole, width, height, format));
   }
+});
+
+test('the map edge texture is the minimap with its chroma cut to 30%, luminance kept', () => {
+  const rgb = new Uint8Array(1024 * 1024 * 3);
+  for (let p = 0; p < rgb.length; p += 3) rgb.set([200, 120, 40], p); // saturated orange
+  const dds = edgeTexture(encodeDxt1Mips(rgb, 1024));
+  const header = readDdsHeader(dds);
+  assert.deepEqual([header.width, header.height, header.fourCC], [256, 256, 'DXT1']);
+  const [r, g, b] = decodeDxt1(dds.subarray(128, 128 + 8), 4, 4); // first block of the top level
+  const y = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  assert.ok(Math.abs(y([r, g, b]) - y([200, 120, 40])) < 4, `luminance kept: ${[r, g, b]}`);
+  assert.ok(Math.abs(r - b - 0.3 * 160) < 8, `red-blue spread cut from 160 to ~48: ${[r, g, b]}`);
 });
 
 test('BC3 alpha endpoints span the alpha range of the block', () => {

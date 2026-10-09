@@ -42,6 +42,35 @@ test('the strip holds the diffuse, minimap, grass and unit-length detail normals
   assert.equal(strip.normal.length, (2048 / plan.layers.normal) * (256 / plan.layers.normal) * 4);
 });
 
+// Mean share (0..1) of each splat channel over a strip of a doc whose ground rises northwards at `degrees`.
+function splatShares(degrees, biome = 'temperate') {
+  const doc = testMap({ sx: 4, sz: 4 });
+  doc.biome = biome;
+  doc.objects = [];
+  doc.paint.fill(0);
+  const rise = Math.tan((degrees * Math.PI) / 180) * 8;
+  for (let j = 0; j < doc.H; j++) doc.heights.fill(100 + (doc.H - j) * rise, j * doc.W, (j + 1) * doc.W);
+  const { splat } = bake(doc).strip, shares = [0, 0, 0, 0];
+  for (let p = 0; p < splat.length; p++) shares[p % 4] += splat[p] / 255 / (splat.length / 4);
+  return shares;
+}
+
+test('bot-slope ground turns into the slope material gradually; cliffs are all cliff', () => {
+  assert.ok(splatShares(18)[0] > 0.99, 'vehicle ground: ground material only');
+  const just = splatShares(33)[1];
+  assert.ok(just > 0.3 && just < 0.9, `33°: slope material over part of the ground (${just.toFixed(2)})`);
+  assert.ok(splatShares(46)[1] > 0.97, '46°: slope material');
+  assert.ok(splatShares(66)[2] > 0.97, '66°: cliff material');
+});
+
+test('a biome scatters its accent materials over flat ground', () => {
+  const doc = testMap({ sx: 4, sz: 4 });
+  doc.biome = 'volcanic';
+  assert.ok(['regolith', 'basalt'].every((id) => bakeMaterials(doc).includes(id)));
+  const basalt = splatShares(0, 'volcanic')[2]; // the basalt accent shares the cliff splat channel
+  assert.ok(basalt > 0.01 && basalt < 0.25, `basalt patches on flat ground: ${basalt.toFixed(3)}`);
+});
+
 test('no grass in a biome without grass materials', () => {
   const doc = testMap({ sx: 4, sz: 4 });
   doc.biome = 'desert';

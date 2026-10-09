@@ -2,8 +2,8 @@
 // grass, minimap), one horizontal strip of SMT tiles at a time. Pure: library albedo comes in as decoded pixels.
 //
 // Diffuse = library albedo tiled in world space (1 texel per elmo, aligned with the in-engine splat detail
-// textures), blended by the rules.js role weights, accents and paint, times broad and meso tone variation, gentle
-// shading from the northern sun and faint, wobbly topolines. Traversability reads from the materials themselves:
+// textures), blended by the rules.js role weights, accents and paint, times broad and meso tone variation and
+// gentle shading from the northern sun. Traversability reads from the materials themselves:
 // vehicle ground, bot slope and cliff materials meet at 27° and 54° with a 2° blend; bot-slope ground turns into
 // the slope material gradually (rules.js slopeCover), along the material's grain. Cliffs sample their rock from
 // the side (u along the contour, v = height), so steep faces show unstretched rock and strata.
@@ -18,10 +18,9 @@ const TILE = 32; // texels (elmos) per SMT tile side
 const SHADING = 0.15; // share of hill-shading baked in (the engine lights the ground as well)
 const OCCLUSION = 0.18; // darkening of creases and valley floors (soft ambient occlusion)
 const TONE = 0.1; // broad brightness variation
-const MESO = 0.07; // meso (~100 elmo) brightness variation
-const TOPO_STEP = 40; // elmos of height between topolines
-const TOPO_DARK = 0.035; // darkening at the centre of a topoline (a hint of contour, not a stripe)
-const TOPO_RELIEF = 0.12; // slope of the topoline groove in the detail normals
+const MESO = 0.1; // meso (~100 elmo) brightness variation
+// No topolines (WP 2.7): in-game they read as brown contour stripes on every slope, and faint enough not to they
+// added nothing; the meso tone and the frayed slope cover carry the ground's shape instead.
 const GEO_RADIUS = 48; // elmos of scorched ground around a geothermal vent
 const GRASS_COVER = 0.6; // share of a 32-elmo grass cell that must be grassy ground
 const GRASS_CLEAR = 64; // elmos kept clear of grass around metal spots, geos and start positions
@@ -31,13 +30,20 @@ const LAVA = [255, 96, 16];
 const VOID = [12, 12, 16];
 const TABLE_STRIDE = 6; // r, g, b, d(lum)/dx, d(lum)/dz, lum - mean (lum 0..1)
 const SIDE_STRIDE = 5; // side table: r, g, b, d(lum)/du, d(lum)/dv
-const SIDE_SCALE = 2; // elmos per side-table texel: cliff rock at twice the top-down size, fewer repeats up a wall
+// Elmos per side-table texel: cliff rock at 3x the top-down size. A wall's top-down texels each span several elmos
+// of height, so finer rock detail would come out as vertical hairs; at this size it stays rock.
+const SIDE_SCALE = 3;
+const SIDE_CONTRAST = 0.65; // share of the side-projected rock's own grain (the rest is its average colour)
 // Erosion streaks down the fall line: [bot slope, cliff] tilt in the detail normals and darkening in the diffuse
 // (cliffs get little: their rock and strata come from the side projection).
-const STREAK_RELIEF = [0.45, 0.15];
-const STREAK_DARK = [0.08, 0.03];
-const STRATA_DARK = 0.12; // brightness of rock strata on cliffs
-const STRATA_RELIEF = 6; // their ledges in the detail normals (per unit of strata change per elmo of height)
+const STREAK_RELIEF = [0.3, 0.15];
+const STREAK_DARK = [0.06, 0.03];
+// Worn ruts down painted slopes (trails, ramps) of 8-27°: the streak pattern again, faint. RUT_G2: tan² of 8° and 14°.
+const RUT_RELIEF = 0.5;
+const RUT_DARK = 0.18;
+const RUT_G2 = [0.0198, 0.0622];
+const STRATA_DARK = 0.26; // brightness of rock strata on cliffs (at most)
+const STRATA_RELIEF = 4; // their ledges in the detail normals (per unit of strata change per elmo of height)
 const GRAIN_EDGE = 6; // how strongly material edges inside a texel follow the incoming material's grain
 
 // Erosion streaks for steep ground: a periodic ridge pattern, fine (3-14 elmos) across the fall line and coarse
@@ -64,7 +70,9 @@ const STREAK = (() => {
 // Rock strata up a cliff, a function of height: STRATA[h * 2] = brightness -1..1, STRATA[h * 2 + 1] = its change per
 // elmo of height (h = 0..2047 elmos, wrapping). Irregular layers: three octaves of a 1D noise line.
 const STRATA = (() => {
-  const noise = makeSimplex(1111), out = new Float32Array(2048 * 2), at = (h) => 0.6 * noise(h / 31, 0.5) + 0.3 * noise(h / 11, 3.3) + 0.1 * noise(h / 4.3, 7.7);
+  const noise = makeSimplex(1111);
+  const at = (h) => Math.max(-1, Math.min(1, 1.6 * (0.6 * noise(h / 31, 0.5) + 0.3 * noise(h / 11, 3.3) + 0.1 * noise(h / 4.3, 7.7))));
+  const out = new Float32Array(2048 * 2);
   for (let h = 0; h < 2048; h++) {
     out[h * 2] = at(h);
     out[h * 2 + 1] = (at(h + 0.5) - at(h - 0.5));
@@ -111,8 +119,8 @@ export function materialTable(albedo, tileElmos) {
 
 /**
  * @typedef {Object} BakeLayers  elmos per texel of the stack layers (powers of two, at most 32)
- * @property {number} diffuse  1 = albedo detail and baked shading; n > 1 = average material colours, tone and
- *   topolines only (the engine shades the ground anyway) in flat n x n blocks
+ * @property {number} diffuse  1 = albedo detail and baked shading; n > 1 = average material colours and tone only
+ *   (the engine shades the ground anyway) in flat n x n blocks
  * @property {number} splat
  * @property {number} spec
  * @property {number} normal
@@ -124,36 +132,65 @@ export function materialTable(albedo, tileElmos) {
  */
 export function prepareBake(doc, tables, layers) {
   const look = lookOf(doc), slotTables = look.slots.map((s) => tables.get(s.id) ?? null);
-  const cliff = slotTables[look.roleSlot[3]];
+  const cliff = slotTables[look.roleSlot[3]], wE = doc.sx * 16 * TILE;
+  const sizes = Int32Array.from(slotTables, (t) => (t ? Math.round(Math.sqrt(t.length / TABLE_STRIDE)) : 0)); // tileElmos
+  // Table offsets per texel column: column[s][x] into the table, column2[s][x] into the transposed copy, which is
+  // shifted by half a repeat (the same for every strip, so made once per bake).
+  const columnOf = (T, shift, stride) => {
+    const out = new Int32Array(wE);
+    for (let x = 0; x < wE; x++) out[x] = ((x + shift) % T) * stride;
+    return out;
+  };
   return {
     doc, look, layers, sun: unitSun(doc), tables: slotTables, transposed: slotTables.map((t) => t && transposedColors(t)),
-    side: cliff && sideTable(cliff),
+    side: cliff && sideTable(cliff), sizes,
+    column: Array.from(sizes, (T) => (T ? columnOf(T, 0, TABLE_STRIDE) : null)),
+    column2: Array.from(sizes, (T) => (T ? columnOf(T, T >> 1, 3) : null)),
   };
 }
 
-// The cliff material for the side projection (rows = height): colours blurred over 3 rows, because a steep face
-// skips several rows of height between neighbouring texels, plus the luminance gradient of the blurred image.
+// The cliff material for the side projection, 1 texel per elmo (u along the contour, v = height): the table blurred
+// 3x3 [1 2 1] (a steep face skips several elmos of height between neighbouring texels) and magnified SIDE_SCALE times
+// (bilinear); colours at SIDE_CONTRAST around their mean, luminance gradients per elmo (at full contrast).
+// @returns {{size: number, data: Float32Array}} size² entries of SIDE_STRIDE values
 function sideTable(table) {
-  const T = Math.round(Math.sqrt(table.length / TABLE_STRIDE)), out = new Float32Array(T * T * SIDE_STRIDE), lum = new Float32Array(T * T);
+  const T = Math.round(Math.sqrt(table.length / TABLE_STRIDE)), S = T * SIDE_SCALE, blur = new Float32Array(T * T * 3), mean = [0, 0, 0];
+  const at = (u, v, c) => table[(((v + T) % T) * T + ((u + T) % T)) * TABLE_STRIDE + c];
   for (let v = 0; v < T; v++) {
-    const up = ((v + T - 1) % T) * T, here = v * T, down = ((v + 1) % T) * T;
     for (let u = 0; u < T; u++) {
-      const o = (here + u) * SIDE_STRIDE;
       for (let c = 0; c < 3; c++) {
-        out[o + c] = (table[(up + u) * TABLE_STRIDE + c] + 2 * table[(here + u) * TABLE_STRIDE + c] + table[(down + u) * TABLE_STRIDE + c]) / 4;
+        let sum = 0;
+        for (let dv = -1; dv <= 1; dv++) for (let du = -1; du <= 1; du++) sum += (2 - Math.abs(du)) * (2 - Math.abs(dv)) * at(u + du, v + dv, c);
+        blur[(v * T + u) * 3 + c] = sum / 16;
+        mean[c] += sum / 16 / (T * T);
       }
-      lum[here + u] = (0.2126 * out[o] + 0.7152 * out[o + 1] + 0.0722 * out[o + 2]) / 255;
     }
   }
-  const at = (u, v) => lum[((v + T) % T) * T + ((u + T) % T)];
-  for (let v = 0; v < T; v++) {
-    for (let u = 0; u < T; u++) {
-      const o = (v * T + u) * SIDE_STRIDE;
-      out[o + 3] = (at(u + 1, v) - at(u - 1, v)) / 2;
-      out[o + 4] = (at(u, v + 1) - at(u, v - 1)) / 2;
+  const data = new Float32Array(S * S * SIDE_STRIDE), lum = new Float32Array(S * S);
+  for (let v = 0; v < S; v++) {
+    const fv = v / SIDE_SCALE, v0 = Math.floor(fv), tv = fv - v0, r0 = v0 * T, r1 = ((v0 + 1) % T) * T;
+    for (let u = 0; u < S; u++) {
+      const fu = u / SIDE_SCALE, u0 = Math.floor(fu), tu = fu - u0, c0 = u0, c1 = (u0 + 1) % T, o = (v * S + u) * SIDE_STRIDE;
+      let l = 0;
+      for (let c = 0; c < 3; c++) {
+        const top = blur[(r0 + c0) * 3 + c] * (1 - tu) + blur[(r0 + c1) * 3 + c] * tu;
+        const bottom = blur[(r1 + c0) * 3 + c] * (1 - tu) + blur[(r1 + c1) * 3 + c] * tu;
+        const value = top * (1 - tv) + bottom * tv;
+        data[o + c] = mean[c] + (value - mean[c]) * SIDE_CONTRAST;
+        l += [0.2126, 0.7152, 0.0722][c] * value;
+      }
+      lum[v * S + u] = l / 255;
     }
   }
-  return out;
+  const L = (u, v) => lum[((v + S) % S) * S + ((u + S) % S)];
+  for (let v = 0; v < S; v++) {
+    for (let u = 0; u < S; u++) {
+      const o = (v * S + u) * SIDE_STRIDE;
+      data[o + 3] = (L(u + 1, v) - L(u - 1, v)) / 2;
+      data[o + 4] = (L(u, v + 1) - L(u, v - 1)) / 2;
+    }
+  }
+  return { size: S, data };
 }
 
 // A table's colours (RGB) transposed, so the bake reads the second, transposed copy of a material along rows too
@@ -243,7 +280,7 @@ function sampleRows(doc, biome, sun, j0, rows) {
  *   grass: one density per SMT tile (0 or 255)
  */
 export function bakeStrip(ctx, tz0, rows) {
-  const { doc, look, layers, sun, tables, transposed, side } = ctx, { W } = doc, { biome, slots, roleSlot, accentSlot, paintSlot } = look;
+  const { doc, look, layers, sun, tables, transposed, side, sizes, column, column2 } = ctx, { W } = doc, { biome, slots, roleSlot, accentSlot, paintSlot } = look;
   const tilesX = doc.sx * 16, wE = tilesX * TILE, hE = rows * TILE, z0 = tz0 * TILE, j0 = tz0 * 4;
   const grid = sampleRows(doc, biome, layers.diffuse === 1 ? sun : null, j0, rows * 4 + 1);
   const paint = doc.paint.subarray(j0 * W, (j0 + rows * 4 + 1) * W), paintWeight = doc.paintWeight.subarray(j0 * W, (j0 + rows * 4 + 1) * W);
@@ -254,7 +291,6 @@ export function bakeStrip(ctx, tz0, rows) {
   const splatAcc = new Float32Array((wE >> sS) * (hE >> sS) * 4), specAcc = new Float32Array((wE >> pS) * (hE >> pS) * 2);
   const normalAcc = new Float32Array((wE >> nS) * (hE >> nS) * 2), grassAcc = new Float32Array(tilesX * rows);
   const rgb = new Uint8Array(wE * hE * 3);
-  const sizes = Int32Array.from(tables, (t) => (t ? Math.round(Math.sqrt(t.length / TABLE_STRIDE)) : 0)); // tileElmos
   const channel = Int32Array.from(slots, (s) => s.channel);
   const relief = Float32Array.from(slots, (s) => s.relief), spec = Float32Array.from(slots, (s) => s.spec);
   const gloss = Float32Array.from(slots, (s) => s.gloss), grassy = Uint8Array.from(slots, (s) => s.grass);
@@ -269,11 +305,9 @@ export function bakeStrip(ctx, tz0, rows) {
   // Table offsets: rowBase[s] for the current texel row plus column[s][x]; the second copy of each material is
   // transposed and shifted by half a repeat (row2 + column2 into the transposed colours).
   const rowBase = new Int32Array(slots.length), row2 = new Int32Array(slots.length);
-  const column = Array.from(sizes, (T) => (T ? Int32Array.from({ length: wE }, (_, x) => (x % T) * TABLE_STRIDE) : null));
-  const column2 = Array.from(sizes, (T) => (T ? Int32Array.from({ length: wE }, (_, x) => ((x + (T >> 1)) % T) * 3) : null));
   // Side projection of the cliff material: u along the contour (x on faces looking north/south, z on faces looking
   // east/west), v = height, both at SIDE_SCALE elmos per table texel.
-  const sideT = sizes[cliffSlot], sideX = side && Int32Array.from({ length: wE }, (_, x) => Math.floor(x / SIDE_SCALE) % sideT);
+  const sideS = side ? side.size : 1, sideData = side ? side.data : null;
   const grain = (s, x) => tables[s][rowBase[s] + column[s][x] + 5]; // albedo luminance - mean, ~±0.25
   // Blend weight a0 sharpened along the incoming material's grain: its own light grains show through first, so
   // material edges follow its texture instead of a soft airbrush line.
@@ -282,7 +316,7 @@ export function bakeStrip(ctx, tz0, rows) {
   for (let y = 0; y < hE; y++) {
     const zW = z0 + y, fz = (y + 0.5) / SQUARE, b = fz | 0, v = fz - b;
     const sRow = (y >> sS) * (wE >> sS), pRow = (y >> pS) * (wE >> pS), nRow = (y >> nS) * (wE >> nS);
-    const gRow = (y >> 5) * tilesX, sideZ = side ? Math.floor(zW / SIDE_SCALE) % sideT : 0;
+    const gRow = (y >> 5) * tilesX, sideZ = zW % sideS;
     for (let s = 0; s < slots.length; s++) {
       rowBase[s] = sizes[s] ? (zW % sizes[s]) * sizes[s] * TABLE_STRIDE : 0;
       row2[s] = sizes[s] ? ((zW + (sizes[s] >> 1)) % sizes[s]) * sizes[s] * 3 : 0;
@@ -322,6 +356,7 @@ export function bakeStrip(ctx, tz0, rows) {
       if (slopeW > 1e-3) { sw[n] = slopeW; ss[n++] = slopeSlot; }
       const sideIndex = cliff > 1e-3 && side ? n : -1;
       if (cliff > 1e-3) { sw[n] = cliff; ss[n++] = cliffSlot; }
+      let painted = 0;
       if (paint[k] | paint[k + 1] | paint[k + W] | paint[k + W + 1]) {
         cw[0] = (1 - u) * (1 - v); cw[1] = u * (1 - v); cw[2] = (1 - u) * v; cw[3] = u * v;
         for (let c = 0; c < 4; c++) {
@@ -330,33 +365,38 @@ export function bakeStrip(ctx, tz0, rows) {
           const slot = paintSlot[p], amount = alongGrain((paintWeight[k + corner[c]] / 255) * cw[c], slot, x, 8);
           for (let i = 0; i < n; i++) sw[i] *= 1 - amount;
           sw[n] = amount; ss[n++] = slot;
+          painted += amount;
         }
       }
 
       let cr = 0, cg = 0, cb = 0, rx = 0, rz = 0, sp = 0, gl = 0, grass = 0;
       const swap = SWAP[a] + (SWAP[a + 1] - SWAP[a]) * u;
       const sPx = (sRow + (x >> sS)) * 4;
-      const facingX = g2 > 1e-9 ? (gx * gx) / g2 : 0, tilt = 1 / Math.sqrt(1 + g2); // elmos along the surface per elmo
+      // How much the ground faces east/west (1) rather than north/south (0), and elmos along it per elmo (steep only).
+      const facingX = steep > 0 ? (gx * gx) / g2 : 0, tilt = cliff > 1e-3 ? 1 / Math.sqrt(1 + g2) : 1;
       for (let i = 0; i < n; i++) {
-        const s = ss[i], w = sw[i], tab = tables[s], o = rowBase[s] + column[s][x];
+        const w = sw[i];
+        if (w < 1e-4) continue; // covered by an accent or paint above it
+        const s = ss[i], tab = tables[s], o = rowBase[s] + column[s][x];
         if (i === sideIndex) {
-          // Cliff rock from the side: a blend of the two side projections by the face's facing; relief from the
-          // side table's gradients turned into the engine's tangent frame (s ~ +x, t ~ +z along the surface).
-          const fA = smoothstep(0.3, 0.7, facingX), rowV = (((Math.floor(h / SIDE_SCALE) % sideT) + sideT) % sideT) * sideT, wg = w * gain[s];
+          // Cliff rock from the side, lifted to read in the shade: a blend of the two side projections by the
+          // face's facing; relief from the side table's gradients turned into the engine's tangent frame (s ~ +x,
+          // t ~ +z along the surface).
+          const fA = smoothstep(0.3, 0.7, facingX), wg = w * gain[s], row = ((Math.floor(h) % sideS) + sideS) % sideS * sideS;
+          if (!detail) { cr += wg * avg[s * 3]; cg += wg * avg[s * 3 + 1]; cb += wg * avg[s * 3 + 2]; }
           if (fA < 0.999) {
-            const q = (rowV + sideX[x]) * SIDE_STRIDE, wb = 1 - fA, lu = side[q + 3] / SIDE_SCALE, lv = side[q + 4] / SIDE_SCALE;
-            if (detail) { cr += wg * wb * side[q]; cg += wg * wb * side[q + 1]; cb += wg * wb * side[q + 2]; }
+            const q = (row + (x % sideS)) * SIDE_STRIDE, wb = 1 - fA, lu = sideData[q + 3], lv = sideData[q + 4];
+            if (detail) { cr += wg * wb * sideData[q]; cg += wg * wb * sideData[q + 1]; cb += wg * wb * sideData[q + 2]; }
             rx += w * wb * relief[s] * (lu + lv * gx) * tilt; rz += w * wb * relief[s] * lv * gz * tilt;
           }
           if (fA > 0.001) {
-            const q = (rowV + sideZ) * SIDE_STRIDE, lu = side[q + 3] / SIDE_SCALE, lv = side[q + 4] / SIDE_SCALE;
-            if (detail) { cr += wg * fA * side[q]; cg += wg * fA * side[q + 1]; cb += wg * fA * side[q + 2]; }
+            const q = (row + sideZ) * SIDE_STRIDE, lu = sideData[q + 3], lv = sideData[q + 4];
+            if (detail) { cr += wg * fA * sideData[q]; cg += wg * fA * sideData[q + 1]; cb += wg * fA * sideData[q + 2]; }
             rx += w * fA * relief[s] * lv * gx * tilt; rz += w * fA * relief[s] * (lu + lv * gz) * tilt;
           }
-          if (!detail) { cr += w * avg[s * 3]; cg += w * avg[s * 3 + 1]; cb += w * avg[s * 3 + 2]; }
         } else {
           if (detail) {
-            const t2 = transposed[s], o2 = row2[s] + column2[s][x], w1 = w * gain[s] * (1 - swap), w2 = w * gain[s] * swap;
+            const t2 = transposed[s], o2 = row2[s] + column2[s][x], w1 = w * (1 - swap), w2 = w * swap;
             cr += w1 * tab[o] + w2 * t2[o2]; cg += w1 * tab[o + 1] + w2 * t2[o2 + 1]; cb += w1 * tab[o + 2] + w2 * t2[o2 + 2];
           } else { cr += w * avg[s * 3]; cg += w * avg[s * 3 + 1]; cb += w * avg[s * 3 + 2]; }
           rx += w * relief[s] * tab[o + 3]; rz += w * relief[s] * tab[o + 4];
@@ -367,34 +407,26 @@ export function bakeStrip(ctx, tz0, rows) {
       }
 
       let m = LIGHT[a] + (LIGHT[a + 1] - LIGHT[a]) * u;
-      // Erosion streaks down bot slopes and cliffs, projected along x or z by the facing; in the diffuse only with
-      // albedo detail (Share keeps its flat blocks plain).
-      if (steep > 0) {
-        const dark = steep * (STREAK_DARK[0] + (STREAK_DARK[1] - STREAK_DARK[0]) * cliff);
-        const lift = steep * (STREAK_RELIEF[0] + (STREAK_RELIEF[1] - STREAK_RELIEF[0]) * cliff);
+      // Erosion streaks down bot slopes and cliffs, and worn ruts down painted 8-27° slopes (trails, ramps),
+      // projected along x or z by the facing; in the diffuse only with albedo detail (Share keeps its flat blocks plain).
+      const rut = painted > 0.02 && g2 > RUT_G2[0] ? Math.min(1, painted) * (1 - steep) * smoothstep(RUT_G2[0], RUT_G2[1], g2) : 0;
+      if (steep > 0 || rut > 0) {
+        const fX = steep > 0 ? facingX : (gx * gx) / g2;
+        const dark = steep * (STREAK_DARK[0] + (STREAK_DARK[1] - STREAK_DARK[0]) * cliff) + rut * RUT_DARK;
+        const lift = steep * (STREAK_RELIEF[0] + (STREAK_RELIEF[1] - STREAK_RELIEF[0]) * cliff) + rut * RUT_RELIEF;
         const ix = ((zW & 127) * 64 + ((x >> 3) & 63)) * 2, iz = ((x & 127) * 64 + ((zW >> 3) & 63)) * 2;
-        if (detail) m *= 1 + dark * (facingX * STREAK[ix] + (1 - facingX) * STREAK[iz]);
-        rz += lift * facingX * STREAK[ix + 1];
-        rx += lift * (1 - facingX) * STREAK[iz + 1];
+        if (detail) m *= 1 + dark * (fX * STREAK[ix] + (1 - fX) * STREAK[iz]);
+        rz += lift * fX * STREAK[ix + 1];
+        rx += lift * (1 - fX) * STREAK[iz + 1];
       }
-      // Rock strata on cliffs: layers by height, drifting with the wobble noise, plus their ledges.
+      // Rock strata on cliffs: layers by height, drifting with the wobble noise, plus their ledges; their strength
+      // varies along the walls (the swap noise), so not every wall is evenly banded.
       if (cliff > 1e-3 && detail) {
         const hs = ((Math.floor(h + 4 * (WOB[a] + (WOB[a + 1] - WOB[a]) * u)) % 2048) + 2048) % 2048;
-        m *= 1 + STRATA_DARK * cliff * STRATA[hs * 2];
-        const ledge = STRATA_RELIEF * cliff * STRATA[hs * 2 + 1] * tilt;
+        const layered = cliff * (0.3 + 0.7 * swap);
+        m *= 1 + STRATA_DARK * layered * STRATA[hs * 2];
+        const ledge = STRATA_RELIEF * layered * STRATA[hs * 2 + 1] * tilt;
         rx += ledge * gx; rz += ledge * gz;
-      }
-      // Topolines on gently sloping ground (~3-20°): faint lines every TOPO_STEP elmos of height, bent by the
-      // wobble noise, plus a matching groove in the detail normals.
-      const slope = Math.sqrt(g2);
-      if (slope > 0.05 && slope < 0.36) {
-        const f = (h + WOB[a] + (WOB[a + 1] - WOB[a]) * u) / TOPO_STEP, d = f - Math.round(f), dist = (Math.abs(d) * TOPO_STEP) / slope;
-        if (dist < 2.5) {
-          const fade = smoothstep(0.05, 0.1, slope) * (1 - smoothstep(0.2, 0.36, slope));
-          m *= 1 - TOPO_DARK * fade * (1 - smoothstep(0.3, 1.1, dist));
-          const groove = (TOPO_RELIEF * fade * Math.sign(d) * (1 - smoothstep(0, 2.5, dist))) / slope;
-          rx += groove * gx; rz += groove * gz;
-        }
       }
       const o = (y * wE + x) * 3;
       rgb[o] = Math.min(255, cr * m); rgb[o + 1] = Math.min(255, cg * m); rgb[o + 2] = Math.min(255, cb * m);
@@ -527,23 +559,26 @@ function mix(out, color, w) {
   out[2] += (color[2] - out[2]) * w;
 }
 
-const previewWeights = new Float32Array(7);
-let noiseCache = { W: 0, H: 0, biome: null };
+const previewWeights = new Float32Array(7), previewCover = new Float32Array(2);
+let noiseCache = { W: 0, H: 0 }, accentCache = { W: 0, H: 0, biome: null };
 
-// patchAt(), edgeAt(), coverAt() and the biome's accentAt() at heightmap sample k, cached per map size and biome
-// (they depend on the position only): the 2D view repaints every sample of a 32x32 map.
+// patchAt(), edgeAt() and coverRange() at heightmap sample k, cached per map size (they depend on the position
+// only), and the biome's accentAt(), cached per map size and biome: the 2D view repaints every sample of a 32x32 map.
 function noiseSample(doc, biome, k) {
-  if (noiseCache.W !== doc.W || noiseCache.H !== doc.H || noiseCache.biome !== biome) {
-    const f = () => new Float32Array(doc.W * doc.H);
-    noiseCache = { W: doc.W, H: doc.H, biome, patch: f().fill(NaN), edge: f(), cover: f(), accent: biome.accents.map(f) };
-  }
+  const { W, H } = doc, f = (n = 1) => new Float32Array(W * H * n).fill(NaN);
+  if (noiseCache.W !== W || noiseCache.H !== H) noiseCache = { W, H, patch: f(), edge: f(), cover: f(2) };
+  if (accentCache.W !== W || accentCache.H !== H || accentCache.biome !== biome) accentCache = { W, H, biome, accent: biome.accents.map(() => f()) };
+  const x = (k % W) * SQUARE, z = Math.floor(k / W) * SQUARE;
   if (Number.isNaN(noiseCache.patch[k])) {
-    const x = (k % doc.W) * SQUARE, z = Math.floor(k / doc.W) * SQUARE;
     noiseCache.patch[k] = patchAt(x, z);
     noiseCache.edge[k] = edgeAt(x, z);
-    noiseCache.cover[k] = coverAt(x, z);
-    biome.accents.forEach((a, q) => { noiseCache.accent[q][k] = accentAt(a, q, x, z, noiseCache.edge[k]); });
+    coverRange(coverAt(x, z), previewCover);
+    noiseCache.cover.set(previewCover, k * 2);
   }
+  if (biome.accents.length && Number.isNaN(accentCache.accent[0][k])) {
+    biome.accents.forEach((a, q) => { accentCache.accent[q][k] = accentAt(a, q, x, z, noiseCache.edge[k]); });
+  }
+  noiseCache.accent = accentCache.accent;
   return noiseCache;
 }
 
@@ -556,14 +591,16 @@ export function previewColor(doc, i, j) {
   const look = lookOf(doc), k = j * doc.W + i, h = doc.heights[k];
   const [gx, gz] = gradient(doc, i, j);
   const noise = noiseSample(doc, look.biome, k);
-  roleWeights(look.biome, h, gx * gx + gz * gz, noise.patch[k], noise.edge[k], noise.cover[k], previewWeights);
+  roleWeights(look.biome, h, gx * gx + gz * gz, noise.patch[k], noise.edge[k], noise.cover[k * 2], noise.cover[k * 2 + 1], previewWeights);
   const c = [0, 0, 0];
   for (let r = 0; r < 7; r++) {
     const avg = look.slots[look.roleSlot[r]].avgColor;
     for (let n = 0; n < 3; n++) c[n] += previewWeights[r] * avg[n];
   }
-  const flat = FLAT_ROLES.reduce((sum, r) => sum + previewWeights[r], 0);
-  look.accentSlot.forEach((s, q) => mix(c, look.slots[s].avgColor, flat * noise.accent[q][k]));
+  if (look.accentSlot.length) {
+    const flat = 1 - previewWeights[2] - previewWeights[3];
+    for (let q = 0; q < look.accentSlot.length; q++) mix(c, look.slots[look.accentSlot[q]].avgColor, flat * noise.accent[q][k]);
+  }
   if (doc.paint[k]) {
     const slot = look.slots[look.paintSlot[doc.paint[k]]];
     if (!slot) throw new Error(`unknown paint material id ${doc.paint[k]}`);

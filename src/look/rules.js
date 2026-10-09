@@ -19,8 +19,8 @@ const COVER_SHIFT = 6; // degrees the cover noise (±~0.7) moves COVER by
 const PATCH = 0.6; // how far the patch noise moves the lowland/highland split (share of highEnd - highStart)
 const PATCH_FINE = 0.12; // the same for the fine edge noise (breaks up flat areas such as start positions)
 // Cliffs face the camera, so away from the northern sun: they get ambient light only. Darker cliff albedo is lifted
-// to this luminance (at most 1.8x) so its rock still reads in-game.
-const CLIFF_LUMINANCE = 80;
+// to this luminance (at most 2.4x) so its rock still reads in-game.
+const CLIFF_LUMINANCE = 105;
 
 // Per library class: splat channel (when the material is not one of the biome's 4 splats), detail-normal relief,
 // specular intensity (0..1) and gloss (specularTex alpha: exponent / 16). Specular is a soft sheen (the engine
@@ -57,17 +57,17 @@ export const coverAt = (x, z) => fbm(coverNoise, x / 250, z / 250, 2, 2, 0.5);
 /** Meso brightness variation at ~100 elmos, ~-0.7..0.7: breaks up broad flats between the broad tone and the grain. */
 export const mesoAt = (x, z) => fbm(mesoNoise, x / 100, z / 100, 3, 2, 0.55);
 
-// Value of accent noise n that a share `cover` of the world lies above (sampled once per accent noise and scale).
+// Value of accent noise n that a share `accent.cover` of the world lies above, sampled once per biome accent.
 const accentLevels = new Map();
-function accentLevel(n, scale, cover) {
-  const key = `${n}:${scale}`;
-  if (!accentLevels.has(key)) {
+function accentLevel(n, accent) {
+  let level = accentLevels.get(accent);
+  if (level === undefined) {
     const values = new Float32Array(160 * 160);
-    for (let i = 0; i < values.length; i++) values[i] = fbm(accentNoise[n], ((i % 160) * 97) / scale, (Math.floor(i / 160) * 97) / scale, 3, 2, 0.55);
-    accentLevels.set(key, values.sort());
+    for (let i = 0; i < values.length; i++) values[i] = fbm(accentNoise[n], ((i % 160) * 97) / accent.scale, (Math.floor(i / 160) * 97) / accent.scale, 2, 2, 0.5);
+    level = values.sort()[Math.min(values.length - 1, Math.floor((1 - accent.cover) * values.length))];
+    accentLevels.set(accent, level);
   }
-  const values = accentLevels.get(key);
-  return values[Math.min(values.length - 1, Math.floor((1 - cover) * values.length))];
+  return level;
 }
 
 /**
@@ -75,15 +75,15 @@ function accentLevel(n, scale, cover) {
  * `cover` of the map, edges frayed by the edge noise (the bake sharpens them along the material's grain).
  */
 export function accentAt(accent, n, x, z, edge) {
-  const level = accentLevel(n, accent.scale, accent.cover);
-  return smoothstep(level - 0.05, level + 0.05, fbm(accentNoise[n], x / accent.scale, z / accent.scale, 3, 2, 0.55) + 0.12 * edge);
+  const level = accentLevel(n, accent);
+  return smoothstep(level - 0.08, level + 0.08, fbm(accentNoise[n], x / accent.scale, z / accent.scale, 2, 2, 0.5) + 0.1 * edge);
 }
 
 /**
  * @typedef {Object} Slot  one library material the bake can use
  * @property {string} id
- * @property {number[]} avgColor  times gain
- * @property {number} gain  brightness applied to the albedo (cliff lift)
+ * @property {number[]} avgColor
+ * @property {number} gain  brightness applied to the albedo where it covers a cliff face (cliff lift)
  * @property {number} channel  splat channel 0..3 (splatDistrTex RGBA)
  * @property {number} relief  detail-normal strength
  * @property {number} spec
@@ -111,8 +111,8 @@ export function lookOf(doc) {
     const m = libraryMaterial(id), cls = CLASSES[m.class];
     const splat = biome.splats.indexOf(id);
     const [r, g, b] = m.avgColor, luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    const gain = m.class === 'cliff' ? Math.min(1.8, Math.max(1, CLIFF_LUMINANCE / luminance)) : 1;
-    return { id, avgColor: m.avgColor.map((c) => c * gain), gain, channel: splat >= 0 ? splat : cls.channel, relief: cls.relief, spec: cls.spec, gloss: cls.gloss, grass: id.startsWith('grass') };
+    const gain = m.class === 'cliff' ? Math.min(2.4, Math.max(1, CLIFF_LUMINANCE / luminance)) : 1;
+    return { id, avgColor: m.avgColor, gain, channel: splat >= 0 ? splat : cls.channel, relief: cls.relief, spec: cls.spec, gloss: cls.gloss, grass: id.startsWith('grass') };
   });
   const slotOf = (id) => ids.indexOf(id);
   const look = {
@@ -176,16 +176,18 @@ export function coverRange(cover, out) {
 
 /** Share 0..1 of bot-slope ground (27-54°) at squared gradient g2 that shows the slope material. */
 export const slopeCover = (g2, lo, hi) => COVER_MIN + (1 - COVER_MIN) * smoothstep(lo, hi, g2);
-const coverScratch = new Float32Array(2);
 
 const flatScratch = new Float32Array(5), steepScratch = new Float32Array(2);
 
-/** Role weights (sum 1) at height h (elmos) with squared gradient g2, written to out (ROLES order). */
-export function roleWeights(biome, h, g2, patch, edge, cover, out) {
+/**
+ * Role weights (sum 1) at height h (elmos) with squared gradient g2, written to out (ROLES order).
+ * @param {number} coverLo  coverRange() at this point
+ * @param {number} coverHi
+ */
+export function roleWeights(biome, h, g2, patch, edge, coverLo, coverHi, out) {
   flatWeights(biome, h, patch, edge, flatScratch);
   steepWeights(g2, edge, steepScratch);
-  coverRange(cover, coverScratch);
-  const [steep, cliff] = steepScratch, slope = (steep - cliff) * slopeCover(g2, coverScratch[0], coverScratch[1]);
+  const [steep, cliff] = steepScratch, slope = (steep - cliff) * slopeCover(g2, coverLo, coverHi);
   FLAT_ROLES.forEach((r, i) => { out[r] = (1 - cliff - slope) * flatScratch[i]; });
   out[2] = slope;
   out[3] = cliff;

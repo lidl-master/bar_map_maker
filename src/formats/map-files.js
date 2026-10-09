@@ -1,5 +1,7 @@
 // MapDoc + baked texture stack -> the files of a BAR map archive.
 import { checkPaint, texturePlan } from '../look/index.js';
+import { encodeDds } from './dds.js';
+import { decodeDxt1 } from './dxt.js';
 import { writeLavaConfig, writeMapInfo, mapFileBase } from './mapinfo.js';
 import { buildMetalMap } from './metal.js';
 import { writeSmf } from './smf.js';
@@ -36,7 +38,10 @@ function smfFeatures(doc) {
   });
 }
 
-/** File names (in the archive's maps/ folder) of the texture stack, by mapinfo resources key. */
+/**
+ * File names (in the archive's maps/ folder) of the texture stack, by mapinfo resources key. grassShadingTex is made
+ * here from the minimap (edgeTexture); the bake makes the rest.
+ */
 export function textureFiles(fileBase, plan) {
   const dnts = plan.splats.map((s, i) => [`splatDetailNormalTex${i + 1}`, `dnts_${s.id}.${plan.dnts}`]);
   return {
@@ -44,7 +49,29 @@ export function textureFiles(fileBase, plan) {
     ...Object.fromEntries(dnts),
     detailNormalTex: `${fileBase}_normal.dds`,
     specularTex: `${fileBase}_spec.dds`,
+    grassShadingTex: `${fileBase}_edge.dds`,
   };
+}
+
+const EDGE_SIZE = 256; // the minimap mip the edge texture is made from (1024² and 512² DXT1 levels come first)
+const EDGE_OFFSET = (1024 * 1024) / 2 + (512 * 512) / 2;
+const EDGE_CHROMA = 0.3;
+
+/**
+ * The engine's grass shading texture ($grass), which BAR's Map Edge Extension draws, mirrored, all around the map:
+ * it keeps the colour's chroma but cuts its luminance to 30%, so the plain minimap comes out as a garish, saturated
+ * border. This is the minimap with its chroma cut to match (the border reads as a darker, natural continuation).
+ * BAR's grass keeps the minimap's colours through custom.grassconfig in mapinfo.lua.
+ * @param {Uint8Array} minimap  the SMF minimap (DXT1 with mips)
+ */
+export function edgeTexture(minimap) {
+  const rgba = decodeDxt1(minimap.subarray(EDGE_OFFSET, EDGE_OFFSET + (EDGE_SIZE * EDGE_SIZE) / 2), EDGE_SIZE, EDGE_SIZE);
+  for (let p = 0; p < rgba.length; p += 4) {
+    const y = 0.2126 * rgba[p] + 0.7152 * rgba[p + 1] + 0.0722 * rgba[p + 2];
+    for (let c = 0; c < 3; c++) rgba[p + c] = y + (rgba[p + c] - y) * EDGE_CHROMA;
+    rgba[p + 3] = 255;
+  }
+  return encodeDds(new Uint8Array(rgba.buffer), EDGE_SIZE, EDGE_SIZE, 'bc1');
 }
 
 /**
@@ -78,9 +105,10 @@ export async function buildMapFiles(doc, bakeTexture, { quality = 'standard' } =
 
   const baked = await bakeTexture(plan);
   if (baked.tiles.length !== (mapx / 4) * (mapy / 4) * TILE_BYTES) throw new Error(`expected ${(mapx / 4) * (mapy / 4)} baked tiles`);
+  const made = { ...baked.textures, grassShadingTex: edgeTexture(baked.minimap) };
   for (const [key, name] of Object.entries(resources)) {
-    if (!baked.textures[key]) throw new Error(`the bake made no ${key} (${name})`);
-    files.set(`maps/${name}`, baked.textures[key]);
+    if (!made[key]) throw new Error(`the bake made no ${key} (${name})`);
+    files.set(`maps/${name}`, made[key]);
   }
   const unique = dedupeTiles(baked.tiles);
   files.set(`maps/${fileBase}.smt`, writeSmt(unique.tiles));

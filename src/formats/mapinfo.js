@@ -40,8 +40,8 @@ function waterBlock(w) {
     surfaceColor = ${luaColor(w.surface)},
     planeColor = ${luaColor(w.base)},
     surfaceAlpha = 0.25,
-    fresnelMin = 0.2,
-    fresnelMax = 0.8,
+    fresnelMin = 0.08,
+    fresnelMax = 1.0,
     fresnelPower = 4.0,
     reflectionDistortion = 1.0,
     blurBase = 2.0,
@@ -155,7 +155,11 @@ ${teams.join('\n')}
     },
   },
 
-  custom = { generator = "BAR Map Studio" },
+  custom = {
+    generator = "BAR Map Studio",
+    -- BAR's grass takes its colour from the minimap, not from grassShadingTex (the darker map-edge texture)
+    grassconfig = { mapGrassColorModTex = "$minimap" },
+  },
 }
 `;
 }

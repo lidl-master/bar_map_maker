@@ -1,6 +1,8 @@
 // Top-down 2D view: the map image (shaded look, or pathing classes over a hillshade) plus overlays (grid, features,
 // symmetry guides, markers with metal labels, brush, ramp).
+// An opened BAR map shows its own texture where it has one; its image is also the 3D view's texture.
 import { SYMMETRY, orbit } from '../../src/core/index.js';
+import { originalColor, originalPreview } from '../../src/import/preview.js';
 import { previewColor } from '../../src/look/index.js';
 import { clamp } from './dom.js';
 import { DRAW_MARKER, HOVER, MARKER_SIZE, SELECT, drawMetalLabel, markerRing } from './markers.js';
@@ -76,6 +78,7 @@ function hatchPattern(ctx) {
 
 export class View2D {
   doc = null;
+  original = null; // an opened map's own texture (src/import originalPreview), or null
   mode = 'look'; // 'look' | 'pathing'
   zoom = 1; // screen px per heightmap sample
   ox = 0;
@@ -105,6 +108,7 @@ export class View2D {
 
   setDoc(doc) {
     this.doc = doc;
+    this.original = doc.original?.tileIndex ? originalPreview(doc.original) : null;
     this.selected = this.hover = null;
     this.base.width = this.mask.width = doc.W;
     this.base.height = this.mask.height = doc.H;
@@ -130,7 +134,10 @@ export class View2D {
           this.#classes[k] = PATHING_CLASSES.indexOf(cls);
           mask[o + 3] = cls === 'none' ? 255 : 0;
           rgb = PATHING_LEGEND[cls].color.map((c) => grey + (c - grey) * PATHING_ALPHA);
-        } else rgb = previewColor(doc, i, j);
+        } else {
+          // shortcut: the original texture is drawn without the preview's water and lava tint; revisit if users miss it in 2D.
+          rgb = (this.original && originalColor(doc, this.original, i, j)) ?? previewColor(doc, i, j);
+        }
         data[o] = rgb[0];
         data[o + 1] = rgb[1];
         data[o + 2] = rgb[2];

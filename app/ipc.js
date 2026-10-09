@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -39,14 +39,52 @@ async function chooseExportDir(window) {
 
 const QUALITIES = ['share', 'standard']; // export presets (src/bar, WP 2.2)
 
+/** Asks for a map archive anywhere on disk; null when the user cancels. */
+async function chooseMapArchive(window) {
+  const { canceled, filePaths } = await dialog.showOpenDialog(window, {
+    title: 'Open a BAR map',
+    properties: ['openFile'],
+    filters: [{ name: 'BAR maps', extensions: ['sd7', 'sdz'] }],
+  });
+  return canceled || !filePaths.length ? null : filePaths[0];
+}
+
+// Minimap thumbnails of the BAR maps, cached per archive version in userData (32 KB each): reading one means
+// extracting the archive's SMF, which takes up to a second.
+async function cachedThumb(bar, file) {
+  const { size, mtimeMs } = statSync(file);
+  const cache = path.join(app.getPath('userData'), 'map-thumbs', `${path.basename(file)}-${size}-${Math.round(mtimeMs)}.bin`);
+  try {
+    const bytes = new Uint8Array(await readFile(cache)); // [sx, sz, …256×256 DXT1]
+    return { sx: bytes[0], sz: bytes[1], size: 256, dxt1: bytes.subarray(2) };
+  } catch {
+    const thumb = await bar.readMinimapThumb(file);
+    await mkdir(path.dirname(cache), { recursive: true });
+    const bytes = new Uint8Array(2 + thumb.dxt1.length);
+    bytes.set([thumb.sx, thumb.sz]);
+    bytes.set(thumb.dxt1, 2);
+    await writeFile(cache, bytes);
+    return thumb;
+  }
+}
+
 /**
  * IPC behind window.studio. Only our own page may call it; install and show-in-folder only take archives this session
- * exported.
+ * exported, and opening reads only archives in the BAR maps folder or ones the user picked.
  * servedFile(rel) → absolute path or null is the app:// allowlist: hasFiles only answers for files the page may load.
  */
 export function registerStudioIpc(origin, servedFile) {
   const exported = new Set();
   let running = null; // the export in progress: {controller, settled}
+
+  /** file, if it is a map archive in the BAR maps folder; throws otherwise. */
+  function barMap(bar, file) {
+    const resolved = path.resolve(String(file));
+    if (path.dirname(resolved) !== path.resolve(bar.locateBar().mapsDir) || !bar.MAP_ARCHIVE.test(resolved)) {
+      throw new Error(`Not a map in the BAR maps folder: ${file}`);
+    }
+    return resolved;
+  }
 
   function handle(channel, fn) {
     ipcMain.handle(channel, (event, ...args) => {
@@ -64,6 +102,32 @@ export function registerStudioIpc(origin, servedFile) {
   }));
 
   handle('studio:chooseExportDir', (event) => chooseExportDir(BrowserWindow.fromWebContents(event.sender)));
+
+  handle('studio:listBarMaps', async () => {
+    const bar = await loadBar();
+    return bar.listMaps(bar.locateBar().mapsDir);
+  });
+
+  handle('studio:mapThumb', async (_event, file) => {
+    const bar = await loadBar();
+    return cachedThumb(bar, barMap(bar, file));
+  });
+
+  // A map from the BAR maps folder, or (no file) one the user picks. Progress goes to studio:openProgress.
+  handle('studio:openMap', async (event, file) => {
+    const bar = await loadBar();
+    const archive = file ? barMap(bar, file) : await chooseMapArchive(BrowserWindow.fromWebContents(event.sender));
+    if (!archive) return { cancelled: true };
+    const onProgress = (fraction, label) => event.sender.send('studio:openProgress', { label, fraction });
+    try {
+      const { doc, seconds } = await bar.openMapArchive(archive, onProgress);
+      console.log(`Opened ${archive}: extract ${seconds.extract.toFixed(2)} s, import ${seconds.import.toFixed(2)} s`);
+      onProgress(0.9, 'Building the editor view');
+      return doc;
+    } catch (error) {
+      throw new Error(`${path.basename(archive)}: ${error.message}`);
+    }
+  });
 
   handle('studio:exportMap', async (event, doc, { quality } = {}) => {
     if (!QUALITIES.includes(quality)) throw new Error(`Unknown export quality "${quality}"`);

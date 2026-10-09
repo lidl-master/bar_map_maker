@@ -45,6 +45,14 @@ Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR s
 | 2.4 | Commercial-grade UI: Inter + Lucide, welcome, New Map, editor shell, Look tab, feedback states, 125% layout | merged (61/61 tests) |
 | 2.5 | G3 in-engine screenshot tool (fixed camera presets, isolated windowed BAR) | merged |
 | critic | Blind UI A/B, Wave 2 vs Wave 1 (3 pairs) | new UI preferred 3/3 (confidence 0.93 / 0.78 / 0.92) |
+| critic | Design score, 2 independent critics (pass: 8/10 from both) | 7.0 and 6.6: 3D viewport looks like a debug view, metal badges clutter, truncated hints, spinner-like symmetry glyph, garish pathing colours, dev copy |
+| 2.6 | UI polish: 32 fixes from both critics | building |
 
 ## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)
-Brief: [wave3.md](wave3.md). 3.1 open + original textures, 3.2 extend/crop/resize: building. 3.3 derivative export: after 2.2.
+Brief: [wave3.md](wave3.md).
+
+| WP | Scope | Status |
+|---|---|---|
+| 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | building |
+| 3.2 | Extend/crop per side in whole units, resize; undoable whole-doc swap; original tile/metal grids shift | merged (71/71 tests; seam ≤ 2 elmos near the old edge) |
+| 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning | after 2.2 |

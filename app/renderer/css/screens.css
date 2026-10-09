@@ -1,4 +1,4 @@
-/* Screens and floating UI: welcome, template cards, modals (New Map, shortcuts, confirm), toasts, export panel, tooltip. */
+/* Screens and floating UI: welcome, template cards, modals (New Map, Map size, shortcuts, confirm), toasts, export panel, tooltip. */
 
 /* ---- welcome */
 .welcome { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100%; animation: fade-in var(--dur) var(--ease); }
@@ -161,6 +161,31 @@ dialog.modal::backdrop { background: rgba(6, 8, 11, 0.66); animation: fade-in va
 .pictogram .dot { fill: currentColor; stroke: none; }
 .sym-grid input:checked + .body .pictogram { color: var(--accent); }
 
+/* ---- Map size (extend, crop, resize) */
+.rs-open { margin-top: var(--s-3); }
+.rs { display: flex; flex-direction: column; gap: var(--s-4); }
+.rs-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: '. north .' 'west preview east' '. south .';
+  align-items: center;
+  justify-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+.rs-side { display: flex; flex-direction: column; align-items: center; gap: var(--s-1); }
+.rs-side.north { grid-area: north; }
+.rs-side.east { grid-area: east; }
+.rs-side.south { grid-area: south; }
+.rs-side.west { grid-area: west; }
+.rs-label { font-size: var(--fs-11); font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.rs-preview { grid-area: preview; display: block; width: 240px; height: 240px; border-radius: var(--r-md); background: var(--bg-0); box-shadow: inset 0 0 0 1px var(--line-1); }
+.rs-resize { display: flex; align-items: center; gap: var(--s-6); }
+.rs-resize-controls { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.rs-resize-controls .note { margin: 0; }
+.rs-warn { display: flex; gap: var(--s-2); color: var(--warn); font-size: var(--fs-12); }
+.rs-summary { display: flex; align-items: center; gap: var(--s-2); color: var(--text-2); font-size: var(--fs-12); font-variant-numeric: tabular-nums; min-width: 0; }
+.rs-summary.warn { color: var(--warn); }
+
 /* ---- shortcuts overlay */
 .sc-columns { columns: 3; column-gap: var(--s-8); padding-top: var(--s-4); padding-bottom: var(--s-2); }
 @media (max-width: 1199px) { .sc-columns { columns: 2; } }
@@ -267,3 +292,29 @@ body[data-screen=editor] .notify { right: calc(var(--inspector-w) + var(--s-4));
   .tpl-desc { min-height: 0; }
   .wl-side { padding-top: var(--s-6); gap: var(--s-5); }
 }
+
+/* ---- open an existing BAR map (welcome main area) */
+.action[aria-current=page] { border-color: var(--accent-fill); background: var(--accent-soft); }
+.action[aria-current=page] .action-icon { background: var(--accent-fill); color: var(--text-on-accent); }
+.open-head { display: flex; align-items: flex-start; gap: var(--s-3); }
+.open-head .btn.square { margin: 2px 0 0 calc(-1 * var(--s-2)); }
+.open-title { flex: 1; min-width: 0; }
+.open-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  max-width: 1480px;
+  margin: 0 auto var(--s-5);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border: 1px solid rgba(255, 107, 110, 0.35);
+  border-radius: var(--r-lg);
+  background: var(--danger-soft);
+}
+.open-error > .icon { margin-top: 2px; color: var(--danger); }
+.open-error .text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.open-error strong { font-weight: 600; }
+.open-error span { color: var(--text-2); font-size: var(--fs-12); overflow-wrap: anywhere; user-select: text; }
+.map-gallery { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+.map-card .thumb { aspect-ratio: 1; }
+.map-card .thumb canvas { object-fit: contain; }
+.map-card .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

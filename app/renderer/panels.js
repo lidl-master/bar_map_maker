@@ -7,6 +7,7 @@ import { runJob } from './generator.js';
 import { icon } from './icons.js';
 import { buildLook } from './look-panel.js';
 import { counts } from './objects.js';
+import { openReshape } from './reshape.js';
 
 export function buildPanels(editor) {
   buildGenerate(editor);
@@ -71,10 +72,11 @@ function buildMap(editor) {
   text(info, 'Author', s, 'author', changed);
   text(info, 'Description', s, 'description', changed, true);
 
-  const size = section(panel, 'Size');
-  value(size, 'Map size', `${doc.sx} × ${doc.sz} units`);
+  const size = section(panel, 'Map size');
+  value(size, 'Size', `${doc.sx} × ${doc.sz} units`);
   value(size, 'In elmos', `${formatInt(doc.sx * 512)} × ${formatInt(doc.sz * 512)}`);
   value(size, 'Symmetry', SYMMETRY[doc.symmetry].label);
+  size.append(btn('Extend, crop or resize…', { class: 'btn block rs-open', onclick: () => openReshape(editor) }, 'scaling'));
 
   const play = section(panel, 'Gameplay');
   slider(play, 'Wind min', s, 'minWind', { min: 0, max: 30, onChange: changed });

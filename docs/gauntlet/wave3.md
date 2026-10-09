@@ -11,18 +11,21 @@ Set only on a map opened from an archive. Builders may add fields; changing thes
 ```js
 /**
  * @typedef {Object} OriginalMap
- * @property {string} archive    path it was opened from (read-only)
+ * @property {string} archive    path it was opened from (read-only); the export reads the archive's files again from here
  * @property {{name, version, author, description, licence: string|null}} info  from readMapInfo
- * @property {Map<string, Uint8Array>} files  every file of the archive, untouched (pass-through on export)
+ * @property {{path: string, size: number}[]} files  every file of the archive (listing only: the bytes stay in the archive)
  * @property {number} tilesX     tiles across = doc.sx * 16 (1 tile = 32 elmos)
  * @property {number} tilesZ     tiles down   = doc.sz * 16
- * @property {Int32Array} tileIndex  tilesX * tilesZ, index into `tiles`; -1 = no original tile (area added by extend)
- * @property {Uint8Array} tiles  SMT tile bytes, 680 per tile, all tile files concatenated in SMF order
- * @property {Uint8Array|null} metalMap  (sx*32) * (sz*32) bytes, shifted with the map; null once metal objects were edited
+ * @property {Int32Array|null} tileIndex  tilesX * tilesZ, index into the original tiles; -1 = no original tile (area added by extend); null after resizeMap (no original tile anywhere)
+ * @property {Uint8Array} tileMips  8 bytes per original tile: its 4×4 DXT1 mip (the tile's last 8 bytes), for the editor's preview
+ * @property {Uint8Array|null} metalMap  (sx*32) * (sz*32) bytes, shifted with the map; null once metal objects were edited or after resizeMap
  * @property {number} maxMetal
+ * @property {number} minHeight  the height range the heights were read with (mapinfo smf.minheight/maxheight, else the SMF
+ * @property {number} maxHeight  header): untouched heights quantise back to the SMF's raw values with exactly this range
  */
 ```
-- Metal spots: shown and edited as `metal` objects (found like BAR's spot finder: connected metal pixels → one spot at the weighted centre, value = sum × maxMetal / 1000). While `metalMap` is non-null the export writes it unchanged.
+- WP 3.1 change: `files` (bytes) and `tiles` are not carried in the doc. A 32×32 map's SMT alone is 178 MB, which would cross IPC twice and sit in the autosave. The export re-reads `archive` (`readArchive(archive)` for pass-through, `readMapData(files, readMapInfo(files)).tiles` for the tile bytes in SMF order, the order `tileIndex` counts in) and should check the archive still matches `files` (sizes) before it trusts `tileIndex`.
+- Metal spots: shown and edited as `metal` objects (found like BAR's spot finder, `luarules/gadgets/api_resource_spot_finder.lua`: 8-connected metal pixels, the outer pixel ring ignored → one spot at the centre of the blob's bounding box, as BAR places it, value = sum × maxMetal / 1000; a blob wider than 6 extractor radii makes it a metal map with no spots). While `metalMap` is non-null the export writes it unchanged.
 - Geovents (`GeoVent` feature) become `geo` objects; every other SMF feature becomes a `feature` object with its `name` and `rot`. Start positions come from mapinfo `teams`.
 - Settings come from mapinfo (wind, tidal, gravity, extractor radius, void water, sunDir), lava from `mapconfig/lava.lua` when present. `doc.biome` is the closest match (used only for re-texturing and new areas).
 

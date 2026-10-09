@@ -186,6 +186,7 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 .loading-card strong { color: var(--text-1); }
 .loading-card strong { font-size: var(--fs-15); font-weight: 600; }
 .loading-card span { font-size: var(--fs-12); }
+.loading-card .progress { align-self: stretch; margin-top: var(--s-2); }
 
 body[data-screen=editor] .loading { inset: var(--topbar-h) var(--inspector-w) var(--status-h) var(--rail-w); }
 

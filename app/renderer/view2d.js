@@ -174,7 +174,7 @@ export class View2D {
       const tree = new Path2D(), rock = new Path2D(), min = 1.2 / this.zoom;
       for (const o of doc.objects) {
         if (o.type !== 'feature') continue;
-        const isRock = o.name.startsWith('rocks'), size = Math.max(min, (isRock ? 20 : 24) / SQ);
+        const isRock = o.name.startsWith('rocks'), size = Math.max(min, (isRock ? 18 : 20) / SQ);
         (isRock ? rock : tree).rect(o.x / SQ - size / 2, o.z / SQ - size / 2, size, size);
       }
       this.#features = { objects: doc.objects, length: doc.objects.length, band, tree, rock };
@@ -182,7 +182,7 @@ export class View2D {
     ctx.save();
     ctx.translate(this.ox, this.oy);
     ctx.scale(this.zoom, this.zoom);
-    ctx.fillStyle = 'rgba(16, 44, 18, 0.8)';
+    ctx.fillStyle = 'rgba(22, 54, 24, 0.75)';
     ctx.fill(this.#features.tree);
     ctx.fillStyle = 'rgba(176, 170, 158, 0.85)';
     ctx.fill(this.#features.rock);
@@ -269,7 +269,7 @@ export class View2D {
     ctx.stroke();
     if (highlight) this.#ring(s, r + 2.5, highlight, 2);
     if (r >= 9) {
-      ctx.font = `600 ${Math.round(clamp(r * 0.8, 9, 13))}px ${FONT}`;
+      ctx.font = `600 ${r >= 14 ? 12 : 11}px ${FONT}`; // the UI type scale
       ctx.fillStyle = '#ffffff';
       ctx.fillText(o.metal.toFixed(1), s.x, s.y + 0.5);
       return;
@@ -320,7 +320,7 @@ export class View2D {
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
     if (highlight) this.#ring(s, r + 5, highlight, 2);
-    ctx.font = `700 ${Math.round(r * 1.05)}px ${FONT}`;
+    ctx.font = `700 ${r >= 13 ? 13 : 11}px ${FONT}`;
     ctx.fillStyle = TEAM_TEXT[team % TEAM_TEXT.length];
     ctx.fillText(String(team + 1), s.x, s.y + 0.5);
   }

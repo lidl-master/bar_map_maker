@@ -1,6 +1,7 @@
 // Editor entry: owns the open map, undo history, views and screens; wires the top bar, tabs, status bar and dialogs.
 import { History } from '../../src/core/index.js';
 import { BIOMES } from '../../src/look/index.js';
+import { flushSave, markSaved, saveNow, scheduleSave } from './autosave.js';
 import { bindBarActions, exportMap } from './bar-actions.js';
 import { $, clamp, el } from './dom.js';
 import { bindTooltips, withLoading } from './feedback.js';
@@ -8,13 +9,14 @@ import { runJob } from './generator.js';
 import { hydrateIcons, icon } from './icons.js';
 import { bindInput } from './input.js';
 import { loadThumbs } from './materials.js';
+import { QUALITY } from './look-panel.js';
 import { initNewMap, openNewMap } from './new-map.js';
 import { removeGroup } from './objects.js';
 import { buildPanels } from './panels.js';
 import { loadMap } from './recent.js';
 import { PATHING_LEGEND } from './sample.js';
 import { openShortcuts } from './shortcuts.js';
-import { markSaved, saveNow, scheduleSave, showCounts, showCursor } from './status.js';
+import { showCounts, showCursor } from './status.js';
 import { brushCursor, buildToolPanel, buildToolbar, defaultToolSettings, markActiveTool, toolById } from './tools.js';
 import { View2D } from './view2d.js';
 import { View3D } from './view3d.js';
@@ -30,7 +32,14 @@ function schedule3d() {
   view3dTimer = setTimeout(() => { view3dTimer = 0; view3d.update(); }, 150);
 }
 
-const preference = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
+function savedQuality() {
+  try {
+    const key = localStorage.getItem('exportQuality');
+    return Object.hasOwn(QUALITY, key ?? '') ? key : 'share';
+  } catch {
+    return 'share'; // storage unavailable: the default preset
+  }
+}
 
 const editor = {
   doc: null,
@@ -40,7 +49,7 @@ const editor = {
   tool: 'raise',
   settings: defaultToolSettings(),
   featureSettings: { density: 40, trees: true, rocks: true },
-  exportQuality: preference('exportQuality', 'share'),
+  exportQuality: savedQuality(),
   selected: null,
 
   showScreen(name) {
@@ -55,7 +64,7 @@ const editor = {
     }
   },
 
-  openNewMap: (preset) => openNewMap(preset),
+  openNewMap,
 
   async createMap(args, summary) {
     const doc = await withLoading('Generating terrain', summary, () => runJob('newMap', args));
@@ -65,12 +74,16 @@ const editor = {
   },
 
   async openRecent(key) {
-    if (key === editor.docKey) return editor.showScreen('editor');
+    if (key === editor.docKey) {
+      editor.showScreen('editor');
+      return;
+    }
     const doc = await withLoading('Opening map', 'Loading it from this computer', () => loadMap(key));
     if (doc) editor.openDoc(doc, key);
   },
 
   openDoc(doc, key) {
+    if (editor.doc) flushSave(editor); // the previous map's last edits
     Object.assign(editor, { doc, docKey: key, selected: null });
     editor.history.clear();
     editor.showScreen('editor');

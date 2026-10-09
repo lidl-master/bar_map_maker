@@ -30,7 +30,7 @@ function roleLook(biome, role) {
  * Swatch groups for the doc's biome: [{title, items: [{value, label, color, thumb}]}]. value is the paint id, or null for
  * a library material the exporter cannot paint yet (MATERIALS does not list it).
  */
-export function paintGroups(doc) {
+function paintGroups(doc) {
   const biome = BIOMES[doc.biome], groups = [{ title: 'From the biome', items: [] }];
   const paintId = new Map(MATERIALS.map((m, i) => [m.id ?? `role:${m.role ?? m.key}`, i + 1]));
   for (const m of MATERIALS) {

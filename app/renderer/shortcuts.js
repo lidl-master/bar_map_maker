@@ -3,7 +3,7 @@ import { $, el } from './dom.js';
 import { TOOLS } from './tools.js';
 
 // keys: what the overlay shows. combo: the normalised key that runs it (see comboOf). global: also works on the welcome screen.
-export const SHORTCUTS = [
+const SHORTCUTS = [
   { group: 'File', label: 'New map', keys: ['Ctrl', 'N'], combo: 'ctrl+n', global: true, run: (app) => app.openNewMap() },
   { group: 'File', label: 'Export', keys: ['Ctrl', 'E'], combo: 'ctrl+e', run: (app) => app.exportMap() },
   { group: 'Edit', label: 'Undo', keys: ['Ctrl', 'Z'], combo: 'ctrl+z', run: (app) => app.undo() },
@@ -23,12 +23,16 @@ export const SHORTCUTS = [
   { group: 'View', label: 'Fit map to view', keys: ['Home'], combo: 'home', run: (app) => app.view2d.fit() },
   { group: 'View', label: 'Zoom', keys: ['Wheel'] },
   { group: 'View', label: 'Pan', keys: ['Space', 'Drag'] },
-  { group: 'View', label: 'Pan', keys: ['Middle-drag'] },
+  { group: 'View', label: 'Pan with the mouse', keys: ['Middle- or right-drag'] },
+  { group: '3D view', label: 'Rotate', keys: ['Left-drag'] },
+  { group: '3D view', label: 'Pan', keys: ['Right-drag'] },
+  { group: '3D view', label: 'Zoom', keys: ['Wheel'] },
   { group: 'Help', label: 'Keyboard shortcuts', keys: ['?'], combo: '?', global: true, run: () => openShortcuts() },
+  { group: 'Help', label: 'Close a dialog', keys: ['Esc'] },
 ];
 
 /** 'ctrl+shift+z', 'ctrl+e', 'r', '?', 'home': Shift only counts together with Ctrl (Shift+/ is simply '?'). */
-export function comboOf(e) {
+function comboOf(e) {
   const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
   return `${ctrl ? 'ctrl+' : ''}${ctrl && e.shiftKey ? 'shift+' : ''}${key}`;
 }

@@ -17,7 +17,7 @@ const PICTOGRAMS = {
   adiag: { short: 'Diagonal ╱', lines: [[21, 3, 3, 21]], dots: [[8, 8], [16, 16]] },
   none: { short: 'None', dots: [[9, 10]] },
 };
-export const SYMMETRY_ORDER = Object.keys(PICTOGRAMS);
+const SYMMETRY_ORDER = Object.keys(PICTOGRAMS);
 
 function svgNode(tag, attrs) {
   const node = document.createElementNS(NS, tag);
@@ -25,7 +25,7 @@ function svgNode(tag, attrs) {
   return node;
 }
 
-export function pictogram(mode) {
+function pictogram(mode) {
   const { lines = [], dots, centre } = PICTOGRAMS[mode];
   const svg = svgNode('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'aria-hidden': 'true' });
   svg.append(svgNode('rect', { x: 3, y: 3, width: 18, height: 18, rx: 2.5, 'stroke-width': 1.25, opacity: 0.55 }));

@@ -58,6 +58,7 @@ async function thumbsReady(container) {
 }
 
 async function screens(size, { exportToo = true } = {}) {
+  await page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove())); // left over from the last size
   await page.evaluate(() => document.getElementById('btnHome')?.click());
   await page.locator('#welcome').waitFor();
   await thumbsReady('wTemplates');
@@ -72,6 +73,9 @@ async function screens(size, { exportToo = true } = {}) {
   await thumbsReady('nmTemplates');
   await shot('newmap', size);
   await page.click('#nmCreate');
+  await page.locator('#loading').waitFor();
+  await page.waitForTimeout(150); // fades in
+  await shot('loading', size);
   await page.locator('#loading').waitFor({ state: 'hidden', timeout: 60_000 });
   await page.locator('#editor').waitFor();
 
@@ -96,6 +100,10 @@ async function screens(size, { exportToo = true } = {}) {
     await page.waitForTimeout(300);
     await shot(tab, size);
   }
+  await page.click('#tabs [data-tab=look]');
+  await page.locator('#tab-look .material-picker').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await shot('look-materials', size);
   await page.click('#tabs [data-tab=tool]');
   // Keyboard focus is always visible: Tab from the tool rail onto the next control.
   await page.focus('#toolbar [data-tool=smooth]');
@@ -113,6 +121,19 @@ async function screens(size, { exportToo = true } = {}) {
     await shot('export-done', size);
     await page.click('#exportPanel .ep-actions .btn.ghost'); // Close
   }
+
+  await page.click('#tabs [data-tab=generate]');
+  await page.click('#tab-generate .btn.danger');
+  await page.locator('#dlgConfirm[open]').waitFor();
+  await page.waitForTimeout(300);
+  await shot('confirm', size);
+  await page.click('#cfCancel');
+  await page.click('#tabs [data-tab=map]');
+  await page.locator('#tab-map .btn', { hasText: 'Change export folder' }).click();
+  await page.locator('#toasts .toast').first().waitFor();
+  await page.waitForTimeout(300);
+  await shot('toast', size);
+  await page.click('#tabs [data-tab=tool]');
 
   await page.keyboard.press('?');
   await page.locator('#dlgShortcuts[open]').waitFor();

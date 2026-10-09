@@ -1,8 +1,7 @@
-// Status bar read-outs (cursor, slope, counts) and local autosave with its state chip in the top bar.
+// Status bar read-outs: cursor position, height, slope and pathing, and the object counts.
 import { $, el, formatInt } from './dom.js';
 import { icon } from './icons.js';
 import { counts } from './objects.js';
-import { saveMap } from './recent.js';
 import { PATHING_LEGEND, SQ, heightAt, pathingClass, slopeAt, worldSize } from './sample.js';
 
 /** w = {x, z} in elmos, or null when the pointer left the map. */
@@ -29,43 +28,4 @@ export function showCounts(doc) {
     item('geo', 'flame', c.geos, 'Geothermal vents'),
     item('feature', 'trees', c.features, 'Features (trees and rocks)'),
   );
-}
-
-// ---- autosave: a moment after the last change the map is saved locally; the welcome screen lists it under Recent maps.
-const SAVE_DELAY = 1500;
-let saveTimer = 0;
-
-function showSaveState(state, label, tip = '') {
-  const chip = $('saveState');
-  chip.dataset.state = state;
-  chip.dataset.tip = tip || label;
-  chip.querySelector('.label').textContent = label;
-}
-
-const SAVED_TIP = 'Saved on this computer. Reopen it from the welcome screen.';
-export const markSaved = () => showSaveState('saved', 'Saved', SAVED_TIP);
-
-export function scheduleSave(editor) {
-  showSaveState('dirty', 'Unsaved changes', 'Saved on this computer a moment after you stop editing');
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => saveNow(editor), SAVE_DELAY);
-}
-
-export async function saveNow(editor) {
-  clearTimeout(saveTimer);
-  showSaveState('saving', 'Saving…');
-  try {
-    await saveMap(editor.docKey, editor.doc, thumbnail(editor.view2d.base));
-    markSaved();
-  } catch (error) {
-    console.error(error);
-    showSaveState('error', 'Not saved', `Could not save on this computer: ${error.message}`);
-  }
-}
-
-/** A 64×64 RGBA preview of the 2D map image for the recent maps list. */
-function thumbnail(source, size = 64) {
-  const canvas = new OffscreenCanvas(size, size), ctx = canvas.getContext('2d');
-  ctx.drawImage(source, 0, 0, size, size);
-  return { size, rgba: ctx.getImageData(0, 0, size, size).data };
 }

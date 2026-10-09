@@ -45,8 +45,9 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 .logo-btn:active { filter: brightness(0.92); }
 .map-name {
   flex: 0 1 auto;
-  width: 220px;
-  min-width: 80px;
+  field-sizing: content; /* as wide as the name, within limits */
+  min-width: 96px;
+  max-width: 240px;
   height: var(--h-control);
   padding: 0 var(--s-2);
   border: 1px solid transparent;
@@ -60,7 +61,7 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 .map-name:hover { border-color: var(--line-2); }
 .map-name:focus { border-color: var(--accent-fill); background: var(--bg-0); box-shadow: 0 0 0 1px var(--accent-fill); }
 .map-meta { color: var(--text-2); font-size: var(--fs-12); white-space: nowrap; flex: none; }
-.save-state { display: inline-flex; align-items: center; gap: 6px; margin-left: var(--s-3); color: var(--text-2); font-size: var(--fs-12); white-space: nowrap; overflow: hidden; }
+.save-state { display: inline-flex; align-items: center; gap: var(--s-2); margin-left: var(--s-3); color: var(--text-2); font-size: var(--fs-12); white-space: nowrap; overflow: hidden; }
 .save-state[data-state=saved] .dot { background: var(--ok); }
 .save-state[data-state=dirty] .dot, .save-state[data-state=saving] .dot { background: var(--warn); }
 .save-state[data-state=error] .dot { background: var(--danger); }
@@ -93,12 +94,10 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
   color: var(--text-2);
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.tool .icon { width: 18px; height: 18px; }
+.tool .icon { width: 20px; height: 20px; }
 .tool:hover { background: var(--hover); color: var(--text-1); }
 .tool:active { background: var(--press); }
 .tool[aria-pressed=true] { background: var(--accent-fill); color: var(--text-on-accent); }
-.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 9px; font-weight: 600; color: var(--text-3); line-height: 1; }
-.tool[aria-pressed=true] .key { color: rgba(255, 255, 255, 0.75); }
 
 /* ---- viewport */
 #viewport { grid-area: view; position: relative; display: flex; min-width: 0; min-height: 0; background: var(--bg-0); }
@@ -135,12 +134,11 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 }
 .hint-chip:empty { display: none; }
 .hint-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hint-chip .icon { color: var(--text-2); width: 14px; height: 14px; }
+.hint-chip .icon { color: var(--text-2); }
 .zoom { display: inline-flex; align-items: center; height: var(--h-control); padding: 2px; border-radius: var(--r-md); }
-.zoom > button { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--r-sm); color: var(--text-2); }
+.zoom > button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 22px; border-radius: var(--r-sm); color: var(--text-2); }
 .zoom > button:hover { background: var(--hover); color: var(--text-1); }
 .zoom > button:active { background: var(--press); }
-.zoom .icon { width: 14px; height: 14px; }
 #zoomLevel { min-width: 44px; text-align: center; font-size: var(--fs-11); font-weight: 500; color: var(--text-2); }
 .zoom-sep { width: 1px; height: 16px; background: var(--line-2); margin: 0 2px; }
 
@@ -180,7 +178,7 @@ body[data-screen=editor] .loading { inset: var(--topbar-h) var(--inspector-w) va
 
 .tool-head { display: flex; align-items: center; gap: var(--s-3); }
 .tool-head .tool-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r-md); background: var(--accent-soft); color: var(--accent); flex: none; }
-.tool-head .tool-icon .icon { width: 18px; height: 18px; }
+.tool-head .tool-icon .icon { width: 20px; height: 20px; }
 .tool-head h2 { font-size: var(--fs-15); font-weight: 600; line-height: var(--lh-tight); }
 .tool-head p { color: var(--text-2); font-size: var(--fs-11); }
 .tool-head kbd { margin-left: auto; }
@@ -204,7 +202,7 @@ body[data-screen=editor] .loading { inset: var(--topbar-h) var(--inspector-w) va
   white-space: nowrap;
   overflow: hidden;
 }
-.st { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.st { display: inline-flex; align-items: center; gap: var(--s-2); min-width: 0; }
 .st .icon { width: 12px; height: 12px; color: var(--text-3); }
 .st b { color: var(--text-1); font-weight: 500; }
 .st-sep { width: 1px; height: 12px; background: var(--line-2); }
@@ -224,7 +222,7 @@ body[data-screen=editor] .loading { inset: var(--topbar-h) var(--inspector-w) va
   :root { --inspector-w: 296px; }
   .save-state .label, #viewMode span, #displayMode span { display: none; }
   #viewMode > button, #displayMode > button { padding: 0 var(--s-2); }
-  .map-name { width: 168px; }
+  .map-name { max-width: 180px; }
 }
 @media (max-width: 1100px) {
   .map-meta { display: none; }

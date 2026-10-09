@@ -4,7 +4,7 @@ import { $, btn, clamp, el } from './dom.js';
 import { icon } from './icons.js';
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
-export const megabytes = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
+const megabytes = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
 const fileName = (p) => p.split(/[\\/]/).pop();
 
 let state = null; // {phase, name, steps: [{label, start, end}], fraction, start, result, error, actions}
@@ -17,7 +17,7 @@ function render() {
   }
   const { phase, name, steps, fraction } = state;
   const head = {
-    running: ['loader-circle', `Exporting ${name}`, 'You can keep editing; the export uses the map as it was when you clicked.'],
+    running: ['loader-circle', `Exporting ${name}`, 'You can keep editing while it runs.'],
     done: ['circle-check', 'Export complete', state.result && `${fileName(state.result.archivePath)} · ${megabytes(state.result.bytes)} · ${seconds(Date.now() - state.start)}`],
     error: ['circle-alert', 'Export failed', name],
   }[phase];

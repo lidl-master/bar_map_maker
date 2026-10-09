@@ -35,14 +35,11 @@
   --accent-fill-hover: #3366da;
   --accent-fill-press: #2c5cc8;
   --accent-soft: rgba(58, 111, 224, 0.18);
-  --accent-line: rgba(122, 165, 255, 0.55);
   --focus: #7aa5ff;
 
   /* State colours: only for success, warning and danger. */
   --ok: #3ecf8e;
-  --ok-soft: rgba(62, 207, 142, 0.14);
   --warn: #f5b84a;
-  --warn-soft: rgba(245, 184, 74, 0.14);
   --danger: #ff6b6e;
   --danger-soft: rgba(255, 107, 110, 0.14);
   --danger-fill: #c9353b;
@@ -75,15 +72,13 @@
   --r-xl: 14px;
 
   --h-control: 28px;
-  --h-control-lg: 36px;
   --topbar-h: 48px;
-  --status-h: 26px;
+  --status-h: 24px;
   --rail-w: 52px;
   --inspector-w: 320px;
 
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
   --shadow-dialog: 0 24px 72px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  --ring: 0 0 0 2px var(--focus);
 
   /* Motion: short and purposeful; never animates layout. */
   --dur: 120ms;
@@ -122,12 +117,12 @@ input, textarea { user-select: text; }
   flex: none;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.75;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.icon > * { vector-effect: non-scaling-stroke; } /* one stroke weight (1.5 px) at every icon size */
 .icon.lg { width: 20px; height: 20px; }
-.icon.xl { width: 32px; height: 32px; stroke-width: 1.5; }
 
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--text-2); }

@@ -63,5 +63,5 @@ function recentRow(m, app) {
   return el('button', { class: 'recent', onclick: () => app.openRecent(m.key) },
     canvas,
     el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num' }, `${m.sx} × ${m.sz} · ${BIOMES[m.biome]?.label ?? m.biome} · ${m.players} players`)),
-    el('span', { class: 'when' }, app.docKey === m.key ? 'Open' : when));
+    app.docKey === m.key ? el('span', { class: 'badge accent' }, 'Open') : el('span', { class: 'when' }, when));
 }

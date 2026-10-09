@@ -1,4 +1,4 @@
-// The Look tab: biome, paint materials, trees and rocks, and the export quality preset (WP 2.2).
+// The Look tab: biome, trees and rocks, the export quality preset (WP 2.2) and, last because it is long, paint materials.
 import { BIOMES } from '../../src/look/index.js';
 import { $, btn, el, formatInt, note, section, segmented, slider, toggle } from './dom.js';
 import { toast, withLoading } from './feedback.js';
@@ -26,13 +26,6 @@ export function buildLook(editor) {
     editor.refreshToolPanel();
   })));
 
-  const paint = section(panel, 'Paint materials');
-  note(paint, 'Pick a material, then drag on the map. Shift-drag paints back to automatic.');
-  paint.append(materialPicker(doc, editor.settings.paint.material, (material) => {
-    editor.settings.paint.material = material;
-    editor.setTool('paint');
-  }));
-
   buildFeatures(editor, panel);
 
   const quality = section(panel, 'Export quality');
@@ -41,6 +34,13 @@ export function buildLook(editor) {
     editor.setExportQuality(key);
     help.textContent = QUALITY[key].help;
   }, 'block'), help);
+
+  const paint = section(panel, 'Paint materials');
+  note(paint, 'Pick a material, then drag on the map. Shift-drag paints back to automatic.');
+  paint.append(materialPicker(doc, editor.settings.paint.material, (material) => {
+    editor.settings.paint.material = material;
+    editor.setTool('paint');
+  }));
 }
 
 const featureCount = (doc) => doc.objects.filter((o) => o.type === 'feature').length;

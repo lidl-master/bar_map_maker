@@ -1,12 +1,14 @@
 // In-engine screenshots of a map (gate G3) from fixed camera presets, the same for every map.
 //   node tools/engine/screenshot.js "<Map Name>" [path/to/map.sd7] [--out <dir>]
-// Starts a real BAR game (see bar-game.js) in BAR's windowed engine at 1600x900 with a run-local config.
+// Starts a real BAR game (see src/bar/engine.js) in BAR's windowed engine at 1600x900 with a run-local config.
 // screenshot-widget.lua hides the interface, saves overview/mid/close.png and quits. The PNGs and report.json go
 // to --out (default .engine-tmp/g3/<map-id>/). Prints the JSON report; exit code 0 only when report.ok.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { mapId, REPO, runFailures, runGame } from './bar-game.js';
+import { mapId, runFailures, runGame } from '../../src/bar/engine.js';
+
+const REPO = resolve(import.meta.dirname, '../..');
 
 export const SHOTS = ['overview', 'mid', 'close'];
 export const WIDTH = 1600;
@@ -61,7 +63,7 @@ async function main(argv) {
   const outDir = resolve(values.out ?? join(REPO, '.engine-tmp', 'g3', mapId(mapName)));
   mkdirSync(outDir, { recursive: true });
   const widget = readFileSync(join(import.meta.dirname, 'screenshot-widget.lua'), 'utf8');
-  const run = await runGame({ kind: 'g3', exeName: 'spring.exe', mapName, archive, settings: SETTINGS, widget });
+  const run = await runGame({ kind: 'g3', exeName: 'spring.exe', mapName, archive, settings: SETTINGS, widget, runRoot: join(REPO, '.engine-tmp') });
   const shots = Object.fromEntries(SHOTS.map((name) => [name, collectShot(run.runDir, outDir, name)]));
   const why = failures(run, shots);
   const report = { ok: why.length === 0, failures: why, shots, ...run };

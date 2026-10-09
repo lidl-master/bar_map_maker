@@ -63,6 +63,7 @@ export function mapFacts(files, info) {
     dnts: DNTS_KEYS.filter((key) => resources[key]).map((key) => ({ file: resources[key], ...imageSize(file(resources[key])) })),
     normalTex: resources.detailnormaltex ? { file: resources.detailnormaltex, ...imageSize(file(resources.detailnormaltex)) } : null,
     specularMean: resources.speculartex ? textureMean(file(resources.speculartex)) : null,
+    // shortcut: a grassDistTGA in mapinfo custom.grassConfig (BAR's other grass source) is not read; no installed map uses one
     grass: smf.grass ? smf.grass.reduce((n, g) => n + (g > 0), 0) / smf.grass.length : 0,
     minimapLuma: luma(decodeDxt1(smf.minimap.subarray(MINIMAP_256), 256, 256)),
     fog: { start: finite(atmosphere.fogstart, DEFAULTS.fogStart), end: finite(atmosphere.fogend, DEFAULTS.fogEnd) },

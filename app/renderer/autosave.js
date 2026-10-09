@@ -16,6 +16,9 @@ function showSaveState(state, label, tip = '') {
 const SAVED_TIP = 'Saved on this computer. Reopen it from the welcome screen.';
 export const markSaved = () => showSaveState('saved', 'Saved', SAVED_TIP);
 
+/** How many changes the open session has seen: equal counts mean the map did not change in between. */
+export const editCount = () => edits;
+
 export function scheduleSave(editor) {
   edits++;
   showSaveState('dirty', 'Unsaved changes', 'Saved on this computer a moment after you stop editing');

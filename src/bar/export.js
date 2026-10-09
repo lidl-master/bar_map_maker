@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import { writeSd7 } from '../archive/index.js';
 import { assembleDds, buildMapFiles, encodeDxt1Mips, mapFileBase } from '../formats/index.js';
-import { bakeMaterials, finishMinimap, materialTable, MATERIAL_LIBRARY } from '../look/index.js';
+import { bakeMaterials, finishMinimap, materialTable, MATERIAL_LIBRARY, openGroundGrass } from '../look/index.js';
 import { decodePng, TEXTURE_ROOT } from '../look/library-load.js';
 
 const BAKE_WORKER = new URL('./bake-worker.js', import.meta.url);
@@ -80,7 +80,7 @@ async function bakeTexture(doc, plan, onProgress) {
   onProgress(0.75, 'Encoding textures');
   const width = doc.sx * 512, height = doc.sz * 512;
   const dds = (layer, elmos, format) => assembleDds(strips.map((s) => s[layer]), width / elmos, height / elmos, format);
-  const grass = concat(strips.map((s) => s.grass));
+  const grass = doc.settings.openGrass ? openGroundGrass(doc) : concat(strips.map((s) => s.grass));
   return {
     tiles: concat(strips.map((s) => s.tiles)),
     minimap: encodeDxt1Mips(finishMinimap(doc, concat(strips.map((s) => s.minimap))), 1024),

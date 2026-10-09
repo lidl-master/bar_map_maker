@@ -12,8 +12,7 @@ import { placeStartPositions } from '../terrain/place.js';
 // maxslope 15 (Armada, the strictest), maxwaterdepth 5. The engine turns maxslope into maxHeightDif =
 // 40 * tan(maxslope) and builds only where every footprint corner is within maxHeightDif of one build height:
 // a corner height span of at most twice that (21.4 elmos).
-export const GEO = { footprint: 80, maxSlope: 15, maxDepth: 5 };
-GEO.maxSpan = 2 * 40 * Math.tan((GEO.maxSlope * Math.PI) / 180);
+export const GEO = { footprint: 80, maxDepth: 5, maxSpan: 2 * 40 * Math.tan((15 * Math.PI) / 180) };
 
 // Limits from the checklist page, or measured on the 19 installed BAR maps (tools/README.md, "Map checklist").
 export const LIMITS = {

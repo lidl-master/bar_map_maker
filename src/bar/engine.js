@@ -53,7 +53,8 @@ function spectatorScript(mapName, gameName, nullAIVersion) {
  * The newest engine that has `exeName` (spring-headless.exe or spring.exe) and the installed BAR game.
  * @returns {{bar: object, engine: {name: string, dir: string}, exe: string}}
  */
-export function findEngine(exeName, bar = locateBar()) {
+export function findEngine(exeName) {
+  const bar = locateBar();
   const engine = bar.engines.findLast((e) => existsSync(join(e.dir, exeName)));
   if (!engine) throw new Error(`no BAR engine with ${exeName} under ${bar.dataDir}`);
   if (!bar.game?.packageExists) throw new Error('the installed Beyond All Reason game was not found: start BAR once so it downloads the game');
@@ -223,18 +224,13 @@ function runEngine(exe, args, cwd, logFile, isMapError, { signal, onLine }) {
 }
 
 /**
- * Runs `exeName` (spring-headless.exe or spring.exe) of the newest engine that has a headless build on a fresh run
- * dir under `runRoot`, with `settings` as its exclusive springsettings.cfg and `widget` (Lua source) as a user
+ * Runs `exeName` (spring-headless.exe or spring.exe) of the newest engine that has it on a fresh run dir under `runRoot`, with `settings` as its exclusive springsettings.cfg and `widget` (Lua source) as a user
  * widget, watching NullAI vs NullAI as a spectator. An optional archive goes into the run's own maps/.
  * onLine(line) sees the engine's output as it comes; `signal` cancels the run.
  * @returns the fields every report shares; runFailures() and the tool's own checks read them.
  */
 export async function runGame({ kind, exeName, mapName, archive, settings, widget, runRoot, signal, onLine }) {
-  const bar = locateBar();
-  // Both tools use the newest engine that has a headless build, so the check and the screenshots see the same engine.
-  const engine = bar.headlessEngine;
-  if (!engine) throw new Error(`no engine with spring-headless.exe under ${bar.dataDir}`);
-  const { exe } = findEngine(exeName, { ...bar, engines: [engine] });
+  const { bar, engine, exe } = findEngine(exeName);
   const [nullAIVersion] = readdirSync(join(engine.dir, 'AI', 'Skirmish', 'NullAI'));
   const script = spectatorScript(mapName, bar.game.name, nullAIVersion);
   const { runDir, args } = prepareRun({ kind, engine, bar, mapName, archive, script, runRoot });

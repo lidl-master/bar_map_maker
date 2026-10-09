@@ -47,6 +47,7 @@ export function playtestScript({ mapName, gameName, aiVersion, difficulty, side,
 /**
  * Starts BAR's windowed engine on the archive. Resolves once the process runs; `exited` resolves when BAR closes
  * (the run dir keeps BAR's infolog.txt and the demo; the archive's link in it is removed).
+ * shortcut: play-test run dirs (~5 MB each plus the demo) are never deleted; revisit with WP 4.1's work folder setting.
  * @param {string} archivePath
  * @param {{workDir: string, difficulty?: string, side?: string}} options
  * @returns {Promise<{pid: number, runDir: string, exited: Promise<{code: number|null, signal: string|null, seconds: number, log: string}>}>}

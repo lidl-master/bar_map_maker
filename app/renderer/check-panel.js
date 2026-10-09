@@ -105,9 +105,10 @@ function engineCard(engine) {
     state === 'running' ? btn('Cancel', { class: 'btn', onclick: () => window.studio.cancelCheck() }) : null);
 }
 
+// The checklist on the export's facts (none when the export failed) with the open map's own facts on top.
 function checklistRows(editor) {
   if (run.factsError) return el('div', { class: 'ck-error', role: 'alert' }, `The checklist could not read the export: ${run.factsError}`);
-  if (!run.facts) return el('div', { class: 'ck-wait' }, el('div', { class: 'spinner' }), 'Reading the export\'s settings, textures and resources…');
+  if (run.phase === 'ready' && !run.facts) return el('div', { class: 'ck-wait' }, el('div', { class: 'spinner' }), 'Reading the export\'s settings, textures and resources…');
   // The open map's own facts count only while it is the map that was exported (not after opening another one).
   const sameMap = editor.doc && editor.docKey === run.docKey;
   const rows = checklist({ ...run.facts, ...(sameMap ? docFacts(editor.doc) : {}) }).sort((a, b) => ORDER[a.status] - ORDER[b.status]);
@@ -133,7 +134,12 @@ function render(editor) {
     return;
   }
   if (run.phase === 'noExport') {
-    body.replaceChildren(el('div', { class: 'ck-error', role: 'alert' }, 'Check map needs an export of the map, and the export was cancelled or failed. Check again to retry.'));
+    // Without an archive neither BAR nor the texture checks can run; the map's own checks still can (a sun in the
+    // south, for one, stops the export and has a fix here).
+    body.replaceChildren(
+      el('div', { class: 'ck-error', role: 'alert' }, 'The map was not exported (cancelled, or the export card says why), so BAR\'s engine and the texture checks did not run. The checks below come from the map itself: fix them, then Check again.'),
+      el('section', {}, el('h3', {}, 'BAR map checklist'), ...[checklistRows(editor)].flat()),
+    );
     return;
   }
   body.replaceChildren(

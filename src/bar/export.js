@@ -17,7 +17,7 @@ function shared(array) {
 
 // Runs jobs (tile row numbers and 'minimap') across worker threads; onResult(job, bytes) per finished job.
 function runBakeJobs(doc, jobs, onResult) {
-  return new Promise((resolve, reject) => {
+  return new Promise((done, fail) => {
     const workers = [];
     let next = 0, finished = 0;
     const stopAll = () => workers.forEach((worker) => worker.terminate());
@@ -27,12 +27,12 @@ function runBakeJobs(doc, jobs, onResult) {
       workers.push(worker);
       worker.on('message', ({ job, data }) => {
         onResult(job, data);
-        if (++finished === jobs.length) resolve();
+        if (++finished === jobs.length) done();
         feed(worker);
       });
       worker.on('error', (error) => {
         stopAll();
-        reject(error);
+        fail(error);
       });
       feed(worker);
     }

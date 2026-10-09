@@ -9,7 +9,7 @@ Used by builders and critics. Node is at `D:\tools\node` (put it on `PATH`); Pyt
 | Headless engine check | `node tools/engine/headless-check.js "<Map Name>" [map.sd7]` | JSON report; exit 0 when `ok`, else 1 |
 | Map checklist (G7) | `node tools/checklist/checklist.js [map.sd7 ...] [--json]` | One line per map with its warnings and failures (default: every installed map); exit 1 when a map fails |
 | In-engine screenshots (G3) | `node tools/engine/screenshot.js "<Map Name>" [map.sd7] [--out <dir>]` | `overview/mid/close.png` + `report.json` in `.engine-tmp/g3/<map-id>/`; exit 0 when `ok` |
-| Blind A/B pairs | `node tools/ab/ab.js <pair-id> <ours.png> <reference.png>` / `--reveal <pair-id>` | `docs/gauntlet/ab/<pair-id>/A.png, B.png`; key in `docs/gauntlet/.keys/` (gitignored) |
+| Blind A/B pairs | `node tools/ab/ab.js <pair-id> <ours.png> <reference.png>` / `--reveal <pair-id>` | `<AB root>/pairs/<pair-id>/A.png, B.png` and the key in `<AB root>/keys/`, outside the repo so critics never see it (`BMS_AB_ROOT`, default `../tools/bar-map-studio/ab` next to the repo) |
 
 ## Tests
 

@@ -49,7 +49,8 @@ npm start
 ```
 
 `npm run textures` downloads the 24 CC0 materials from ambientCG (about 440 MB of zips, cached in
-`D:	ools	exture-cacheaw`; the path is set in `tools/textures/fetch.js`, change it on a machine without a D: drive)
+`D:	ools	exture-cache
+aw`; the path is set in `tools/textures/fetch.js`, change it on a machine without a D: drive)
 and builds the texture library in `assets/textures/` (gitignored, about 120 MB). It only needs to run once. The app runs
 without it, but exports and the material swatches need it.
 
@@ -64,6 +65,7 @@ without it, but exports and the material swatches need it.
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setting up, running, testing, the tools, conventions |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Processes, the MapDoc model and every module's contract |
 | [docs/STATUS.md](docs/STATUS.md) | What is done, what is left, known risks, open decisions |
+| [CHANGELOG.md](CHANGELOG.md) | Releases and what each one contains |
 | [tools/README.md](tools/README.md) | Verification tools: format validator, headless engine check, in-engine screenshots, checklist |
 | [tools/textures/README.md](tools/textures/README.md) | How the texture library is fetched and built |
 | [docs/PLAN.md](docs/PLAN.md), [docs/KICKOFF_PROMPT.md](docs/KICKOFF_PROMPT.md) | The original plan and requirements |

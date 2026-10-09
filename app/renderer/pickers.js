@@ -49,7 +49,8 @@ function pictogram(mode) {
 /** Symmetry radios; returns the cards keyed by mode so the caller can disable or lock them. */
 export function symmetryChoices(name, current, onChange) {
   return SYMMETRY_ORDER.map((mode) => {
-    const card = choice({ name, value: mode, checked: mode === current, onChange }, pictogram(mode), el('span', { class: 'name' }, SYMMETRY[mode].label));
+    // Word joiners keep "left–right" together when the name wraps.
+    const card = choice({ name, value: mode, checked: mode === current, onChange }, pictogram(mode), el('span', { class: 'name' }, SYMMETRY[mode].label.replaceAll('–', '\u2060–\u2060')));
     card.dataset.tip = SYMMETRY[mode].label;
     return card;
   });

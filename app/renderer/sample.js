@@ -20,11 +20,12 @@ export function pathingClass(doc, i, j) {
 
 // Colour-blind safe and muted: teal, amber, magenta (hatched in 2D), two blues, dark red. The 2D view lays them at 65 %
 // over a hillshade, so the relief still reads.
+// short: the legend strip under the 2D map; label: its tooltip and the status bar.
 export const PATHING_LEGEND = {
-  all: { color: [52, 158, 146], label: `All ground units (≤ ${PATHING.vehicle}°)` },
-  bots: { color: [222, 164, 58], label: `Bots only (${PATHING.vehicle}–${PATHING.bot}°)` },
-  none: { color: [196, 70, 160], label: `Impassable (> ${PATHING.bot}°)` },
-  shallow: { color: [120, 170, 232], label: `Shallow water (≤ ${PATHING.wade} elmos)` },
-  deep: { color: [48, 86, 178], label: 'Deep water (ships, hovers)' },
-  lava: { color: [150, 36, 28], label: 'Lava (deadly)' },
+  all: { color: [52, 158, 146], short: `All units ≤ ${PATHING.vehicle}°`, label: `All ground units (≤ ${PATHING.vehicle}°)` },
+  bots: { color: [222, 164, 58], short: `Bots ${PATHING.vehicle}–${PATHING.bot}°`, label: `Bots only (${PATHING.vehicle}–${PATHING.bot}°)` },
+  none: { color: [196, 70, 160], short: 'Impassable', label: `Impassable (> ${PATHING.bot}°)` },
+  shallow: { color: [120, 170, 232], short: 'Shallow water', label: `Shallow water (≤ ${PATHING.wade} elmos)` },
+  deep: { color: [48, 86, 178], short: 'Deep water', label: 'Deep water (ships, hovers)' },
+  lava: { color: [150, 36, 28], short: 'Lava', label: 'Lava (deadly)' },
 };

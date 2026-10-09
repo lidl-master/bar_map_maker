@@ -53,4 +53,5 @@ export function openShortcuts() {
   if (!$('scList').childElementCount) buildList();
   for (const d of document.querySelectorAll('dialog[open]')) if (d.id !== 'dlgShortcuts') return; // never on top of another dialog
   $('dlgShortcuts').showModal();
+  $('dlgShortcuts').focus(); // the sheet itself, not its close button
 }

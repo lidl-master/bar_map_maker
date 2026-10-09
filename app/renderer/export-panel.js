@@ -37,6 +37,12 @@ function pathRow(archivePath) {
   return el('div', { class: 'ep-path' }, el('span', { class: 'path', title: archivePath }, archivePath), copy);
 }
 
+/** The exporter's warnings (report.warnings), as text lines under the path; nothing when there are none. */
+function warningList(warnings) {
+  if (!warnings.length) return null;
+  return el('ul', { class: 'ep-warnings' }, ...warnings.map((text) => el('li', {}, icon('triangle-alert'), el('span', {}, text))));
+}
+
 function render() {
   const panel = $('exportPanel');
   if (!state) {
@@ -61,6 +67,7 @@ function render() {
     phase === 'running' ? el('div', { class: 'progress', role: 'progressbar', 'aria-valuenow': String(Math.round(fill * 100)) }, bar) : null,
     el('ol', { class: 'ep-steps' }, ...steps.map(stepRow)),
     phase === 'done' ? pathRow(state.result.archivePath) : null,
+    phase === 'done' ? warningList(state.result.report?.warnings ?? []) : null,
     phase === 'error' ? el('div', { class: 'ep-error', role: 'alert' }, state.error) : null,
     el('div', { class: 'ep-actions' }, ...state.actions().map(([label, attrs, iconName]) => btn(label, attrs, iconName)),
       phase === 'running'

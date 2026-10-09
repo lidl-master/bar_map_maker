@@ -147,7 +147,7 @@ export function registerStudioIpc(origin, servedFile) {
     const result = await Promise.race([job, aborted]);
     if (!result || signal.aborted) return { cancelled: true };
     exported.add(result.archivePath);
-    return { archivePath: result.archivePath, bytes: result.bytes };
+    return { archivePath: result.archivePath, bytes: result.bytes, report: result.report }; // report: {warnings} from WP 3.3
   });
 
   handle('studio:cancelExport', () => { running?.controller.abort(); });

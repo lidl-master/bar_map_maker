@@ -50,7 +50,7 @@
         <h2>Open a BAR map</h2>
         <p id="oWhere">Maps in your BAR maps folder. Opening a map only reads it; the BAR folder is never changed.</p>
       </div>
-      <button id="oBrowse" class="btn"><i data-icon="folder-search"></i><span>Browse…</span></button>
+      <button id="oBrowse" class="btn accent-icon" data-tip="Open a .sd7 or .sdz map file from anywhere"><i data-icon="folder-search"></i><span>Browse…</span></button>
     </header>
     <div id="oError" class="open-error" role="alert" hidden></div>
     <div id="oMaps" class="tpl-gallery map-gallery"></div>
@@ -116,8 +116,11 @@
           <button id="btnFit" data-tip="Fit map to view" data-key="Home" aria-label="Fit map to view"><i data-icon="scan"></i></button>
         </div>
       </div>
-      <div id="legend" class="legend glass" hidden></div>
-      <div id="scaleBar" class="scale-bar" aria-hidden="true"><span class="bar"></span><span class="label num"></span></div>
+      <div class="overlay bottom">
+        <div id="scaleBar" class="scale-bar glass" aria-hidden="true"><span class="bar"></span><span class="label num"></span></div>
+        <span class="spacer"></span>
+        <div id="legend" class="legend glass" hidden></div>
+      </div>
     </div>
     <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize the 2D and 3D views" tabindex="0" data-tip="Drag to resize"></div>
     <div id="wrap3d">
@@ -130,7 +133,7 @@
         </div>
         <button id="compass" class="compass glass" data-tip="North: the sun is in the north on BAR maps. Click to face north" aria-label="Face north"></button>
       </div>
-      <div id="hint3d" class="overlay bottom-center"><div class="hint-chip"><i data-icon="mouse"></i>Left-drag rotate · Right-drag pan · Wheel zoom</div></div>
+      <div id="hint3d" class="overlay bottom-center"><div class="hint-chip"><i data-icon="mouse"></i><span>Left-drag rotate · Right-drag pan · Wheel zoom</span></div></div>
     </div>
   </section>
   <div id="overlayMenu" class="popover menu" popover aria-label="Overlays">
@@ -221,7 +224,7 @@
 </dialog>
 
 <!-- Keyboard shortcuts (?) -->
-<dialog id="dlgShortcuts" class="modal shortcuts" aria-labelledby="scTitle">
+<dialog id="dlgShortcuts" class="modal shortcuts" aria-labelledby="scTitle" tabindex="-1">
   <header class="modal-head">
     <h2 id="scTitle">Keyboard shortcuts</h2>
     <button class="btn ghost square" data-close aria-label="Close"><i data-icon="x"></i></button>

@@ -68,17 +68,18 @@ function drawReadouts() {
   if (node.textContent !== label) node.textContent = label;
 }
 
-// ---- pathing legend: docked under the toolbar, collapsible, only the classes the map has
+// ---- pathing legend: off the map, in the band under it (fit() keeps it free), collapsible, only the classes the map has
 function showLegend() {
-  const present = view2d.presentClasses();
-  const toggle = el('button', { class: 'legend-head', 'aria-expanded': String(legendOpen), onclick: () => { legendOpen = !legendOpen; showLegend(); } },
-    el('span', {}, 'Pathing'), icon('chevron-down'));
-  const items = present.map((key) => {
+  const toggle = el('button', {
+    class: 'legend-head', 'aria-expanded': String(legendOpen), 'data-tip': legendOpen ? 'Hide the legend' : 'Show the legend',
+    onclick: () => { legendOpen = !legendOpen; showLegend(); },
+  }, el('span', {}, 'Pathing'), icon('chevron-down'));
+  const items = view2d.presentClasses().map((key) => {
     const swatch = el('i', { class: `sw-${key}` });
     swatch.style.background = `rgb(${PATHING_LEGEND[key].color})`;
-    return el('div', { class: 'item' }, swatch, PATHING_LEGEND[key].label);
+    return el('span', { class: 'item', 'data-tip': PATHING_LEGEND[key].label }, swatch, PATHING_LEGEND[key].short);
   });
-  $('legend').replaceChildren(toggle, ...(legendOpen ? [el('div', { class: 'legend-items' }, ...items)] : []));
+  $('legend').replaceChildren(toggle, ...(legendOpen ? items : []));
 }
 
 // ---- transient tool chip (the inspector holds the full description)

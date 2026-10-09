@@ -1,10 +1,9 @@
 // Paint materials as swatches for the Paint tool and the Look tab, with texture library thumbnails where they exist.
-// doc.paint holds src/look MATERIALS index + 1 (0 = automatic). A MATERIALS entry without `id` is a biome role
-// (lowland, cliff…: its look comes from the biome); one with `id` is a texture library material (WP 2.1 / 2.2).
+// doc.paint holds src/look MATERIALS index + 1 (0 = automatic). A MATERIALS entry with `role` is the biome's own
+// material for that role (lowland, cliff…); one with `id` is a texture library material.
 import { BIOMES, MATERIALS } from '../../src/look/index.js';
 import { MATERIAL_LIBRARY } from '../../src/look/library-manifest.js';
 import { choice, el } from './dom.js';
-import { icon } from './icons.js';
 
 const LIBRARY = new Map(MATERIAL_LIBRARY.map((m) => [m.id, m]));
 const CLASSES = { ground: 'Ground', slope: 'Slope', cliff: 'Cliff', shore: 'Shore', special: 'Special' };
@@ -19,28 +18,21 @@ export async function loadThumbs() {
 }
 
 const css = (rgb) => `rgb(${rgb.map(Math.round).join(', ')})`;
-const swatchOf = (lib) => ({ color: css(lib.avgColor), thumb: thumbs.has(lib.id) ? `../../${thumbPath(lib)}` : null });
+/** A library material's look: its thumbnail over its average colour. */
+const look = (id) => {
+  const lib = LIBRARY.get(id);
+  return { color: css(lib.avgColor), thumb: thumbs.has(id) ? `../../${thumbPath(lib)}` : null };
+};
 
-/** How a biome role looks: the library material the biome assigns to it, or the biome's own colour. */
-function roleLook(biome, role) {
-  const lib = LIBRARY.get(biome.materials?.[role]);
-  return lib ? swatchOf(lib) : { color: css(biome[role]), thumb: null };
-}
-
-/**
- * Swatch groups for the doc's biome: [{title, items: [{value, label, color, thumb}]}]. value is the paint id, or null for
- * a library material the exporter cannot paint yet (MATERIALS does not list it).
- */
+/** Swatch groups for the doc's biome: [{title, items: [{value, label, color, thumb}]}]; value is the paint id. */
 function paintGroups(doc) {
   const biome = BIOMES[doc.biome], groups = [{ title: 'From the biome', items: [] }];
-  const paintId = new Map(MATERIALS.map((m, i) => [m.id ?? `role:${m.role ?? m.key}`, i + 1]));
-  for (const m of MATERIALS) {
-    if (!m.id) groups[0].items.push({ value: paintId.get(`role:${m.role ?? m.key}`), label: m.label, ...roleLook(biome, m.role ?? m.key) });
-  }
-  for (const [cls, title] of Object.entries(CLASSES)) {
-    const items = MATERIAL_LIBRARY.filter((m) => m.class === cls).map((m) => ({ value: paintId.get(m.id) ?? null, label: m.label, ...swatchOf(m) }));
-    if (items.length) groups.push({ title, items });
-  }
+  const byClass = new Map(Object.keys(CLASSES).map((cls) => [cls, []]));
+  MATERIALS.forEach((m, i) => {
+    if (m.role) groups[0].items.push({ value: i + 1, label: m.label, ...look(biome.materials[m.role]) });
+    else byClass.get(LIBRARY.get(m.id).class).push({ value: i + 1, label: m.label, ...look(m.id) });
+  });
+  for (const [cls, items] of byClass) if (items.length) groups.push({ title: CLASSES[cls], items });
   return groups;
 }
 
@@ -54,14 +46,14 @@ function swatch({ color, thumb }) {
 /** A biome's ground, high ground, slope and shore looks as one gradient strip. */
 export function biomeSwatch(key) {
   const b = BIOMES[key], node = el('span', { class: 'swatch', 'aria-hidden': 'true' });
-  const [ground, high, slope, sand] = ['ground', 'high', 'slope', 'sand'].map((role) => roleLook(b, role).color);
+  const [ground, high, slope, sand] = ['ground', 'high', 'slope', 'sand'].map((role) => look(b.materials[role]).color);
   node.style.background = `linear-gradient(90deg, ${ground} 0 30%, ${high} 30% 55%, ${slope} 55% 78%, ${sand} 78%)`;
   return node;
 }
 
 let pickers = 0;
 
-/** The paint material picker: swatch radios grouped like the library, with the chosen material's name below. */
+/** The paint material picker: swatch radios grouped like the library; each names itself in a tooltip, the choice below. */
 export function materialPicker(doc, current, onPick) {
   const groups = paintGroups(doc), name = `material-${++pickers}`;
   const caption = el('p', { class: 'note selected-caption' });
@@ -69,10 +61,8 @@ export function materialPicker(doc, current, onPick) {
   const picker = el('div', { class: 'material-picker' }, ...groups.map((g) => el('div', { class: 'material-group' },
     el('h4', {}, g.title),
     el('div', { class: 'swatch-grid materials', role: 'radiogroup', 'aria-label': g.title }, ...g.items.map((m) => {
-      const locked = m.value === null;
-      const card = choice({ name, value: m.value ?? '', checked: m.value === current, disabled: locked, className: locked ? 'compact locked' : 'compact', onChange: (v) => { show(Number(v)); onPick(Number(v)); } },
-        swatch(m), locked ? el('span', { class: 'lock', 'aria-hidden': 'true' }, icon('lock')) : null);
-      card.dataset.tip = locked ? `${m.label} · Not available yet` : m.label;
+      const card = choice({ name, value: m.value, checked: m.value === current, className: 'compact', onChange: (v) => { show(Number(v)); onPick(Number(v)); } }, swatch(m));
+      card.dataset.tip = m.label;
       card.querySelector('input').setAttribute('aria-label', m.label);
       return card;
     })))));

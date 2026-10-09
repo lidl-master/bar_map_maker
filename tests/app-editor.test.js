@@ -39,7 +39,7 @@ after(async () => {
   assert.deepEqual(errors, []);
 });
 
-const countOf = async (type) => Number((await page.textContent(`#stCounts [data-count=${type}]`)).replaceAll(',', ''));
+const countOf = async (type) => Number((await page.textContent(`#stCounts [data-count=${type}] b`)).replaceAll(',', ''));
 
 async function newMap({ size, players, template, biome }) {
   if (!(await page.locator('#dlgNew[open]').count())) await page.click(await page.isVisible('#welcome') ? '#wNew' : '#btnNew');

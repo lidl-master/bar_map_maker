@@ -279,11 +279,6 @@ input.switch:disabled { opacity: 0.45; cursor: not-allowed; }
 .swatch-grid.materials .choice > .body { padding: 2px; border-radius: var(--r-md); }
 .swatch-grid.materials .swatch { border-radius: var(--r-sm); }
 .material-group + .material-group { margin-top: var(--s-3); }
-.choice.locked { position: relative; }
-.choice.locked > input:disabled + .body { opacity: 1; border-color: var(--line-1); }
-.choice.locked .swatch { opacity: 0.4; }
-.choice.locked .lock { position: absolute; right: 4px; bottom: 4px; display: inline-flex; padding: 2px; border-radius: 3px; background: rgba(14, 16, 20, 0.85); color: var(--text-1); }
-.choice.locked .lock .icon { width: 12px; height: 12px; }
 .selected-caption { margin-top: var(--s-3); }
 .material-group h4 { margin: 0 0 var(--s-1); color: var(--text-2); font-size: var(--fs-11); font-weight: 500; }
 .choice.compact .name { font-size: var(--fs-11); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

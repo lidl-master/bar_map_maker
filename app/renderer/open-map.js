@@ -45,7 +45,7 @@ async function listMaps(app) {
   }
   const cards = maps.map((map) => {
     const frame = thumbFrame(), meta = el('span', { class: 'desc num' }, megabytes(map.sizeMB));
-    const card = el('button', { class: 'tpl-card map-card', 'data-file': map.name, onclick: () => openMap(app, map.file) },
+    const card = el('button', { class: 'tpl-card map-card', 'data-file': map.name, 'data-tip': map.name, onclick: () => openMap(app, map.file) },
       frame, el('span', { class: 'text' }, el('span', { class: 'name' }, map.name), meta));
     return { map, card, frame, meta };
   });
@@ -65,7 +65,7 @@ async function loadThumb({ map, frame, meta }) {
     [canvas.width, canvas.height] = sx >= sz ? [size, Math.round((size * sz) / sx)] : [Math.round((size * sx) / sz), size];
     canvas.getContext('2d').drawImage(square, 0, 0, canvas.width, canvas.height);
     frame.classList.add('ready');
-    meta.textContent = `${sx} × ${sz} · ${megabytes(map.sizeMB)}`;
+    meta.textContent = `${sx}×${sz} · ${megabytes(map.sizeMB)}`;
   } catch (error) {
     console.warn(`No thumbnail for ${map.name}: ${error.message}`);
     thumbFailed(frame);
@@ -91,7 +91,7 @@ async function openMap(app, file) {
 
 function showError(message) {
   const box = $('oError');
-  box.replaceChildren(icon('circle-alert', 'lg'),
+  box.replaceChildren(icon('circle-alert'),
     el('div', { class: 'text' }, el('strong', {}, 'This map could not be opened'), el('span', {}, message)),
     btn('Dismiss', { class: 'btn ghost', onclick: () => { box.hidden = true; } }));
   box.hidden = false;

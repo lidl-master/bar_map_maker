@@ -36,3 +36,23 @@ Screenshots: `screenshots/wave1-*.png`.
 
 ## Wave 2: game-standard look + commercial-grade UI — building
 Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR screenshots.
+
+| WP | Scope | Status |
+|---|---|---|
+| 2.1 | Texture library: 24 CC0 ambientCG materials → albedo, DNTS (layout from the engine shader), thumbnails, licence manifest | merged |
+| 2.2 | Full BAR texture stack export | building |
+| 2.3 | Tree/rock scatter with BAR built-in features, O(1) object ids | merged |
+| 2.4 | Commercial-grade UI: Inter + Lucide, welcome, New Map, editor shell, Look tab, feedback states, 125% layout | merged (61/61 tests) |
+| 2.5 | G3 in-engine screenshot tool (fixed camera presets, isolated windowed BAR) | merged |
+| critic | Blind UI A/B, Wave 2 vs Wave 1 (3 pairs) | new UI preferred 3/3 (confidence 0.93 / 0.78 / 0.92) |
+| critic | Design score, 2 independent critics (pass: 8/10 from both) | 7.0 and 6.6: 3D viewport looks like a debug view, metal badges clutter, truncated hints, spinner-like symmetry glyph, garish pathing colours, dev copy |
+| 2.6 | UI polish: 32 fixes from both critics | building |
+
+## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)
+Brief: [wave3.md](wave3.md).
+
+| WP | Scope | Status |
+|---|---|---|
+| 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | building |
+| 3.2 | Extend/crop per side in whole units, resize; undoable whole-doc swap; original tile/metal grids shift | merged (71/71 tests; seam ≤ 2 elmos near the old edge) |
+| 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning | after 2.2 |

@@ -1,5 +1,6 @@
 // DXT1 (BC1) encoder with a full mip chain down to 4x4, as SMT tiles and the SMF minimap store it, and a decoder.
-// Range fit along the colour block's principal axis (power iteration), always 4-colour mode (c0 > c1).
+// Range fit along the colour block's principal axis (power iteration), always 4-colour mode (c0 > c1),
+// indices by projection onto the endpoint line.
 
 const clamp = (v, hi) => (v < 0 ? 0 : v > hi ? hi : v);
 const to565 = (r, g, b) => (clamp(Math.round(r * 31 / 255), 31) << 11) | (clamp(Math.round(g * 63 / 255), 63) << 5) | clamp(Math.round(b * 31 / 255), 31);
@@ -11,22 +12,24 @@ function from565(c, out, o) {
   out[o + 2] = (b << 3) | (b >> 2);
 }
 
-const pal = new Float32Array(12);
+const pal = new Float32Array(6);
+const LINE_INDEX = [1, 3, 2, 0]; // c1, 1/3 of the way, 2/3, c0 -> BC1 palette index
 
-// px: 16 RGB texels (48 values, row-major). Writes the 8-byte block at out[o].
-function encodeBlock(px, out, o) {
-  let mr = 0, mg = 0, mb = 0;
-  for (let i = 0; i < 48; i += 3) { mr += px[i]; mg += px[i + 1]; mb += px[i + 2]; }
-  mr /= 16; mg /= 16; mb /= 16;
-  let rr = 0, rg = 0, rb = 0, gg = 0, gb = 0, bb = 0;
+/** px: 16 RGB texels (48 values, row-major). Writes the 8-byte BC1 colour block at out[o]. */
+export function encodeColorBlock(px, out, o) {
+  // Mean and covariance in one pass (sums of products minus 16 x the product of the means).
+  let mr = 0, mg = 0, mb = 0, rr = 0, rg = 0, rb = 0, gg = 0, gb = 0, bb = 0;
   for (let i = 0; i < 48; i += 3) {
-    const r = px[i] - mr, g = px[i + 1] - mg, b = px[i + 2] - mb;
+    const r = px[i], g = px[i + 1], b = px[i + 2];
+    mr += r; mg += g; mb += b;
     rr += r * r; rg += r * g; rb += r * b; gg += g * g; gb += g * b; bb += b * b;
   }
+  mr /= 16; mg /= 16; mb /= 16;
+  rr -= 16 * mr * mr; rg -= 16 * mr * mg; rb -= 16 * mr * mb; gg -= 16 * mg * mg; gb -= 16 * mg * mb; bb -= 16 * mb * mb;
   let ax = 0.577, ay = 0.577, az = 0.577;
-  for (let it = 0; it < 4; it++) {
+  for (let it = 0; it < 3; it++) {
     const nx = rr * ax + rg * ay + rb * az, ny = rg * ax + gg * ay + gb * az, nz = rb * ax + gb * ay + bb * az;
-    const len = Math.hypot(nx, ny, nz);
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz); // (Math.hypot is several times slower)
     if (len < 1e-6) break;
     ax = nx / len; ay = ny / len; az = nz / len;
   }
@@ -43,21 +46,13 @@ function encodeBlock(px, out, o) {
   if (c0 < c1) [c0, c1] = [c1, c0];
   let idx = 0;
   if (c0 !== c1) {
+    // Each texel takes the palette entry nearest to its projection on the c1 -> c0 line.
     from565(c0, pal, 0);
     from565(c1, pal, 3);
-    for (let c = 0; c < 3; c++) {
-      pal[6 + c] = (2 * pal[c] + pal[3 + c]) / 3;
-      pal[9 + c] = (pal[c] + 2 * pal[3 + c]) / 3;
-    }
+    const dr = pal[0] - pal[3], dg = pal[1] - pal[4], db = pal[2] - pal[5], scale = 3 / (dr * dr + dg * dg + db * db);
     for (let p = 15; p >= 0; p--) {
-      const r = px[p * 3], g = px[p * 3 + 1], b = px[p * 3 + 2];
-      let best = 0, bestD = Infinity;
-      for (let k = 0; k < 4; k++) {
-        const dr = r - pal[k * 3], dg = g - pal[k * 3 + 1], db = b - pal[k * 3 + 2];
-        const d = dr * dr + dg * dg + db * db;
-        if (d < bestD) { bestD = d; best = k; }
-      }
-      idx = (idx << 2) | best;
+      const t = ((px[p * 3] - pal[3]) * dr + (px[p * 3 + 1] - pal[4]) * dg + (px[p * 3 + 2] - pal[5]) * db) * scale;
+      idx = (idx << 2) | LINE_INDEX[t < 0.5 ? 0 : t < 1.5 ? 1 : t < 2.5 ? 2 : 3];
     }
   }
   out[o] = c0 & 255; out[o + 1] = c0 >> 8; out[o + 2] = c1 & 255; out[o + 3] = c1 >> 8;
@@ -75,7 +70,7 @@ function encodeLevel(rgb, size, out, o) {
           block[d] = rgb[s]; block[d + 1] = rgb[s + 1]; block[d + 2] = rgb[s + 2];
         }
       }
-      encodeBlock(block, out, o);
+      encodeColorBlock(block, out, o);
       o += 8;
     }
   }

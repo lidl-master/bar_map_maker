@@ -55,11 +55,33 @@ function waterBlock(w) {
 }
 
 /**
+ * @typedef {Object} MapTextures
+ * @property {Record<string, string>} resources  mapinfo resources key -> file name in the archive's maps/ folder
+ * @property {{scale: number, mult: number}[]} splats  splatDetailNormalTex1..4 tiling scale and strength
+ */
+
+// resources + splats: the engine finds bare file names in the archive's maps/ folder.
+function texturesBlock({ resources, splats }) {
+  const files = Object.entries(resources).map(([key, file]) => `    ${key} = ${luaString(file)},`);
+  const list = (name) => splats.map((s) => luaNumber(s[name], `splat ${name}`)).join(', ');
+  return `  resources = {
+${files.join('\n')}
+    splatDetailNormalDiffuseAlpha = 1,
+  },
+  splats = {
+    texScales = { ${list('scale')} },
+    texMults = { ${list('mult')} },
+  },
+`;
+}
+
+/**
  * @param {import('../core/index.js').MapDoc} doc
- * @param {{fileBase: string, minHeight: number, maxHeight: number, maxMetal: number}} extras  values decided by the exporter
+ * @param {{fileBase: string, minHeight: number, maxHeight: number, maxMetal: number, textures: MapTextures}} extras
+ *   values decided by the exporter
  * @returns {string} mapinfo.lua
  */
-export function writeMapInfo(doc, { fileBase, minHeight, maxHeight, maxMetal }) {
+export function writeMapInfo(doc, { fileBase, minHeight, maxHeight, maxMetal, textures }) {
   const s = doc.settings;
   const biome = biomeOf(doc);
   const starts = doc.objects.filter((o) => o.type === 'start');
@@ -94,8 +116,7 @@ return {
   },
 
   sound = { preset = "default" },
-  resources = {},
-
+${texturesBlock(textures)}
   atmosphere = {
     minWind = ${luaNumber(s.minWind, 'minWind')},
     maxWind = ${luaNumber(s.maxWind, 'maxWind')},

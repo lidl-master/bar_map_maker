@@ -61,6 +61,7 @@ export class View3D {
     this.doc = doc;
     this.mesh?.geometry.dispose();
     this.scene.remove(this.mesh);
+    this.texture.dispose(); // its GPU storage has a fixed size; the 2D image changes size with the map
     const [w, h] = worldSize(doc);
     this.step = Math.max(1, Math.ceil((Math.max(doc.W, doc.H) - 1) / MAX_SEGMENTS));
     this.segments = [Math.ceil((doc.W - 1) / this.step), Math.ceil((doc.H - 1) / this.step)];

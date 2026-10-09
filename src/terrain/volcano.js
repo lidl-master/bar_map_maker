@@ -7,7 +7,8 @@
 // Everything is authored for a 32x32 map (16384 elmos) on the left half and scales with the map;
 // noise inputs use the x folded onto the left half, and a final symmetrize mirrors the rest.
 import { SQUARE, addObject, sampleHeight, slopeAt, symmetrize, worldSize } from '../core/index.js';
-import { flattenAround, ramp, smoothAll } from './brush.js';
+import { MATERIALS } from '../look/index.js';
+import { brush, flattenAround, ramp, smoothAll } from './brush.js';
 import { fbm, lerp, makeSimplex, smoothstep } from './noise.js';
 import { checkPlayers } from './place.js';
 
@@ -35,6 +36,9 @@ const RAMPS = [ // [x, cliff index, width]; centre ones sit on the axis
   [3000, 1, 400], [7300, 1, 380], [4200, 0, 360], [AXIS, 0, 340],
 ];
 const POOLS = [[2200, 12900, 260], [6900, 15700, 300], [4700, 10600, 200], [3000, 6200, 180], [6400, 8700, 170], [1200, 3600, 220]];
+// Paint (doc.paint = MATERIALS index + 1): worn trails up the ramps, dark crust along the lava shores.
+const material = (key) => MATERIALS.findIndex((m) => m.key === key) + 1;
+const TRAIL = material('sand'), CRUST = material('seabed');
 
 export function volcanoKing(doc, { players, seed }) {
   checkPlayers(players);
@@ -98,12 +102,11 @@ export function volcanoKing(doc, { players, seed }) {
   }
   smoothAll(doc, 1);
 
-  // Ramps through each cliff line (mirrored by ramp()).
-  // shortcut: the prototype also painted ramps (path) and lava shores (crust); skipped until src/look
-  // has material ids (Wave 2 texture stack).
+  // Ramps through each cliff line, with a trail painted up them (both mirrored by ramp() and brush()).
   for (const [rx, k, w] of RAMPS) {
-    const x = X(rx), zc = cliffZ(k, Math.min(x, ww - x));
-    ramp(doc, { x, z: zc + Z(1150), h: TIER[3 - k] }, { x, z: zc - Z(520), h: TIER[4 - k] }, { width: w * S, hardness: 0.55 });
+    const x = X(rx), zc = cliffZ(k, Math.min(x, ww - x)), z0 = zc + Z(1150), z1 = zc - Z(520);
+    ramp(doc, { x, z: z0, h: TIER[3 - k] }, { x, z: z1, h: TIER[4 - k] }, { width: w * S, hardness: 0.55 });
+    for (let t = 0; t <= 1; t += 0.05) brush(doc, 'paint', x, lerp(z0, z1, t), { radius: w * S * 0.45, strength: 1, hardness: 0.5, material: TRAIL }, 0.3);
   }
 
   // Objects: kings first (teams 0..k-1), then attackers.
@@ -138,7 +141,11 @@ export function volcanoKing(doc, { players, seed }) {
     flattenAround(doc, o.x, o.z, start ? 340 * S : 42, start ? 380 * S : 80, LAVA + 20);
   }
   symmetrize(doc, 0.004);
-  for (let k = 0; k < hh.length; k++) if (hh[k] < 2) hh[k] = 2; // no engine water under the lava
+  for (let k = 0; k < hh.length; k++) {
+    if (hh[k] < 2) hh[k] = 2; // no engine water under the lava
+    const crust = 1 - smoothstep(LAVA + 8, LAVA + 40, hh[k]); // heights are symmetric now, so this paint is too
+    if (crust > 0) { doc.paint[k] = CRUST; doc.paintWeight[k] = Math.round(crust * 230); }
+  }
   doc.settings.lava = { ...doc.settings.lava, enabled: true, level: LAVA };
   doc.settings.voidWater = false;
 }

@@ -1,0 +1,16 @@
+{
+  "name": "bar-map-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone map maker and editor for Beyond All Reason",
+  "license": "UNLICENSED",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "playwright": "1.64.0"
+  }
+}

@@ -13,11 +13,12 @@ const run = promisify(execFile);
 
 async function sevenZ(args, cwd) {
   try {
-    // -bso0 -bsp0: no file list or progress on stdout; errors still go to stderr.
-    await run(sevenZip.path7za, [...args, '-bso0', '-bsp0', '-y'], { cwd, windowsHide: true, maxBuffer: 16 << 20 });
+    // -bsp0: no progress on stdout (callers that do not read stdout add -bso0); errors still go to stderr.
+    return (await run(sevenZip.path7za, [...args, '-bsp0', '-y'], { cwd, windowsHide: true, maxBuffer: 64 << 20 })).stdout;
   } catch (error) {
     // execFile rejects on any non-zero exit (7-Zip: 1 warning, 2 fatal, 7 bad command line, 8 out of memory).
-    throw new Error(`7-Zip ${args[0]} failed (exit ${error.code}): ${String(error.stderr || error.message).trim()}`);
+    const action = { a: 'pack', l: 'list', x: 'extract' }[args[0]];
+    throw new Error(`7-Zip could not ${action} the archive (exit ${error.code}): ${String(error.stderr || error.message).trim()}`);
   }
 }
 
@@ -26,11 +27,25 @@ function tempDir(prefix) {
   return mkdtempSync(join(TEMP_ROOT, prefix));
 }
 
-/** Every file in a .sd7/.sdz archive, keyed by its path inside the archive ('/' separators). */
-export async function readArchive(archivePath) {
+/** Every file in a .sd7/.sdz archive as [{path, size}] ('/' separators), without extracting anything. */
+export async function listArchive(archivePath) {
+  const text = await sevenZ(['l', '-slt', resolve(archivePath)]);
+  // -slt prints one "Key = value" block per entry after the "----------" line. Folders: attributes "D…" (7z) or "Folder = +" (zip).
+  const field = (line) => [line.slice(0, line.indexOf(' = ')), line.slice(line.indexOf(' = ') + 3)];
+  return text.split(/\r?\n----------\r?\n/)[1].split(/\r?\n\r?\n/)
+    .map((block) => Object.fromEntries(block.split(/\r?\n/).filter((line) => line.includes(' = ')).map(field)))
+    .filter((entry) => entry.Path && entry.Folder !== '+' && !entry.Attributes?.startsWith('D'))
+    .map((entry) => ({ path: entry.Path.replaceAll('\\', '/'), size: Number(entry.Size) }));
+}
+
+/**
+ * The files of a .sd7/.sdz archive, keyed by their path inside the archive ('/' separators).
+ * @param {string[]} [only]  file name wildcards (e.g. '*.lua'), matched in every folder; every file when omitted
+ */
+export async function readArchive(archivePath, only = []) {
   const dir = tempDir('extract-');
   try {
-    await sevenZ(['x', resolve(archivePath), `-o${dir}`]);
+    await sevenZ(['x', resolve(archivePath), `-o${dir}`, '-bso0', ...only.map((pattern) => `-ir!${pattern}`)]);
     const files = new Map();
     for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
       if (!entry.isFile()) continue;
@@ -56,7 +71,7 @@ export async function writeSd7(files, outPath) {
     }
     rmSync(partial, { force: true });
     // c=8m: 8 MB LZMA2 chunks keep every core busy on one big SMT (178 MB: 15 s instead of 68 s, 1% larger).
-    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=8m', '-mx=7', '-ms=off', partial, '.'], dir);
+    await sevenZ(['a', '-t7z', '-m0=LZMA2:c=8m', '-mx=7', '-ms=off', '-bso0', partial, '.'], dir);
     renameSync(partial, outPath);
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -1,4 +1,4 @@
-// Welcome screen: template gallery, recent maps (local autosave), continue editing, open existing map (coming in Wave 3).
+// Welcome screen: template gallery, recent maps (local autosave), continue editing. Open existing map: open-map.js.
 import { BIOMES } from '../../src/look/index.js';
 import { TEMPLATES } from '../../src/terrain/index.js';
 import { $, el, emptyState } from './dom.js';

@@ -13,4 +13,8 @@ contextBridge.exposeInMainWorld('studio', {
   exportMap: (doc, options) => invoke('studio:exportMap', doc, options),
   installMap: (archivePath) => invoke('studio:installMap', archivePath),
   onProgress: (callback) => { ipcRenderer.on('studio:progress', (_event, progress) => callback(progress)); },
+  listBarMaps: () => invoke('studio:listBarMaps'),
+  mapThumb: (file) => invoke('studio:mapThumb', file),
+  openMap: (file) => invoke('studio:openMap', file),
+  onOpenProgress: (callback) => { ipcRenderer.on('studio:openProgress', (_event, progress) => callback(progress)); },
 });

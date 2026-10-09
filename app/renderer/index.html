@@ -25,7 +25,7 @@
     <div class="wl-actions">
       <button id="wContinue" class="action" hidden><span class="action-icon"><i data-icon="arrow-right"></i></span><span class="action-text"><strong class="label"></strong><span>Back to the editor</span></span></button>
       <button id="wNew" class="action primary"><span class="action-icon"><i data-icon="plus"></i></span><span class="action-text"><strong>New map</strong><span>From a template</span></span><kbd class="on-accent">Ctrl N</kbd></button>
-      <button id="wOpen" class="action" disabled><span class="action-icon"><i data-icon="folder-open"></i></span><span class="action-text"><strong>Open existing BAR map</strong><span>Coming soon</span></span></button>
+      <button id="wOpen" class="action"><span class="action-icon"><i data-icon="folder-open"></i></span><span class="action-text"><strong>Open existing BAR map</strong><span>Edit or extend an installed map</span></span></button>
     </div>
     <div class="wl-recent">
       <h2>Recent maps</h2>
@@ -36,12 +36,24 @@
       <kbd>?</kbd>
     </div>
   </aside>
-  <main class="wl-main">
+  <main id="wTemplatesView" class="wl-main">
     <header class="wl-head">
       <h2>Start from a template</h2>
       <p>Pick a starting terrain. Size, players, symmetry and biome come next.</p>
     </header>
     <div id="wTemplates" class="tpl-gallery"></div>
+  </main>
+  <main id="wOpenView" class="wl-main" hidden>
+    <header class="wl-head open-head">
+      <button id="oBack" class="btn ghost square" data-tip="Back to templates" aria-label="Back to templates"><i data-icon="arrow-left"></i></button>
+      <div class="open-title">
+        <h2>Open a BAR map</h2>
+        <p id="oWhere">Maps in your BAR maps folder. Opening a map only reads it; the BAR folder is never changed.</p>
+      </div>
+      <button id="oBrowse" class="btn"><i data-icon="folder-search"></i><span>Browse…</span></button>
+    </header>
+    <div id="oError" class="open-error" role="alert" hidden></div>
+    <div id="oMaps" class="tpl-gallery map-gallery"></div>
   </main>
 </section>
 
@@ -218,6 +230,7 @@
     <div class="spinner lg"></div>
     <strong id="loadingTitle"></strong>
     <span id="loadingText" class="muted"></span>
+    <div id="loadingBar" class="progress" hidden><div></div></div>
   </div>
 </div>
 

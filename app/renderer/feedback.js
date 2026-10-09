@@ -1,5 +1,5 @@
 // Feedback: toasts, the in-app confirm dialog, tooltips and the loading state for long jobs.
-import { $, el } from './dom.js';
+import { $, clamp, el } from './dom.js';
 import { icon } from './icons.js';
 
 const TOAST_ICONS = { info: 'info', ok: 'circle-check', warn: 'triangle-alert', error: 'circle-alert' };
@@ -40,11 +40,26 @@ export function confirmDialog({ title, text, ok }) {
   });
 }
 
-/** Covers the map views (or the whole window on the welcome screen) while fn runs; errors become a toast. */
-export async function withLoading(title, detail, fn) {
+/** Covers the map views (or the whole window on the welcome screen) until hideLoading(). */
+export function showLoading(title, detail) {
   $('loadingTitle').textContent = title;
   $('loadingText').textContent = detail;
+  $('loadingBar').hidden = true;
   $('loading').hidden = false;
+}
+
+/** A step of the job under the loading cover: its label and how far the job is (0..1). */
+export function loadingProgress(label, fraction) {
+  $('loadingText').textContent = label;
+  $('loadingBar').hidden = false;
+  $('loadingBar').firstElementChild.style.width = `${Math.round(clamp(fraction, 0, 1) * 100)}%`;
+}
+
+export const hideLoading = () => { $('loading').hidden = true; };
+
+/** The loading cover while fn runs; errors become a toast. */
+export async function withLoading(title, detail, fn) {
+  showLoading(title, detail);
   try {
     return await fn();
   } catch (error) {
@@ -52,7 +67,7 @@ export async function withLoading(title, detail, fn) {
     toast(error.message, 'error');
     return undefined;
   } finally {
-    $('loading').hidden = true;
+    hideLoading();
   }
 }
 

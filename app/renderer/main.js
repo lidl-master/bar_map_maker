@@ -12,6 +12,7 @@ import { loadThumbs } from './materials.js';
 import { QUALITY } from './look-panel.js';
 import { initNewMap, openNewMap } from './new-map.js';
 import { removeGroup } from './objects.js';
+import { initOpenMap } from './open-map.js';
 import { buildPanels } from './panels.js';
 import { loadMap } from './recent.js';
 import { PATHING_LEGEND } from './sample.js';
@@ -68,7 +69,11 @@ const editor = {
 
   async createMap(args, summary) {
     const doc = await withLoading('Generating terrain', summary, () => runJob('newMap', args));
-    if (!doc) return;
+    if (doc) editor.adoptDoc(doc);
+  },
+
+  /** A map new to this computer (generated, or opened from an archive) in the editor, under its own autosave entry. */
+  adoptDoc(doc) {
     editor.openDoc(doc, crypto.randomUUID());
     saveNow(editor);
   },
@@ -337,6 +342,7 @@ new ResizeObserver(() => view3d.resize()).observe($('wrap3d'));
 buildToolbar(editor);
 initNewMap((args, summary) => editor.createMap(args, summary));
 initWelcome(editor);
+initOpenMap(editor);
 bindInput(editor);
 bindBarActions(editor);
 loadThumbs().catch((error) => console.error(error)).finally(() => editor.showScreen('welcome'));

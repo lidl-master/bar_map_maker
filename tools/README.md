@@ -7,6 +7,7 @@ Used by builders and critics. Node is at `D:\tools\node` (put it on `PATH`); Pyt
 | SMF/SMT validator | `python tools/validate/smf.py <map.smf> [<map.smt>]` | JSON report; exit 0 valid, 1 invalid |
 | BAR locator | `node tools/bar/locate.js` | JSON: BAR root, data/maps dirs, engines, newest headless engine, `byar:test` game, BAR's 7-Zip |
 | Headless engine check | `node tools/engine/headless-check.js "<Map Name>" [map.sd7]` | JSON report; exit 0 when `ok`, else 1 |
+| In-engine screenshots (G3) | `node tools/engine/screenshot.js "<Map Name>" [map.sd7] [--out <dir>]` | `overview/mid/close.png` + `report.json` in `.engine-tmp/g3/<map-id>/`; exit 0 when `ok` |
 | Blind A/B pairs | `node tools/ab/ab.js <pair-id> <ours.png> <reference.png>` / `--reveal <pair-id>` | `docs/gauntlet/ab/<pair-id>/A.png, B.png`; key in `docs/gauntlet/.keys/` (gitignored) |
 
 ## Tests
@@ -56,4 +57,32 @@ keeps its tail.
 Isolation: `--isolation --isolation-dir "<engine dir>;<BAR data dir>"` makes the BAR install a read-only
 data dir; `--write-dir` and `--config` point at a fresh `.engine-tmp/headless-<time>-<map>/`. The tool lists
 every file under the BAR install (size and mtime) before and after the run and reports any difference in
-`installChanges`. BAR's Lua may still *read* the user's `uikeys.txt` and `LuaUI/` files from the data dir.
+`installChanges`. BAR's Lua may still *read* the user's `uikeys.txt` and `LuaUI/` files from the data dir
+(its widget config is not: the log shows BAR's "First time setup: done").
+
+Game setup, run dir, isolation, log parsing and the shared verdict rules live in `tools/engine/bar-game.js`;
+`headless-check.js` and `screenshot.js` only add their widget and their own checks.
+
+## In-engine screenshots (G3)
+
+Same game and isolation as the headless check, but BAR's windowed `spring.exe` from the same engine, in a
+1600×900 window, with a run-local config: no sound (`Sound = 0`), shadows on (BAR's "high" shadow quality),
+reflective water, MSAA ×4, no edge scrolling, hardware cursor. Everything else is BAR's first-launch default.
+The user widget `screenshot-widget.lua` waits for game frame 150 (5 s, so textures, splats, features, lava and
+the two commanders are drawn), hides the interface with `/hideinterface 1`, and for each preset sets the spring
+camera, lets 60 frames draw and saves the window with `gl.SaveImage`; then it quits.
+
+| Preset | Camera (same rules for every map; yaw 0 = looking north) |
+|---|---|
+| `overview` | map centre, 80° down, from the south, 60° lens; distance fitted so the map outline, lifted to its highest ground, shows whole, +5% |
+| `mid` | map centre, 45° down, looking north, 45° lens, 3500 elmos away |
+| `close` | 30° down, 45° lens, 1000 elmos away, camera right above team 0's start position (left start box), looking at the map centre |
+
+The engine caps the spring camera's distance at about 1.33 × the longer map side, hence the wider overview lens.
+A run takes 70–110 s and opens a game window; leave it alone until it closes (keys such as F5 toggle the interface).
+`ok` is true only when the engine exited with code 0 by itself, the BAR install is unchanged, there are no map
+errors, all three PNGs exist at 1600×900 and all four map corners are in the overview (`mapCheck.overviewCorners`).
+`shots` gives each PNG's `path`, `width`, `height` (or null); `mapCheck` has the map size, team 0's start position
+and, per shot, the camera distance the engine applied (`<shot>Dist`), the map corners in view (`<shot>Corners`) and
+`<shot>=saved|interfaceVisible|saveFailed`; the other fields are the headless check's.
+`.engine-tmp/` is gitignored: never commit screenshots of other people's maps.

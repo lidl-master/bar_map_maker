@@ -5,9 +5,92 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
   <title>BAR Map Studio</title>
   <link rel="stylesheet" href="style.css">
+  <script type="module" src="main.js"></script>
 </head>
 <body>
-  <header><h1>BAR Map Studio</h1></header>
-  <main></main>
+<header id="topbar">
+  <div class="brand"><span class="logo"></span>BAR Map Studio</div>
+  <div class="group">
+    <button id="btnNew" title="New map (Ctrl+N)">New</button>
+    <button id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="btnRedo" title="Redo (Ctrl+Y)">Redo</button>
+  </div>
+  <div class="group seg" id="displayMode">
+    <button data-mode="look" class="active" title="The map's colours">Look</button>
+    <button data-mode="pathing" title="Where units can drive: vehicles up to 27°, bots up to 54°">Pathing</button>
+  </div>
+  <div class="group seg" id="viewMode">
+    <button data-view="2d" class="active">2D</button>
+    <button data-view="split">Split</button>
+    <button data-view="3d">3D</button>
+  </div>
+  <div class="spacer"></div>
+  <span id="mapTitle" class="muted"></span>
+  <button id="btnExport" title="Write a playable map archive (Ctrl+E)">Export</button>
+  <button id="btnInstall" class="primary" title="Export, then copy into your BAR maps folder (asks first)">Install to BAR</button>
+</header>
+
+<main>
+  <nav id="toolbar"></nav>
+  <section id="viewport" class="view-2d">
+    <div id="wrap2d">
+      <canvas id="canvas2d"></canvas>
+      <div id="hint"></div>
+      <div id="legend" hidden></div>
+      <div class="viewbtns"><button id="btnFit" title="Fit map to view (Home)">Fit</button></div>
+    </div>
+    <div id="wrap3d">
+      <div id="view3d"></div>
+      <div class="hint3d">Left-drag: rotate · Right-drag: pan · Wheel: zoom</div>
+    </div>
+  </section>
+  <aside id="panel">
+    <div class="tabs" id="tabs">
+      <button data-tab="tool" class="active">Tool</button>
+      <button data-tab="generate">Generate</button>
+      <button data-tab="look">Look</button>
+      <button data-tab="map">Map</button>
+    </div>
+    <div class="tabpage active" id="tab-tool"></div>
+    <div class="tabpage" id="tab-generate"></div>
+    <div class="tabpage" id="tab-look"></div>
+    <div class="tabpage" id="tab-map"></div>
+  </aside>
+</main>
+
+<footer id="status">
+  <span id="stCursor">—</span>
+  <span id="stSlope"></span>
+  <span class="spacer"></span>
+  <span id="stCounts"></span>
+  <span id="stBar" class="muted"></span>
+</footer>
+
+<dialog id="dlgNew">
+  <div class="dlg">
+    <h2>Create a new map</h2>
+    <div class="grid2">
+      <label>Width (map units)<input id="nmWidth" type="number" min="2" max="32" step="2" value="12"></label>
+      <label>Height (map units)<input id="nmHeight" type="number" min="2" max="32" step="2" value="12"></label>
+      <label>Players<input id="nmPlayers" type="number" min="2" max="16" value="2"></label>
+      <label>Symmetry<select id="nmSymmetry"></select></label>
+      <label>Biome<select id="nmBiome"></select></label>
+    </div>
+    <p class="muted">Sizes are even numbers from 2 to 32; one unit is 512 elmos. 8 × 8 suits a 1v1, 12 × 12 a 2v2, 16 × 16 a 4v4. Symmetry mirrors everything you sculpt and place, so every player gets a fair start.</p>
+    <h3>Starting terrain</h3>
+    <div id="nmTemplates" class="templates"></div>
+    <div class="actions">
+      <button id="nmCancel">Cancel</button>
+      <button id="nmCreate" class="primary">Create map</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+<div id="busy" hidden>
+  <div class="spinner"></div>
+  <div id="busyText"></div>
+  <div class="progress"><div id="busyBar"></div></div>
+</div>
 </body>
 </html>

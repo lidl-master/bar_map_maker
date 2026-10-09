@@ -48,7 +48,7 @@ Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR s
 | critic | Design score, 2 independent critics (pass: 8/10 from both) | 7.0 and 6.6: 3D viewport looks like a debug view, metal badges clutter, truncated hints, spinner-like symmetry glyph, garish pathing colours, dev copy |
 | 2.6 | UI polish: 32 fixes from both critics | merged (30 fixed, 2 partly: 3D marker de-overlap, pathing legend placement; hills 56% → 87.5% vehicle ground) |
 | critic | Design re-score after 2.6 (2 fresh critics) | 7.0 and 7.0 (was 7.0 / 6.6). Remaining: 3D depth (gradient, ground grid, contact shadow), tree glyphs in 2D, raw 7-Zip error text, export done/error card actions, sidebar nav vs CTA, open-map card names, units, preset state, stacked modals, generating state |
-| 2.8 | UI polish round 2 (re-score findings) | queued until 3.3 / 3.4 / 4.2 merge (same files) |
+| 2.8 | UI polish round 2 (26 items in critics/design-rescore-1.md) | building |
 | G3 critic | Blind in-game look A/B: our hills + volcano exports (mid/close) vs Pyroclast, Supreme Isthmus, Onyx Cauldron, Crimson Bay, Red River (8 pairs × 2 critics) | **ours preferred 11/16 (69%)**, bar ≥ 40%. Lost on: hills terrain reads as noise with brown contour stripes on slopes; volcano cliff walls look streaky/stretched; blocky mirrored layout; flat plateau floors |
 
 ## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)
@@ -58,14 +58,14 @@ Brief: [wave3.md](wave3.md).
 |---|---|---|
 | 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | merged (19/19 installed maps round-trip exactly; 32×32 opens in 2.7 s; BAR's own spot finder ported) |
 | 3.2 | Extend/crop per side in whole units, resize; undoable whole-doc swap; original tile/metal grids shift | merged (71/71 tests; seam ≤ 2 elmos near the old edge) |
-| 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning, export cancel | building |
+| 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning, export cancel | merged (task card 2 in BAR's headless engine: Pyroclast + 4 units east + 2 geos loads, 0 map errors, 15 s export; avalanche untouched round trip byte-identical; Sector 318C shifted featureplacer/startbox Lua loads) |
 
 ## Wave 4: standalone app and UX — started
 Brief: [wave4.md](wave4.md).
 
 | WP | Scope | Status |
 |---|---|---|
-| 4.1 | Settings, offline, cold start, portable build / installer | after Wave 2–3 merges |
+| 4.1 | Settings, offline, cold start, portable build / installer | building |
 | 4.2 | Play-test in BAR vs BARb (isolated, no install), Check map (headless verdict + G7 checklist with one-click fixes) | merged (129 tests, 127 pass, 2 gated engine tests run by hand and pass; 0/19 installed maps fail a check; our exports pass 15/15; generator fixed for merged spots and steep geo pads over 474 generated maps). Risk: the play-test window closed by itself ~3 min after loading once (cause unknown) |
 | 4.3 | Start-box + maps-metadata helpers, G6 bench and perf fixes | after merges (needs a quiet machine for timings) |
 | 4.4 | UX driver + 4 persona task-card runs (G5) | after 4.1–4.3 |

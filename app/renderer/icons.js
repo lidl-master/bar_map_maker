@@ -1,6 +1,7 @@
 // The one icon set: Lucide (ISC, npm `lucide`), 24×24 line icons in currentColor; size and stroke come from .icon in tokens.css.
 // Icons are built with createElementNS from Lucide's node lists: no markup is ever parsed.
 import ArrowDownToLine from '../../node_modules/lucide/dist/esm/icons/arrow-down-to-line.mjs';
+import ArrowLeft from '../../node_modules/lucide/dist/esm/icons/arrow-left.mjs';
 import ArrowRight from '../../node_modules/lucide/dist/esm/icons/arrow-right.mjs';
 import ArrowUpFromLine from '../../node_modules/lucide/dist/esm/icons/arrow-up-from-line.mjs';
 import AudioWaveform from '../../node_modules/lucide/dist/esm/icons/audio-waveform.mjs';
@@ -20,12 +21,14 @@ import FilePlus from '../../node_modules/lucide/dist/esm/icons/file-plus.mjs';
 import Flag from '../../node_modules/lucide/dist/esm/icons/flag.mjs';
 import Flame from '../../node_modules/lucide/dist/esm/icons/flame.mjs';
 import FolderOpen from '../../node_modules/lucide/dist/esm/icons/folder-open.mjs';
+import FolderSearch from '../../node_modules/lucide/dist/esm/icons/folder-search.mjs';
 import HardDriveDownload from '../../node_modules/lucide/dist/esm/icons/hard-drive-download.mjs';
 import ImageIcon from '../../node_modules/lucide/dist/esm/icons/image.mjs';
 import Info from '../../node_modules/lucide/dist/esm/icons/info.mjs';
 import Keyboard from '../../node_modules/lucide/dist/esm/icons/keyboard.mjs';
 import LoaderCircle from '../../node_modules/lucide/dist/esm/icons/loader-circle.mjs';
 import Lock from '../../node_modules/lucide/dist/esm/icons/lock.mjs';
+import MapIcon from '../../node_modules/lucide/dist/esm/icons/map.mjs';
 import Minus from '../../node_modules/lucide/dist/esm/icons/minus.mjs';
 import MountainSnow from '../../node_modules/lucide/dist/esm/icons/mountain-snow.mjs';
 import Mouse from '../../node_modules/lucide/dist/esm/icons/mouse.mjs';
@@ -49,11 +52,11 @@ import WavesHorizontal from '../../node_modules/lucide/dist/esm/icons/waves-hori
 import X from '../../node_modules/lucide/dist/esm/icons/x.mjs';
 
 const ICONS = {
-  'arrow-down-to-line': ArrowDownToLine, 'arrow-right': ArrowRight, 'arrow-up-from-line': ArrowUpFromLine,
+  'arrow-down-to-line': ArrowDownToLine, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight, 'arrow-up-from-line': ArrowUpFromLine,
   'audio-waveform': AudioWaveform, box: Box, check: Check, circle: Circle, 'circle-alert': CircleAlert, 'circle-check': CircleCheck,
   'circle-dot': CircleDot, clock: Clock, 'columns-2': Columns2, crop: Crop, crosshair: Crosshair, 'dice-5': Dice5, equal: Equal, 'file-plus': FilePlus,
-  flag: Flag, flame: Flame, 'folder-open': FolderOpen, 'hard-drive-download': HardDriveDownload, image: ImageIcon, info: Info,
-  keyboard: Keyboard, 'loader-circle': LoaderCircle, lock: Lock, minus: Minus, 'mountain-snow': MountainSnow, mouse: Mouse,
+  flag: Flag, flame: Flame, 'folder-open': FolderOpen, 'folder-search': FolderSearch, 'hard-drive-download': HardDriveDownload, image: ImageIcon, info: Info,
+  keyboard: Keyboard, 'loader-circle': LoaderCircle, lock: Lock, map: MapIcon, minus: Minus, 'mountain-snow': MountainSnow, mouse: Mouse,
   'mouse-pointer-2': MousePointer2, package: Package, paintbrush: Paintbrush, plus: Plus, 'redo-2': Redo2, route: Route,
   scaling: Scaling, scan: Scan, sparkles: Sparkles, square: Square, trash: Trash, trees: Trees, 'triangle-alert': TriangleAlert,
   'triangle-right': TriangleRight, 'undo-2': Undo2, users: Users, 'waves-horizontal': WavesHorizontal, x: X,

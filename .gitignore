@@ -8,3 +8,4 @@ docs/gauntlet/.keys/
 *.sdz
 *.log
 __pycache__/
+/assets/textures

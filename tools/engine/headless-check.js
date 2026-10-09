@@ -1,19 +1,20 @@
 // Runs BAR's headless engine on a map and reports whether it loads cleanly.
 //   node tools/engine/headless-check.js "<Map Name>" [path/to/map.sd7]
 // Starts a real BAR game (spectator host, NullAI vs NullAI), lets it simulate QUIT_FRAME frames, then quits.
-// Prints a JSON report. Exit code 1 unless the map loaded and simulated, the engine quit before the hard
-// timeout, and the BAR install is unchanged (report.ok).
+// The first map error in the log stops the engine at once. Prints a JSON report; exit code 0 only when
+// report.ok (see failures()).
 // Isolation: the engine reads the BAR install as a read-only data dir; its write dir and config file
 // are a fresh folder under .engine-tmp/. A before/after listing of the install proves nothing was written.
 import { spawn } from 'node:child_process';
-import { closeSync, copyFileSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, createWriteStream, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { locateBar } from '../bar/locate.js';
 
 const REPO = resolve(import.meta.dirname, '../..');
-const QUIT_FRAME = 900; // 30 s of game time
+export const QUIT_FRAME = 900; // 30 s of game time
 const HARD_TIMEOUT_MS = 6 * 60_000; // archive checksums (~45 s on a fresh write dir) + loading + QUIT_FRAME, with margin
-const LIST_LIMIT = 40; // distinct lines kept per report category
+const LIST_LIMIT = 40; // distinct lines kept per report list
 
 // Loaded by BAR as a user widget from the write dir (spectators may run user widgets).
 // mex_count and lavaLevel are game rules params set by BAR's resource spot finder and lava gadgets.
@@ -93,45 +94,72 @@ function startScript(mapName, gameName, nullAIVersion) {
 }
 
 const LINE_PREFIX = /^\[t=[^\]]*\](\[f=-?\d+\])? ?/;
+// Before this line the engine only scans every installed archive; from here on the log is about this game and map.
+const SESSION_START = '[PreGame::AddMapArchivesToVFS]';
+const ARCHIVE_FILE = /\[CAS::GASCB\] Archive file="([^"]+)"/; // the first one in the session is the map's archive
 const ERROR = /\b(error|fatal|crashed)\b|exception/i;
 const WARNING = /\bwarning\b/i;
-const LUA_ERROR = /\[string "[^"]*"\]:\d+:|Error in \w+\(|stack traceback/i;
-const MAP_FORMAT = /smf|smt|mapinfo|minimap|heightmap|metalmap|typemap|grass|\bmap\b|\btiles?\b/i;
-const LAVA = /lava/i;
-const METAL = /metal|\bmex|geotherm|geovent|resource spot/i;
+// Files of the map's own archive as the engine and BAR's Lua name them (VFS paths), and the engine's SMF loader.
+const MAP_FILE = /(?<![\w/\\.-])(maps\/|mapconfig\/|mapinfo\.lua)|SMF/;
 
-function pick(lines, test) {
-  const hits = lines.filter(test);
-  return { count: hits.length, lines: [...new Set(hits.map((line) => line.replace(LINE_PREFIX, '')))].slice(0, LIST_LIMIT) };
+const lowerNames = (...names) => names.filter(Boolean).map((name) => name.toLowerCase());
+
+// 'error' | 'warning' | null. A line is about the map if it names the map or its archive file, or, once the
+// session started, one of the map's files.
+function mapSeverity(line, names, inSession) {
+  const lower = line.toLowerCase();
+  if (!names.some((name) => lower.includes(name)) && !(inSession && MAP_FILE.test(line))) return null;
+  if (ERROR.test(line)) return 'error';
+  return WARNING.test(line) ? 'warning' : null;
 }
 
-// Lines before the engine picks the map come from scanning every installed archive; only those naming this map count.
+// Live version for a running engine: true at the first map error. It does not learn the archive name yet;
+// parseEngineLog does, so the report can only list more map errors than this, never fewer.
+function mapErrorWatch(mapName, archive) {
+  const names = lowerNames(mapName, archive && basename(archive));
+  let inSession = false;
+  return (line) => {
+    inSession ||= line.includes(SESSION_START);
+    return mapSeverity(line, names, inSession) === 'error';
+  };
+}
+
+function summarize(lines) {
+  return { count: lines.length, lines: [...new Set(lines.map((line) => line.replace(LINE_PREFIX, '')))].slice(0, LIST_LIMIT) };
+}
+
 export function parseEngineLog(text, mapName, archive) {
   const lines = text.split(/\r?\n/);
-  const names = [mapName, archive && basename(archive)].filter(Boolean).map((n) => n.toLowerCase());
-  const namesMap = (line) => names.some((n) => line.toLowerCase().includes(n));
-  const start = Math.max(0, lines.findIndex((line) => line.includes('[PreGame::AddMapArchivesToVFS]')));
-  const scan = lines.slice(0, start);
-  const session = lines.slice(start);
+  const start = lines.findIndex((line) => line.includes(SESSION_START));
+  const session = start < 0 ? [] : lines.slice(start);
+  const archiveFile = session.map((line) => ARCHIVE_FILE.exec(line)?.[1]).find(Boolean);
+  const names = lowerNames(mapName, archive && basename(archive), archiveFile);
+  const severity = lines.map((line, i) => mapSeverity(line, names, start >= 0 && i >= start));
   let framesReached = -1;
   for (const [, frame] of text.matchAll(/\]\[f=(-?\d+)\]/g)) framesReached = Math.max(framesReached, Number(frame));
   const mapCheck = {};
   for (const [, pairs] of text.matchAll(/\[MapCheck\](.*)/g)) {
     for (const [, key, value] of pairs.matchAll(/(\w+)=(\S+)/g)) mapCheck[key] = Number.isNaN(Number(value)) ? value : Number(value);
   }
-  const ingame = text.includes('finished loading and is now ingame');
-  const isProblem = (l) => ERROR.test(l) || WARNING.test(l);
   return {
-    loaded: ingame && framesReached > 0,
-    ingame,
+    loaded: text.includes('finished loading and is now ingame') && framesReached > 0,
     framesReached,
+    mapArchive: archiveFile ?? null,
     mapCheck,
-    mapProblems: pick([...scan.filter(namesMap), ...session], (l) => isProblem(l) && (namesMap(l) || MAP_FORMAT.test(l))),
-    luaErrors: pick(session, (l) => LUA_ERROR.test(l)),
-    errors: pick(session, (l) => ERROR.test(l)),
-    lava: pick(session, (l) => LAVA.test(l)),
-    metal: pick(session, (l) => METAL.test(l)),
+    mapErrors: summarize(lines.filter((_, i) => severity[i] === 'error')),
+    mapWarnings: summarize(lines.filter((_, i) => severity[i] === 'warning')),
   };
+}
+
+// Why a run is not a clean load; an empty list means ok.
+export function failures({ engineExit, framesReached, installChanges, mapErrors }) {
+  return [
+    engineExit.killedFor && `engine stopped by the check: ${engineExit.killedFor}`,
+    !engineExit.killedFor && engineExit.code !== 0 && `engine exit code ${engineExit.code}`,
+    framesReached < QUIT_FRAME && `reached frame ${framesReached}, needs ${QUIT_FRAME}`,
+    installChanges.length > 0 && `${installChanges.length} paths changed in the BAR install`,
+    mapErrors.count > 0 && `${mapErrors.count} map error lines`,
+  ].filter(Boolean);
 }
 
 // path -> "size:mtime" for everything under root, to prove the engine wrote nothing there.
@@ -150,23 +178,37 @@ function changedPaths(before, after) {
   return [...changed, ...[...before.keys()].filter((path) => !after.has(path))];
 }
 
-function runEngine(exe, args, cwd, outputFile) {
+// Copies the engine's console output (same lines as its buffered infolog.txt, so a killed run keeps its tail)
+// to logFile and kills the engine at the first map error, at the hard timeout, or on Ctrl+C.
+function runEngine(exe, args, cwd, logFile, isMapError) {
   return new Promise((resolvePromise, reject) => {
-    const out = openSync(outputFile, 'w');
-    const child = spawn(exe, args, { cwd, stdio: ['ignore', out, out], windowsHide: true });
-    closeSync(out);
-    let timedOut = false;
-    const stop = () => child.kill(); // Ctrl+C must not leave the engine running
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stop();
-    }, HARD_TIMEOUT_MS);
-    process.on('SIGINT', stop);
-    child.on('error', reject);
-    child.on('exit', (code, signal) => {
+    const log = createWriteStream(logFile);
+    const child = spawn(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let killedFor = null;
+    const kill = (reason) => {
+      killedFor ??= reason;
+      child.kill();
+    };
+    for (const stream of [child.stdout, child.stderr]) {
+      createInterface({ input: stream }).on('line', (line) => {
+        log.write(`${line}\n`);
+        if (isMapError(line)) kill('map error');
+      });
+    }
+    const timer = setTimeout(() => kill('timeout'), HARD_TIMEOUT_MS);
+    const interrupt = () => kill('interrupted');
+    process.on('SIGINT', interrupt);
+    const cleanUp = () => {
       clearTimeout(timer);
-      process.off('SIGINT', stop);
-      resolvePromise({ code, signal, timedOut });
+      process.off('SIGINT', interrupt);
+    };
+    child.on('error', (error) => {
+      cleanUp();
+      reject(error);
+    });
+    child.on('close', (code, signal) => {
+      cleanUp();
+      log.end(() => resolvePromise({ code, signal, killedFor }));
     });
   });
 }
@@ -186,7 +228,7 @@ async function main([mapName, archive]) {
   mkdirSync(join(runDir, 'LuaUI', 'Widgets'), { recursive: true });
   if (archive) {
     // shortcut: an installed archive with the same internal map name stays visible and the engine keeps only one of
-    // the two (it logs which, see mapProblems); give test builds a unique map name until this matters.
+    // the two (it logs which, see mapErrors); give test builds a unique map name until this matters.
     mkdirSync(join(runDir, 'maps'));
     copyFileSync(archive, join(runDir, 'maps', basename(archive)));
   }
@@ -195,27 +237,29 @@ async function main([mapName, archive]) {
   writeFileSync(join(runDir, 'springsettings.cfg'), ''); // exclusive config: the engine must not touch BAR's
   writeFileSync(join(runDir, 'LuaUI', 'Widgets', 'bar_map_studio_check.lua'), CHECK_WIDGET);
 
-  // The engine's console output has the same lines as its infolog.txt, but unbuffered: a killed run keeps its tail.
   const log = join(runDir, 'engine-log.txt');
   const before = snapshot(bar.root);
-  const exit = await runEngine(engine.headlessExe, [
+  const engineExit = await runEngine(engine.headlessExe, [
     '--isolation', '--isolation-dir', `${engine.dir};${bar.dataDir}`,
     '--write-dir', runDir,
     '--config', join(runDir, 'springsettings.cfg'),
     join(runDir, 'script.txt'),
-  ], runDir, log);
-  const installChanges = changedPaths(before, snapshot(bar.root));
-  const parsed = parseEngineLog(readFileSync(log, 'utf8'), mapName, archive);
+  ], runDir, log, mapErrorWatch(mapName, archive));
+  const run = {
+    engineExit,
+    ...parseEngineLog(readFileSync(log, 'utf8'), mapName, archive),
+    installChanges: changedPaths(before, snapshot(bar.root)),
+  };
+  const why = failures(run);
   const report = {
-    ok: parsed.loaded && !exit.timedOut && installChanges.length === 0,
+    ok: why.length === 0,
+    failures: why,
     map: mapName,
     archive: archive ? resolve(archive) : null,
     engine: engine.name,
     game: bar.game.name,
     quitFrame: QUIT_FRAME,
-    engineExit: exit,
-    ...parsed,
-    installChanges,
+    ...run,
     runDir,
     log,
   };

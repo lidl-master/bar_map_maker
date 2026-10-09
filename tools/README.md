@@ -6,7 +6,7 @@ Used by builders and critics. Node is at `D:\tools\node` (put it on `PATH`); Pyt
 |---|---|---|
 | SMF/SMT validator | `python tools/validate/smf.py <map.smf> [<map.smt>]` | JSON report; exit 0 valid, 1 invalid |
 | BAR locator | `node tools/bar/locate.js` | JSON: BAR root, data/maps dirs, engines, newest headless engine, `byar:test` game, BAR's 7-Zip |
-| Headless engine check | `node tools/engine/headless-check.js "<Map Name>" [map.sd7]` | JSON report; exit 0 when `ok` (loaded, quit in time, BAR install unchanged), else 1 |
+| Headless engine check | `node tools/engine/headless-check.js "<Map Name>" [map.sd7]` | JSON report; exit 0 when `ok`, else 1 |
 | Blind A/B pairs | `node tools/ab/ab.js <pair-id> <ours.png> <reference.png>` / `--reveal <pair-id>` | `docs/gauntlet/ab/<pair-id>/A.png, B.png`; key in `docs/gauntlet/.keys/` (gitignored) |
 
 ## Tests
@@ -44,12 +44,14 @@ An optional archive path is copied into the run's own `maps/`; give test builds 
 (with a duplicate the engine keeps one archive and logs which it ignored).
 Run dirs stay in `.engine-tmp/` (about 5 MB each, plus any copied archive); delete old ones by hand.
 
-Report fields: `ok`, `loaded` (reached the game and simulated frames), `framesReached`, `engineExit`
-(`timedOut` means the check widget never quit the game), `mapCheck`, `mapProblems` (errors/warnings naming
-the map or map-format terms), `luaErrors`, `errors`, `lava`, `metal` (each `{count, lines}`: distinct lines,
-timestamps stripped), `installChanges`, `runDir`, `log`. The log is the engine's console output
-(`engine-log.txt`): the same lines as `infolog.txt` in the run dir, but unbuffered, so a killed run keeps its tail.
-Compare against a known-good map (Pyroclast): BAR in headless mode logs many shader/GL errors on every map.
+`ok` is true only when the engine exited with code 0 by itself, reached frame 900, the BAR install is
+unchanged and there are no map errors; `failures` says why not. A map error is an error line that names the
+map, its archive file, or (once the engine picked the map) one of its files (`maps/…`, `mapconfig/…`,
+`mapinfo.lua`) or the engine's SMF loader. The first map error stops the engine at once (`engineExit.killedFor`).
+Other fields: `loaded`, `framesReached`, `mapArchive`, `mapCheck`, `mapErrors`, `mapWarnings`
+(`{count, lines}`: distinct lines, timestamps stripped), `installChanges`, `runDir`, `log`. The log is the
+engine's console output (`engine-log.txt`): the same lines as `infolog.txt`, but unbuffered, so a killed run
+keeps its tail.
 
 Isolation: `--isolation --isolation-dir "<engine dir>;<BAR data dir>"` makes the BAR install a read-only
 data dir; `--write-dir` and `--config` point at a fresh `.engine-tmp/headless-<time>-<map>/`. The tool lists

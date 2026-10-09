@@ -30,7 +30,7 @@ Updated by the lead. Bars and pace rules: [bars.md](bars.md). Contracts: [../ARC
 | G4 code quality | Wave 0 blockers fixed |
 | G5 UX journeys | Wave 4 |
 | G6 performance | Wave 1 (export ≤ 20 s), Wave 4 |
-| G7 checklist | Wave 2 |
+| G7 checklist | pass (Wave 4: 15 automated checks with fixes; our exports 15/15) |
 
 Screenshots: `screenshots/wave1-*.png`.
 
@@ -66,7 +66,7 @@ Brief: [wave4.md](wave4.md).
 | WP | Scope | Status |
 |---|---|---|
 | 4.1 | Settings, offline, cold start, portable build / installer | after Wave 2–3 merges |
-| 4.2 | Play-test in BAR vs BARb (isolated, no install), Check map (headless verdict + G7 checklist with one-click fixes) | building |
+| 4.2 | Play-test in BAR vs BARb (isolated, no install), Check map (headless verdict + G7 checklist with one-click fixes) | merged (129 tests, 127 pass, 2 gated engine tests run by hand and pass; 0/19 installed maps fail a check; our exports pass 15/15; generator fixed for merged spots and steep geo pads over 474 generated maps). Risk: the play-test window closed by itself ~3 min after loading once (cause unknown) |
 | 4.3 | Start-box + maps-metadata helpers, G6 bench and perf fixes | after merges (needs a quiet machine for timings) |
 | 4.4 | UX driver + 4 persona task-card runs (G5) | after 4.1–4.3 |
 | critic | Blockers-only code pass over main (Waves 2–3) | **block**, 4 blockers: 7-Zip 21.07 follows symlink entries in .sdz archives (writes outside temp; reachable from the Open screen); opened-map export keeps the original's name (Install could replace the official map); autosave evicts user maps after 8; app-open test race. Structure passes the thermo-nuclear bar (all files < 500 lines). |

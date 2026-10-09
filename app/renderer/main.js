@@ -3,23 +3,22 @@ import { History } from '../../src/core/index.js';
 import { BIOMES } from '../../src/look/index.js';
 import { flushSave, markSaved, saveNow, scheduleSave } from './autosave.js';
 import { bindBarActions, exportMap } from './bar-actions.js';
-import { $, clamp, el } from './dom.js';
+import { $, clamp, hydrateKeys } from './dom.js';
 import { bindTooltips, withLoading } from './feedback.js';
 import { runJob } from './generator.js';
-import { hydrateIcons, icon } from './icons.js';
+import { hydrateIcons } from './icons.js';
 import { bindInput } from './input.js';
 import { loadThumbs } from './materials.js';
-import { QUALITY } from './look-panel.js';
 import { initNewMap, openNewMap } from './new-map.js';
 import { removeGroup } from './objects.js';
 import { buildPanels } from './panels.js';
 import { loadMap } from './recent.js';
-import { PATHING_LEGEND } from './sample.js';
 import { openShortcuts } from './shortcuts.js';
 import { showCounts, showCursor } from './status.js';
 import { brushCursor, buildToolPanel, buildToolbar, defaultToolSettings, markActiveTool, toolById } from './tools.js';
 import { View2D } from './view2d.js';
 import { View3D } from './view3d.js';
+import { flashTool, initViewport, setViewMode } from './viewport.js';
 import { initWelcome, refreshWelcome } from './welcome.js';
 
 const view2d = new View2D($('canvas2d'));
@@ -32,15 +31,6 @@ function schedule3d() {
   view3dTimer = setTimeout(() => { view3dTimer = 0; view3d.update(); }, 150);
 }
 
-function savedQuality() {
-  try {
-    const key = localStorage.getItem('exportQuality');
-    return Object.hasOwn(QUALITY, key ?? '') ? key : 'share';
-  } catch {
-    return 'share'; // storage unavailable: the default preset
-  }
-}
-
 const editor = {
   doc: null,
   docKey: null, // the map's id in the local autosave (recent.js)
@@ -49,7 +39,6 @@ const editor = {
   tool: 'raise',
   settings: defaultToolSettings(),
   featureSettings: { density: 40, trees: true, rocks: true },
-  exportQuality: savedQuality(),
   selected: null,
 
   showScreen(name) {
@@ -67,7 +56,7 @@ const editor = {
   openNewMap,
 
   async createMap(args, summary) {
-    const doc = await withLoading('Generating terrain', summary, () => runJob('newMap', args));
+    const doc = await withLoading('Generating terrain…', summary, () => runJob('newMap', args));
     if (!doc) return;
     editor.openDoc(doc, crypto.randomUUID());
     saveNow(editor);
@@ -78,7 +67,7 @@ const editor = {
       editor.showScreen('editor');
       return;
     }
-    const doc = await withLoading('Opening map', 'Loading it from this computer', () => loadMap(key));
+    const doc = await withLoading('Opening map…', 'Loading it from this computer', () => loadMap(key));
     if (doc) editor.openDoc(doc, key);
   },
 
@@ -92,16 +81,17 @@ const editor = {
     buildPanels(editor);
     editor.setTool(editor.tool);
     showCounts(doc);
+    showCursor(doc, null);
     updateUndoButtons();
     markSaved();
   },
 
   setTool(id) {
     const tool = toolById(id);
+    if (id !== editor.tool) flashTool(tool);
     editor.tool = id;
     if (tool.kind !== 'pick' && tool.kind !== 'place') editor.selected = view2d.selected = null;
     markActiveTool(id);
-    editor.setHint(tool.hint);
     editor.updateCursor();
     buildToolPanel(editor);
   },
@@ -110,10 +100,6 @@ const editor = {
   selectTool(id) {
     editor.setTool(id);
     showTab('tool');
-  },
-
-  setHint(text) {
-    $('hint').replaceChildren(icon(toolById(editor.tool).icon), el('span', {}, text));
   },
 
   select(obj) {
@@ -217,23 +203,7 @@ const editor = {
   undo: () => afterHistory(editor.history.undo(editor.doc)),
   redo: () => afterHistory(editor.history.redo(editor.doc)),
   exportMap: () => exportMap(editor),
-
-  setExportQuality(key) {
-    editor.exportQuality = key;
-    try { localStorage.setItem('exportQuality', key); } catch { /* a preference only; the default applies next time */ }
-  },
-
-  setViewMode(mode) {
-    $('viewport').className = `view-${mode}`;
-    for (const b of $('viewMode').children) b.setAttribute('aria-pressed', String(b.dataset.view === mode));
-    view3d.visible = mode !== '2d';
-    requestAnimationFrame(() => {
-      view2d.resize();
-      if (mode !== '3d') view2d.fit();
-      view3d.resize();
-      view3d.update();
-    });
-  },
+  setViewMode,
 };
 
 function afterHistory(entry) {
@@ -264,32 +234,13 @@ function showTab(name) {
   for (const page of document.querySelectorAll('.tabpage')) page.classList.toggle('active', page.id === `tab-${name}`);
 }
 
-function setDisplayMode(mode) {
-  view2d.mode = mode;
-  for (const b of $('displayMode').children) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
-  $('legend').hidden = mode !== 'pathing';
-  clearTimeout(lookTimer);
-  lookTimer = setTimeout(() => { view2d.render(); schedule3d(); }, 0);
-}
-
-function toggleFeatures() {
-  view2d.showFeatures = view3d.showFeatures = !view2d.showFeatures;
-  $('btnFeatures').setAttribute('aria-pressed', String(view2d.showFeatures));
-  view2d.invalidate();
-  view3d.update();
-}
-
 // ---- boot
 hydrateIcons();
+hydrateKeys();
 bindTooltips();
-$('legend').append(el('h4', {}, 'Pathing'), ...Object.values(PATHING_LEGEND).map(({ color, label }) => {
-  const swatch = el('i');
-  swatch.style.background = `rgb(${color})`;
-  return el('div', { class: 'item' }, swatch, label);
-}));
+initViewport({ view2d, view3d });
 for (const b of $('tabs').children) b.addEventListener('click', () => showTab(b.dataset.tab));
-for (const b of $('displayMode').children) b.addEventListener('click', () => setDisplayMode(b.dataset.mode));
-for (const b of $('viewMode').children) b.addEventListener('click', () => editor.setViewMode(b.dataset.view));
+for (const b of $('viewMode').children) b.addEventListener('click', () => setViewMode(b.dataset.view));
 for (const dialog of document.querySelectorAll('dialog')) {
   for (const b of dialog.querySelectorAll('[data-close]')) b.addEventListener('click', () => dialog.close());
 }
@@ -298,10 +249,6 @@ $('btnNew').addEventListener('click', () => editor.openNewMap());
 $('btnUndo').addEventListener('click', editor.undo);
 $('btnRedo').addEventListener('click', editor.redo);
 $('btnHelp').addEventListener('click', openShortcuts);
-$('btnFit').addEventListener('click', () => view2d.fit());
-$('btnZoomIn').addEventListener('click', () => view2d.zoomBy(1.25));
-$('btnZoomOut').addEventListener('click', () => view2d.zoomBy(0.8));
-$('btnFeatures').addEventListener('click', toggleFeatures);
 $('mapName').addEventListener('input', () => {
   editor.doc.settings.name = $('mapName').value;
   editor.renamed();
@@ -311,10 +258,6 @@ $('mapName').addEventListener('change', () => {
   editor.renamed();
 });
 $('mapName').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') $('mapName').blur(); });
-view2d.onDraw = () => {
-  const text = `${Math.round(view2d.zoom * 100)}%`;
-  if ($('zoomLevel').textContent !== text) $('zoomLevel').textContent = text;
-};
 new ResizeObserver(() => view2d.resize()).observe($('wrap2d'));
 new ResizeObserver(() => view3d.resize()).observe($('wrap3d'));
 

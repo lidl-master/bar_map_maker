@@ -4,6 +4,7 @@
 import { BIOMES, MATERIALS } from '../../src/look/index.js';
 import { MATERIAL_LIBRARY } from '../../src/look/library-manifest.js';
 import { choice, el } from './dom.js';
+import { icon } from './icons.js';
 
 const LIBRARY = new Map(MATERIAL_LIBRARY.map((m) => [m.id, m]));
 const CLASSES = { ground: 'Ground', slope: 'Slope', cliff: 'Cliff', shore: 'Shore', special: 'Special' };
@@ -63,17 +64,18 @@ let pickers = 0;
 /** The paint material picker: swatch radios grouped like the library, with the chosen material's name below. */
 export function materialPicker(doc, current, onPick) {
   const groups = paintGroups(doc), name = `material-${++pickers}`;
-  const caption = el('p', { class: 'note' });
-  const show = (v) => { caption.textContent = groups.flatMap((g) => g.items).find((m) => m.value === v)?.label ?? ''; };
-  const pending = groups.some((g) => g.items.some((m) => m.value === null));
+  const caption = el('p', { class: 'note selected-caption' });
+  const show = (v) => { caption.textContent = `Selected: ${groups.flatMap((g) => g.items).find((m) => m.value === v)?.label ?? 'none'}`; };
   const picker = el('div', { class: 'material-picker' }, ...groups.map((g) => el('div', { class: 'material-group' },
     el('h4', {}, g.title),
     el('div', { class: 'swatch-grid materials', role: 'radiogroup', 'aria-label': g.title }, ...g.items.map((m) => {
-      const card = choice({ name, value: m.value ?? '', checked: m.value === current, disabled: m.value === null, className: m.value === null ? 'compact preview' : 'compact', onChange: (v) => { show(Number(v)); onPick(Number(v)); } }, swatch(m));
-      card.dataset.tip = m.value === null ? `${m.label}: paintable once the texture export update lands` : m.label;
+      const locked = m.value === null;
+      const card = choice({ name, value: m.value ?? '', checked: m.value === current, disabled: locked, className: locked ? 'compact locked' : 'compact', onChange: (v) => { show(Number(v)); onPick(Number(v)); } },
+        swatch(m), locked ? el('span', { class: 'lock', 'aria-hidden': 'true' }, icon('lock')) : null);
+      card.dataset.tip = locked ? `${m.label} · Not available yet` : m.label;
       card.querySelector('input').setAttribute('aria-label', m.label);
       return card;
     })))));
   show(current);
-  return el('div', {}, picker, caption, pending ? el('p', { class: 'note' }, 'Library materials become paintable with the texture export update; the biome materials paint now.') : null);
+  return el('div', {}, picker, caption);
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -40,11 +40,13 @@ async function chooseExportDir(window) {
 const QUALITIES = ['share', 'standard']; // export presets (src/bar, WP 2.2)
 
 /**
- * IPC behind window.studio. Only our own page may call it; installs only take archives this session exported.
+ * IPC behind window.studio. Only our own page may call it; install and show-in-folder only take archives this session
+ * exported.
  * servedFile(rel) → absolute path or null is the app:// allowlist: hasFiles only answers for files the page may load.
  */
 export function registerStudioIpc(origin, servedFile) {
   const exported = new Set();
+  let running = null; // the export in progress: {controller, settled}
 
   function handle(channel, fn) {
     ipcMain.handle(channel, (event, ...args) => {
@@ -70,10 +72,26 @@ export function registerStudioIpc(origin, servedFile) {
     const outDir = readSettings().exportDir ?? await chooseExportDir(BrowserWindow.fromWebContents(event.sender));
     if (!outDir) return { cancelled: true };
     await mkdir(outDir, { recursive: true });
-    const onProgress = (fraction, label) => event.sender.send('studio:progress', { label, fraction });
-    const { archivePath, bytes } = await exportMap(doc, outDir, { onProgress, quality });
-    exported.add(archivePath);
-    return { archivePath, bytes };
+    await running?.settled; // one export at a time: a cancelled one may still be writing its archive
+    const controller = new AbortController(), { signal } = controller;
+    const onProgress = (fraction, label) => { if (!signal.aborted) event.sender.send('studio:progress', { label, fraction }); };
+    // shortcut: exportMap does not stop on `signal` yet (smoothing step: make the bake and 7-Zip honour it). Until then a
+    // cancelled export finishes in the background, is never offered for install, and the next export waits for it.
+    const job = exportMap(doc, outDir, { onProgress, quality, signal });
+    running = { controller, settled: job.then(() => {}, () => {}) };
+    const aborted = new Promise((resolve) => signal.addEventListener('abort', () => resolve(null), { once: true }));
+    const result = await Promise.race([job, aborted]);
+    if (!result || signal.aborted) return { cancelled: true };
+    exported.add(result.archivePath);
+    return { archivePath: result.archivePath, bytes: result.bytes };
+  });
+
+  handle('studio:cancelExport', () => { running?.controller.abort(); });
+
+  // Reveals an archive this session wrote, and nothing else.
+  handle('studio:showInFolder', (_event, archivePath) => {
+    if (!exported.has(archivePath)) throw new Error('Only a map exported in this session can be shown.');
+    shell.showItemInFolder(archivePath);
   });
 
   handle('studio:installMap', async (event, archivePath) => {

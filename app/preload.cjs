@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('studio', {
   chooseExportDir: () => invoke('studio:chooseExportDir'),
   hasFiles: (paths) => invoke('studio:hasFiles', paths),
   exportMap: (doc, options) => invoke('studio:exportMap', doc, options),
+  cancelExport: () => invoke('studio:cancelExport'),
+  showInFolder: (archivePath) => invoke('studio:showInFolder', archivePath),
   installMap: (archivePath) => invoke('studio:installMap', archivePath),
   onProgress: (callback) => { ipcRenderer.on('studio:progress', (_event, progress) => callback(progress)); },
 });

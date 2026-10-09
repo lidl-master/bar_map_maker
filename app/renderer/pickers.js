@@ -6,16 +6,26 @@ import { biomeSwatch } from './materials.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
-// In a 24×24 box: the map frame, the mirror lines, and where one player's copies land.
+/** An arc around (12, 12) from angle a0 to a1 (degrees, clockwise from east) with an arrowhead at a1. */
+function arcArrow(r, a0, a1) {
+  const at = (deg, rr = r) => [12 + rr * Math.cos((deg * Math.PI) / 180), 12 + rr * Math.sin((deg * Math.PI) / 180)];
+  const [x0, y0] = at(a0), [x1, y1] = at(a1), t = ((a1 + 90) * Math.PI) / 180; // travel direction at the tip
+  const wing = (side) => [x1 - 3 * Math.cos(t) + side * 2.2 * Math.sin(t), y1 - 3 * Math.sin(t) - side * 2.2 * Math.cos(t)];
+  const f = (v) => v.toFixed(2);
+  return `M${f(x0)} ${f(y0)} A${r} ${r} 0 0 1 ${f(x1)} ${f(y1)} M${wing(1).map(f).join(' ')} L${f(x1)} ${f(y1)} L${wing(-1).map(f).join(' ')}`;
+}
+
+// 24×24 outline glyphs in the Lucide style: a dashed mirror line with the shape and its ghost, or turn arrows round a
+// centre dot. solid = the original, ghost = its copies.
 const PICTOGRAMS = {
-  rot180: { short: 'Rotate 180°', dots: [[7.5, 8], [16.5, 16]], centre: true },
-  mirrorX: { short: 'Left ↔ right', lines: [[12, 3, 12, 21]], dots: [[7.5, 9], [16.5, 9]] },
-  mirrorZ: { short: 'Top ↕ bottom', lines: [[3, 12, 21, 12]], dots: [[9, 7.5], [9, 16.5]] },
-  quad: { short: 'Quad', lines: [[12, 3, 12, 21], [3, 12, 21, 12]], dots: [[7.5, 7.5], [16.5, 7.5], [7.5, 16.5], [16.5, 16.5]] },
-  rot90: { short: 'Rotate 90°', dots: [[8, 6.5], [17.5, 8], [16, 17.5], [6.5, 16]], centre: true },
-  diag: { short: 'Diagonal ╲', lines: [[3, 3, 21, 21]], dots: [[15.5, 8.5], [8.5, 15.5]] },
-  adiag: { short: 'Diagonal ╱', lines: [[21, 3, 3, 21]], dots: [[8, 8], [16, 16]] },
-  none: { short: 'None', dots: [[9, 10]] },
+  rot180: { arrows: [[210, 330], [30, 150]], dot: true },
+  mirrorX: { lines: ['M12 2v20'], solid: ['M3 7l5 5-5 5z'], ghost: ['M21 7l-5 5 5 5z'] },
+  mirrorZ: { lines: ['M2 12h20'], solid: ['M7 3l5 5 5-5z'], ghost: ['M7 21l5-5 5 5z'] },
+  quad: { lines: ['M12 2v20', 'M2 12h20'], solid: ['M4 4h6l-6 6z'], ghost: ['M20 4h-6l6 6z', 'M4 20h6l-6-6z', 'M20 20h-6l6-6z'] },
+  rot90: { arrows: [[-70, -20], [20, 70], [110, 160], [200, 250]], dot: true },
+  diag: { lines: ['M3 3l18 18'], solid: ['M10 4h10v10z'], ghost: ['M4 10v10h10z'] },
+  adiag: { lines: ['M21 3L3 21'], solid: ['M4 4h10L4 14z'], ghost: ['M20 20V10L10 20z'] },
+  none: { solid: ['M7 6l10 6-10 6z'] },
 };
 const SYMMETRY_ORDER = Object.keys(PICTOGRAMS);
 
@@ -26,19 +36,20 @@ function svgNode(tag, attrs) {
 }
 
 function pictogram(mode) {
-  const { lines = [], dots, centre } = PICTOGRAMS[mode];
-  const svg = svgNode('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'aria-hidden': 'true' });
-  svg.append(svgNode('rect', { x: 3, y: 3, width: 18, height: 18, rx: 2.5, 'stroke-width': 1.25, opacity: 0.55 }));
-  for (const [x1, y1, x2, y2] of lines) svg.append(svgNode('line', { x1, y1, x2, y2, 'stroke-width': 1.25, 'stroke-dasharray': '2 1.6' }));
-  if (centre) svg.append(svgNode('circle', { cx: 12, cy: 12, r: 1.6, 'stroke-width': 1.25 }));
-  for (const [cx, cy] of dots) svg.append(svgNode('circle', { cx, cy, r: 1.9, fill: 'currentColor', stroke: 'none' }));
+  const { lines = [], solid = [], ghost = [], arrows = [], dot } = PICTOGRAMS[mode];
+  const svg = svgNode('svg', { viewBox: '0 0 24 24', class: 'pictogram', 'aria-hidden': 'true' });
+  for (const d of lines) svg.append(svgNode('path', { d, class: 'axis' }));
+  for (const d of solid) svg.append(svgNode('path', { d }));
+  for (const d of ghost) svg.append(svgNode('path', { d, class: 'ghost' }));
+  for (const [a0, a1] of arrows) svg.append(svgNode('path', { d: arcArrow(8, a0, a1) }));
+  if (dot) svg.append(svgNode('circle', { cx: 12, cy: 12, r: 1.5, class: 'dot' }));
   return svg;
 }
 
 /** Symmetry radios; returns the cards keyed by mode so the caller can disable or lock them. */
 export function symmetryChoices(name, current, onChange) {
   return SYMMETRY_ORDER.map((mode) => {
-    const card = choice({ name, value: mode, checked: mode === current, onChange }, pictogram(mode), el('span', { class: 'name' }, PICTOGRAMS[mode].short));
+    const card = choice({ name, value: mode, checked: mode === current, onChange }, pictogram(mode), el('span', { class: 'name' }, SYMMETRY[mode].label));
     card.dataset.tip = SYMMETRY[mode].label;
     return card;
   });

@@ -1,8 +1,7 @@
 // The Generate and Map tabs. Rebuilt whenever a new map is loaded or a history step replaced doc parts.
 import { SYMMETRY } from '../../src/core/index.js';
 import { TEMPLATES } from '../../src/terrain/index.js';
-import { changeExportDir } from './bar-actions.js';
-import { $, btn, el, formatInt, note, section, select, slider, text, toggle, value } from './dom.js';
+import { $, btn, el, formatInt, note, section, select, slider, stepper, text, toggle, value } from './dom.js';
 import { confirmDialog, withLoading } from './feedback.js';
 import { runJob } from './generator.js';
 import { icon } from './icons.js';
@@ -25,29 +24,29 @@ function buildGenerate(editor) {
   const terrain = section(panel, 'Terrain');
   note(terrain, 'Replaces the terrain and resources, keeping size, symmetry and map settings. Ctrl+Z undoes it.');
   select(terrain, 'Template', gen, 'template', TEMPLATES.map((t) => [t.id, t.label]));
-  slider(terrain, 'Players', gen, 'players', { min: 2, max: 16 });
-  const seed = el('input', { id: 'genSeed', class: 'field', type: 'number', min: 0, max: 999999 });
+  terrain.append(el('div', { class: 'row' }, el('label', { for: 'genPlayers' }, 'Players'), stepper(gen, 'players', { min: 2, max: 16, label: 'Players', id: 'genPlayers' })));
+  const seed = el('input', { id: 'genSeed', class: 'field num', type: 'number', min: 0, max: 999999 });
   seed.value = gen.seed;
   seed.addEventListener('change', () => { gen.seed = Math.max(0, Math.round(+seed.value) || 0); seed.value = gen.seed; });
   const dice = el('button', { class: 'btn square', 'data-tip': 'Random seed', 'aria-label': 'Random seed', onclick: () => { gen.seed = randomSeed(); seed.value = gen.seed; } }, icon('dice-5'));
-  terrain.append(el('div', { class: 'row' }, el('label', { for: 'genSeed' }, 'Seed'), el('div', { class: 'slider-row' }, seed, dice)));
+  terrain.append(el('div', { class: 'row' }, el('label', { for: 'genSeed' }, 'Seed'), el('div', { class: 'seed-row' }, seed, dice)));
   terrain.append(btn('Generate terrain', {
-    class: 'btn primary block',
+    class: 'btn accent-icon block',
     onclick: async () => {
       const label = TEMPLATES.find((t) => t.id === gen.template).label;
-      const fresh = await withLoading('Generating terrain', `${label} · ${gen.players} players · seed ${gen.seed}`,
+      const fresh = await withLoading('Generating terrain…', `${label} · ${gen.players} players · seed ${gen.seed}`,
         () => runJob('newMap', { sx: doc.sx, sz: doc.sz, symmetry: doc.symmetry, biome: doc.biome, ...gen }));
       if (fresh) editor.replaceTerrain(fresh, 'generate terrain');
     },
-  }, 'sparkles'));
+  }, 'mountain'));
 
   const resources = section(panel, 'Resources');
   note(resources, 'Places start positions, metal spots and geothermal vents for the player count above, mirrored by the symmetry.');
   resources.append(el('div', { class: 'stack-sm' },
     btn('Auto-place resources', {
-      class: 'btn block',
+      class: 'btn accent-icon block',
       onclick: async () => {
-        const placed = await withLoading('Placing resources', `${gen.players} players · seed ${gen.seed}`, () => runJob('placeResources', { doc, players: gen.players, seed: gen.seed }));
+        const placed = await withLoading('Placing resources…', `${gen.players} players · seed ${gen.seed}`, () => runJob('placeResources', { doc, players: gen.players, seed: gen.seed }));
         if (placed) editor.replaceTerrain(placed, 'place resources');
       },
     }, 'circle-dot'),
@@ -86,8 +85,4 @@ function buildMap(editor) {
   note(lava, 'Everything below the lava level becomes BAR\'s animated, damaging lava instead of water.');
   toggle(lava, 'Lava instead of water', s.lava, 'enabled', () => editor.lookChanged());
   slider(lava, 'Level', s.lava, 'level', { min: -100, max: 1000, onChange: () => editor.lookChanged() });
-
-  const out = section(panel, 'Export folder');
-  note(out, 'The first export asks for a folder and remembers it.');
-  out.append(btn('Change export folder…', { class: 'btn block', onclick: changeExportDir }, 'folder-open'));
 }

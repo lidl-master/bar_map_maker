@@ -1,24 +1,17 @@
-// Top-down 2D view: the map image (look or pathing colours) plus overlays (grid, symmetry axes, features, markers, brush, ramp).
-import { orbit } from '../../src/core/index.js';
+// Top-down 2D view: the map image (shaded look, or pathing classes over a hillshade) plus overlays (grid, features,
+// symmetry guides, markers with metal labels, brush, ramp).
+import { SYMMETRY, orbit } from '../../src/core/index.js';
 import { previewColor } from '../../src/look/index.js';
 import { clamp } from './dom.js';
-import { iconPaths } from './icons.js';
+import { DRAW_MARKER, HOVER, MARKER_SIZE, SELECT, drawMetalLabel, markerRing } from './markers.js';
 import { PATHING_LEGEND, SQ, UNIT, pathingClass, worldSize } from './sample.js';
 
-export const TEAM_COLORS = ['#3d8bff', '#ff4d4d', '#38d86b', '#ffd23f', '#c05cff', '#ff8f2e', '#2ee6e6', '#ff66c4',
-  '#9be04c', '#7a7aff', '#d9a066', '#ffffff', '#8c8c8c', '#4cc9a0', '#e05c8c', '#b0b0ff'];
-
 const BACKDROP = '#0e1014';
-const SELECT = '#7aa5ff';
-const FONT = '"Inter", "Segoe UI", sans-serif';
-const FLAME = iconPaths('flame');
-
-// Light team colours (yellow, cyan, white…) carry dark numbers.
-const luminance = (hex) => {
-  const n = parseInt(hex.slice(1), 16);
-  return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
-};
-const TEAM_TEXT = TEAM_COLORS.map((c) => (luminance(c) > 0.6 ? '#0e1014' : '#ffffff'));
+const LABEL_ZOOM = 1.5; // from 150 % every metal spot shows its value
+const PATHING_CLASSES = Object.keys(PATHING_LEGEND);
+const PATHING_ALPHA = 0.65; // class colour over the hillshade
+const LIGHT = [-0.45, 0.75, -0.48].map((c, _, v) => c / Math.hypot(...v)); // from the north-west, high: relief reads, the sun is in the north
+const DRAW_ORDER = ['metal', 'geo', 'start']; // starts last: the strongest marker sits on top
 
 const AXES = {
   mirrorX: (w, h) => [[w / 2, 0, w / 2, h]],
@@ -27,6 +20,59 @@ const AXES = {
   diag: (w, h) => [[0, 0, w, h]],
   adiag: (w, h) => [[w, 0, 0, h]],
 };
+const ROTATIONAL = new Set(['rot180', 'rot90']);
+
+/** 0..1 light on heightmap sample (i, j). */
+function hillshade(doc, i, j) {
+  const { W, H, heights: h } = doc, k = j * W + i;
+  const dx = (h[k + (i < W - 1 ? 1 : 0)] - h[k - (i > 0 ? 1 : 0)]) / (2 * SQ);
+  const dz = (h[k + (j < H - 1 ? W : 0)] - h[k - (j > 0 ? W : 0)]) / (2 * SQ);
+  return Math.max(0, (-dx * LIGHT[0] + LIGHT[1] - dz * LIGHT[2]) / Math.hypot(dx, 1, dz));
+}
+
+/** The most common metal value on the map: spots with another value always show it. */
+function usualMetal(objects) {
+  const tally = new Map();
+  for (const o of objects) if (o.type === 'metal') tally.set(o.metal, (tally.get(o.metal) ?? 0) + 1);
+  let best = null, most = 0;
+  for (const [v, n] of tally) if (n > most) [best, most] = [v, n];
+  return best;
+}
+
+// Markers closer than their sizes push apart on screen (display only; a leader line marks the true spot). Starts are
+// the anchors and barely move.
+function spread(marks) {
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (let a = 0; a < marks.length; a++) {
+      for (let b = a + 1; b < marks.length; b++) {
+        const p = marks[a], q = marks[b], need = p.r + q.r + 1;
+        let dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy);
+        if (d >= need) continue;
+        if (d < 0.01) [dx, dy, d] = [1, 0, 1];
+        const push = (need - d) / (p.weight + q.weight);
+        p.x -= (dx / d) * push * p.weight;
+        p.y -= (dy / d) * push * p.weight;
+        q.x += (dx / d) * push * q.weight;
+        q.y += (dy / d) * push * q.weight;
+        moved = true;
+      }
+    }
+    if (!moved) return;
+  }
+}
+
+function hatchPattern(ctx) {
+  const tile = document.createElement('canvas');
+  tile.width = tile.height = 8;
+  const t = tile.getContext('2d');
+  t.strokeStyle = 'rgba(40, 8, 34, 0.6)';
+  t.lineWidth = 2;
+  t.beginPath();
+  for (const o of [-8, 0, 8]) { t.moveTo(o, 8); t.lineTo(o + 8, 0); }
+  t.stroke();
+  return ctx.createPattern(tile, 'repeat');
+}
 
 export class View2D {
   doc = null;
@@ -40,46 +86,68 @@ export class View2D {
   rampPreview = null; // {a, b, width}
   selected = null;
   hover = null;
-  showFeatures = true;
-  onDraw = null; // called after every frame (zoom read-out)
+  overlays = { features: true, labels: true, guides: true };
+  onDraw = null; // called after every frame (zoom read-out, scale bar)
+  onRender = null; // called after the map image changed (pathing legend)
   #raf = 0;
   #features = {}; // cached feature paths and what they were built from
+  #classes = null; // pathing class index per sample (pathing mode)
+  #hatch = null; // {layer, pattern}: the impassable hatch, drawn in screen space
 
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.base = document.createElement('canvas'); // also the 3D view's texture
     this.baseCtx = this.base.getContext('2d');
+    this.mask = document.createElement('canvas'); // impassable samples, for the hatch
+    this.maskCtx = this.mask.getContext('2d');
   }
 
   setDoc(doc) {
     this.doc = doc;
     this.selected = this.hover = null;
-    this.base.width = doc.W;
-    this.base.height = doc.H;
+    this.base.width = this.mask.width = doc.W;
+    this.base.height = this.mask.height = doc.H;
     this.image = this.baseCtx.createImageData(doc.W, doc.H);
+    this.maskImage = this.maskCtx.createImageData(doc.W, doc.H);
+    this.#classes = new Uint8Array(doc.W * doc.H);
     this.render();
     this.fit();
   }
 
   /** Recolours the heightmap samples in rect [x0, z0, x1, z1] (whole map when omitted). */
   render(rect = [0, 0, this.doc.W - 1, this.doc.H - 1]) {
-    const doc = this.doc, data = this.image.data;
+    const doc = this.doc, data = this.image.data, mask = this.maskImage.data, pathing = this.mode === 'pathing';
     // One sample of margin: slope and shading read the neighbours.
     const x0 = Math.max(0, rect[0] - 1), z0 = Math.max(0, rect[1] - 1);
     const x1 = Math.min(doc.W - 1, rect[2] + 1), z1 = Math.min(doc.H - 1, rect[3] + 1);
     for (let j = z0; j <= z1; j++) {
       for (let i = x0; i <= x1; i++) {
-        const rgb = this.mode === 'pathing' ? PATHING_LEGEND[pathingClass(doc, i, j)].color : previewColor(doc, i, j);
-        const o = (j * doc.W + i) * 4;
+        const k = j * doc.W + i, o = k * 4;
+        let rgb;
+        if (pathing) {
+          const cls = pathingClass(doc, i, j), grey = 36 + 200 * hillshade(doc, i, j);
+          this.#classes[k] = PATHING_CLASSES.indexOf(cls);
+          mask[o + 3] = cls === 'none' ? 255 : 0;
+          rgb = PATHING_LEGEND[cls].color.map((c) => grey + (c - grey) * PATHING_ALPHA);
+        } else rgb = previewColor(doc, i, j);
         data[o] = rgb[0];
         data[o + 1] = rgb[1];
         data[o + 2] = rgb[2];
         data[o + 3] = 255;
       }
     }
-    this.baseCtx.putImageData(this.image, 0, 0, x0, z0, x1 - x0 + 1, z1 - z0 + 1);
+    const args = [x0, z0, x1 - x0 + 1, z1 - z0 + 1];
+    this.baseCtx.putImageData(this.image, 0, 0, ...args);
+    if (pathing) this.maskCtx.putImageData(this.maskImage, 0, 0, ...args);
     this.invalidate();
+    this.onRender?.();
+  }
+
+  /** The pathing classes on the map (after a pathing render), in legend order. */
+  presentClasses() {
+    const seen = new Set(this.#classes);
+    return PATHING_CLASSES.filter((_, n) => seen.has(n));
   }
 
   resize() {
@@ -90,10 +158,10 @@ export class View2D {
     this.invalidate();
   }
 
-  /** Centres the whole map in the view, below the overlay bar at the top. */
+  /** Centres the whole map in the view, between the overlay bar at the top and the scale bar at the bottom. */
   fit() {
     if (!this.doc) return;
-    const [top, side, bottom] = [56, 24, 24];
+    const [top, side, bottom] = [56, 24, 44];
     const cw = this.canvas.width / this.dpr - 2 * side, ch = this.canvas.height / this.dpr - top - bottom;
     this.zoom = Math.max(0.05, Math.min(cw / this.doc.W, ch / this.doc.H));
     this.ox = side + (cw - this.doc.W * this.zoom) / 2;
@@ -119,6 +187,14 @@ export class View2D {
     this.zoomAt(this.canvas.width / this.dpr / 2, this.canvas.height / this.dpr / 2, factor);
   }
 
+  /** The symmetry centre's tooltip when (sx, sy) is on it, else null. */
+  guideAt(sx, sy) {
+    const doc = this.doc;
+    if (!this.overlays.guides || doc.symmetry === 'none') return null;
+    const [w, h] = worldSize(doc), c = this.toScreen(w / 2, h / 2);
+    return Math.hypot(sx - c.x, sy - c.y) <= 14 ? `Symmetry centre · ${SYMMETRY[doc.symmetry].label}` : null;
+  }
+
   invalidate() {
     this.#raf ||= requestAnimationFrame(() => { this.#raf = 0; this.#draw(); });
   }
@@ -136,13 +212,33 @@ export class View2D {
     for (const grow of [12, 8, 4]) ctx.fillRect(this.ox - grow, this.oy - grow + 4, w + 2 * grow, h + 2 * grow);
     ctx.imageSmoothingEnabled = this.zoom < 2;
     ctx.drawImage(this.base, this.ox, this.oy, w, h);
+    if (this.mode === 'pathing') this.#drawHatch(w, h);
     this.#drawGrid();
-    this.#drawFeatures();
-    this.#drawAxes();
+    if (this.overlays.features) this.#drawFeatures();
+    if (this.overlays.guides) this.#drawGuides();
     this.#drawObjects();
     if (this.rampPreview) this.#drawRamp();
     if (this.cursor && this.brush) this.#drawBrush();
     this.onDraw?.();
+  }
+
+  // Diagonal hatching over impassable ground, in screen space so it stays crisp at every zoom.
+  #drawHatch(w, h) {
+    this.#hatch ??= { layer: document.createElement('canvas') };
+    const { layer } = this.#hatch, lctx = layer.getContext('2d');
+    if (layer.width !== this.canvas.width || layer.height !== this.canvas.height) [layer.width, layer.height] = [this.canvas.width, this.canvas.height];
+    this.#hatch.pattern ??= hatchPattern(lctx);
+    lctx.globalCompositeOperation = 'source-over';
+    lctx.clearRect(0, 0, layer.width, layer.height);
+    lctx.imageSmoothingEnabled = this.zoom < 2;
+    lctx.drawImage(this.mask, this.ox * this.dpr, this.oy * this.dpr, w * this.dpr, h * this.dpr);
+    lctx.globalCompositeOperation = 'source-in';
+    lctx.fillStyle = this.#hatch.pattern;
+    lctx.fillRect(0, 0, layer.width, layer.height);
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.drawImage(layer, 0, 0);
+    this.ctx.restore();
   }
 
   #line(x0, z0, x1, z1) {
@@ -167,7 +263,6 @@ export class View2D {
   // Trees and rocks: 1k-20k dots, so one path per kind in map-sample units, drawn through the view transform and rebuilt
   // only when the objects or the zoom band change. Far out, each dot keeps about one screen pixel.
   #drawFeatures() {
-    if (!this.showFeatures) return;
     const { ctx, doc } = this, band = Math.round(Math.log2(this.zoom) * 2);
     const key = this.#features;
     if (key.objects !== doc.objects || key.length !== doc.objects.length || key.band !== band) {
@@ -189,44 +284,88 @@ export class View2D {
     ctx.restore();
   }
 
-  #drawAxes() {
+  // Symmetry guides, under the markers: dashed mirror lines, a thin crosshair on the centre and, for rotational
+  // symmetry, a small arc with an arrowhead. Quiet (about 50 % white) so they never read as a control.
+  #drawGuides() {
     const { ctx, doc } = this, [w, h] = worldSize(doc);
-    const path = new Path2D();
+    if (doc.symmetry === 'none') return;
+    const c = this.toScreen(w / 2, h / 2), path = new Path2D();
     for (const [x0, z0, x1, z1] of AXES[doc.symmetry]?.(w, h) ?? []) {
       const a = this.toScreen(x0, z0), b = this.toScreen(x1, z1);
       path.moveTo(a.x, a.y);
       path.lineTo(b.x, b.y);
     }
+    path.moveTo(c.x - 9, c.y);
+    path.lineTo(c.x + 9, c.y);
+    path.moveTo(c.x, c.y - 9);
+    path.lineTo(c.x, c.y + 9);
+    if (ROTATIONAL.has(doc.symmetry)) {
+      const r = 14, a0 = -Math.PI * 0.8, a1 = -Math.PI * 0.15, tip = [c.x + r * Math.cos(a1), c.y + r * Math.sin(a1)];
+      path.moveTo(c.x + r * Math.cos(a0), c.y + r * Math.sin(a0));
+      path.arc(c.x, c.y, r, a0, a1);
+      path.moveTo(tip[0] - 4.5, tip[1] - 1);
+      path.lineTo(...tip);
+      path.lineTo(tip[0] - 0.5, tip[1] + 4.5);
+    }
     ctx.save();
+    ctx.lineCap = ctx.lineJoin = 'round';
     ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
     ctx.stroke(path);
-    ctx.setLineDash([7, 5]);
+    ctx.setLineDash([6, 5]);
     ctx.lineWidth = 1.25;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.stroke(path);
-    ctx.setLineDash([]);
-    if (doc.symmetry === 'rot180' || doc.symmetry === 'rot90') this.#drawRotationCentre(this.toScreen(w / 2, h / 2));
     ctx.restore();
   }
 
-  #drawRotationCentre(c) {
-    const ctx = this.ctx, r = 10;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, r + 5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(14, 16, 20, 0.7)';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, r - 3, -Math.PI * 0.35, Math.PI * 1.25);
-    ctx.lineWidth = 1.75;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
-    const tip = { x: c.x + (r - 3) * Math.cos(-Math.PI * 0.35), y: c.y + (r - 3) * Math.sin(-Math.PI * 0.35) };
-    ctx.beginPath();
-    ctx.moveTo(tip.x - 4, tip.y - 2.5);
-    ctx.lineTo(tip.x, tip.y);
-    ctx.lineTo(tip.x - 1, tip.y + 4.5);
-    ctx.stroke();
+  #drawObjects() {
+    const { ctx, doc } = this, k = this.scale;
+    const selectedGroup = this.selected && (this.selected.group ?? this.selected);
+    const marks = [];
+    let team = 0;
+    for (const o of doc.objects) {
+      if (o.type === 'feature') continue;
+      const s = this.toScreen(o.x, o.z), sel = selectedGroup !== null && (o.group ?? o) === selectedGroup;
+      marks.push({
+        o, x: s.x, y: s.y, tx: s.x, ty: s.y, r: MARKER_SIZE[o.type] / 2, weight: o.type === 'start' ? 0.1 : 1,
+        team: o.type === 'start' ? team++ : 0, highlight: sel ? SELECT : o === this.hover ? HOVER : null,
+      });
+    }
+    spread(marks);
+    ctx.save();
+    for (const m of marks) { // the true spot of a nudged marker, and the extractor's reach when it matters
+      if (Math.hypot(m.x - m.tx, m.y - m.ty) > 2) {
+        ctx.beginPath();
+        ctx.moveTo(m.tx, m.ty);
+        ctx.lineTo(m.x, m.y);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(m.tx, m.ty, 1.75, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      }
+      if (m.o.type === 'metal' && (m.highlight || this.zoom >= LABEL_ZOOM)) {
+        ctx.setLineDash([3, 3]);
+        markerRing(ctx, m.tx, m.ty, doc.settings.extractorRadius * k - 3, 'rgba(255, 255, 255, 0.35)');
+        ctx.setLineDash([]);
+      }
+    }
+    for (const type of DRAW_ORDER) {
+      for (const m of marks) {
+        if (m.o.type !== type) continue;
+        DRAW_MARKER[type](ctx, m.x, m.y, m.team);
+        if (m.highlight) markerRing(ctx, m.x, m.y, m.r, m.highlight);
+      }
+    }
+    const usual = usualMetal(doc.objects), labels = this.overlays.labels;
+    for (const m of marks) {
+      const o = m.o;
+      if (o.type === 'metal' && (m.highlight || (labels && (this.zoom >= LABEL_ZOOM || o.metal !== usual)))) drawMetalLabel(ctx, m.x, m.y, o.metal.toFixed(1));
+    }
+    ctx.restore();
   }
 
   #ring(s, r, color, width) {
@@ -236,93 +375,6 @@ export class View2D {
     ctx.lineWidth = width;
     ctx.strokeStyle = color;
     ctx.stroke();
-  }
-
-  #drawObjects() {
-    const { ctx, doc } = this, k = this.scale;
-    const selectedGroup = this.selected && (this.selected.group ?? this.selected);
-    let team = 0;
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (const o of doc.objects) {
-      if (o.type === 'feature') continue;
-      const s = this.toScreen(o.x, o.z);
-      const sel = selectedGroup !== null && (o.group ?? o) === selectedGroup;
-      const highlight = sel ? SELECT : o === this.hover ? 'rgba(255, 255, 255, 0.9)' : null;
-      if (o.type === 'metal') this.#drawMetal(o, s, k, highlight);
-      else if (o.type === 'geo') this.#drawGeo(s, k, highlight);
-      else if (o.type === 'start') this.#drawStart(s, k, team++, highlight);
-    }
-    ctx.restore();
-  }
-
-  // The extractor's reach as a disc with the spot's metal value inside; too small for text, a dot.
-  #drawMetal(o, s, k, highlight) {
-    const ctx = this.ctx, r = Math.max(5, this.doc.settings.extractorRadius * k);
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(14, 16, 20, 0.6)';
-    ctx.fill();
-    ctx.lineWidth = 1.25;
-    ctx.strokeStyle = 'rgba(233, 237, 245, 0.85)';
-    ctx.stroke();
-    if (highlight) this.#ring(s, r + 2.5, highlight, 2);
-    if (r >= 9) {
-      ctx.font = `600 ${r >= 14 ? 12 : 11}px ${FONT}`; // the UI type scale
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(o.metal.toFixed(1), s.x, s.y + 0.5);
-      return;
-    }
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, 2, 0, Math.PI * 2);
-    ctx.fillStyle = '#e9edf5';
-    ctx.fill();
-  }
-
-  #drawGeo(s, k, highlight) {
-    const ctx = this.ctx, r = clamp(40 * k, 7, 14);
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#f2782f';
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(14, 16, 20, 0.8)';
-    ctx.stroke();
-    if (highlight) this.#ring(s, r + 3, highlight, 2);
-    const f = (r * 1.25) / 24;
-    ctx.save();
-    ctx.translate(s.x - 12 * f, s.y - 12 * f);
-    ctx.scale(f, f);
-    ctx.lineWidth = 1.75 / f; // 1.75 screen px, like the UI icons
-    ctx.lineJoin = ctx.lineCap = 'round';
-    ctx.strokeStyle = '#ffffff';
-    for (const p of FLAME) ctx.stroke(p);
-    ctx.restore();
-  }
-
-  #drawStart(s, k, team, highlight) {
-    const ctx = this.ctx, r = clamp(30 * k, 9, 16), color = TEAM_COLORS[team % TEAM_COLORS.length];
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r + 4, 0, Math.PI * 2);
-    ctx.fillStyle = `${color}40`;
-    ctx.fill();
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 1;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.restore();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
-    if (highlight) this.#ring(s, r + 5, highlight, 2);
-    ctx.font = `700 ${r >= 13 ? 13 : 11}px ${FONT}`;
-    ctx.fillStyle = TEAM_TEXT[team % TEAM_TEXT.length];
-    ctx.fillText(String(team + 1), s.x, s.y + 0.5);
   }
 
   #drawBrush() {

@@ -24,13 +24,14 @@ const CLIFF_LUMINANCE = 105;
 
 // Per library class: splat channel (when the material is not one of the biome's 4 splats), detail-normal relief,
 // specular intensity (0..1) and gloss (specularTex alpha: exponent / 16). Specular is a soft sheen (the engine
-// caps the exponent at 16) that the bake modulates per texel by the albedo's brightness.
+// caps the exponent at 16) that the bake modulates per texel by the albedo's brightness, so light grains glint; a
+// whole map stays under the mean of 20 / 255 the reference maps keep to (src/bar checklist "Subtle specular").
 const CLASSES = {
-  ground: { channel: 0, relief: 0.5, spec: 0.09, gloss: 0.5 },
-  slope: { channel: 1, relief: 0.9, spec: 0.1, gloss: 0.5 },
-  cliff: { channel: 2, relief: 1.4, spec: 0.13, gloss: 0.6 },
-  shore: { channel: 3, relief: 0.5, spec: 0.22, gloss: 0.9 },
-  special: { channel: 3, relief: 1.0, spec: 0.16, gloss: 0.75 },
+  ground: { channel: 0, relief: 0.5, spec: 0.065, gloss: 0.55 },
+  slope: { channel: 1, relief: 0.9, spec: 0.075, gloss: 0.55 },
+  cliff: { channel: 2, relief: 1.4, spec: 0.1, gloss: 0.6 },
+  shore: { channel: 3, relief: 0.5, spec: 0.17, gloss: 0.9 },
+  special: { channel: 3, relief: 1.0, spec: 0.12, gloss: 0.75 },
 };
 
 export const smoothstep = (a, b, x) => {

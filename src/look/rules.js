@@ -102,22 +102,22 @@ export const FLAT_ROLES = [0, 1, 4, 5, 6];
 
 /**
  * How flat ground (<= 27°) at height h splits into ground, high, sand, seabed and snow (sum 1), written to
- * out[o..o+4] in FLAT_ROLES order. Smooth in h, so the bake computes it per heightmap sample and interpolates.
+ * out[0..4] in FLAT_ROLES order. Smooth in h, so the bake computes it per heightmap sample and interpolates.
  * @param {number} patch  patchAt() at this point
  * @param {number} edge  edgeAt() at this point
  */
-export function flatWeights(biome, h, patch, edge, out, o = 0) {
+export function flatWeights(biome, h, patch, edge, out) {
   const split = (h - biome.highStart) / (biome.highEnd - biome.highStart) + PATCH * patch + PATCH_FINE * edge;
   const high = smoothstep(0, 1, split);
   const sand = h < biome.sandTop ? 1 - smoothstep(biome.sandTop / 2, biome.sandTop, h) : 0;
   const seabed = h < 0 ? smoothstep(0, 24, -h) : 0;
   const snow = smoothstep(biome.snowLine - 25, biome.snowLine + 25, h);
   const keep = (1 - seabed) * (1 - snow); // each later layer covers the ones before it
-  out[o] = (1 - high) * (1 - sand) * keep;
-  out[o + 1] = high * (1 - sand) * keep;
-  out[o + 2] = sand * keep;
-  out[o + 3] = seabed * (1 - snow);
-  out[o + 4] = snow;
+  out[0] = (1 - high) * (1 - sand) * keep;
+  out[1] = high * (1 - sand) * keep;
+  out[2] = sand * keep;
+  out[3] = seabed * (1 - snow);
+  out[4] = snow;
 }
 
 /** Share of bot slope or cliff (steep) and of cliff alone at squared gradient g2: [steep, cliff] in out. */

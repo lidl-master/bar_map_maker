@@ -152,10 +152,10 @@ function occlusion(doc, i, j) {
 }
 
 // Per-sample inputs of heightmap rows j0 .. j0 + rows - 1; light = shading towards the sun and ambient occlusion
-// (sun null: neither) times broad tone; flat0..4 = flatWeights().
+// (sun null: neither) times broad tone; flat[0..4] = flatWeights().
 function sampleRows(doc, biome, sun, j0, rows) {
   const { W } = doc, n = W * rows, f = () => new Float32Array(n), flat = new Float32Array(5);
-  const grid = { h: f(), gx: f(), gz: f(), edge: f(), light: f(), wobble: f(), swap: f(), flat0: f(), flat1: f(), flat2: f(), flat3: f(), flat4: f() };
+  const grid = { h: f(), gx: f(), gz: f(), edge: f(), light: f(), wobble: f(), swap: f(), flat: Array.from({ length: 5 }, f) };
   for (let r = 0; r < rows; r++) {
     for (let i = 0; i < W; i++) {
       const k = r * W + i, x = i * SQUARE, z = (j0 + r) * SQUARE;
@@ -163,7 +163,7 @@ function sampleRows(doc, biome, sun, j0, rows) {
       [grid.gx[k], grid.gz[k]] = gradient(doc, i, j0 + r);
       grid.edge[k] = edgeAt(x, z);
       flatWeights(biome, grid.h[k], patchAt(x, z), grid.edge[k], flat);
-      for (let q = 0; q < 5; q++) grid[`flat${q}`][k] = flat[q];
+      for (let q = 0; q < 5; q++) grid.flat[q][k] = flat[q];
       grid.light[k] = (sun ? shade(sun, grid.gx[k], grid.gz[k]) * occlusion(doc, i, j0 + r) : 1) * (1 + TONE * toneAt(x, z));
       grid.wobble[k] = wobbleAt(x, z);
       grid.swap[k] = swapAt(x, z);
@@ -200,7 +200,7 @@ export function bakeStrip(ctx, tz0, rows) {
   const sw = new Float32Array(11), ss = new Int32Array(11), corner = [0, 1, W, W + 1], cw = new Float32Array(4), steepness = new Float32Array(2);
   const flatSlot = Int32Array.from(FLAT_ROLES, (r) => roleSlot[r]);
   // The sample fields interpolated to the current texel row (z); per texel only the x interpolation is left.
-  const fields = [grid.h, grid.gx, grid.gz, grid.edge, grid.light, grid.wobble, grid.swap, grid.flat0, grid.flat1, grid.flat2, grid.flat3, grid.flat4];
+  const fields = [grid.h, grid.gx, grid.gz, grid.edge, grid.light, grid.wobble, grid.swap, ...grid.flat];
   const rowsOf = fields.map(() => new Float32Array(W));
   const [H, GX, GZ, EDGE, LIGHT, WOB, SWAP, ...FLAT] = rowsOf;
   // Table offsets: rowBase[s] for the current texel row plus column[s][x]; the second copy of each material is

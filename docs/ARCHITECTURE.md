@@ -70,7 +70,7 @@ What an export ships in `maps/` and lists in mapinfo `resources` / `splats`:
 
 | File | Content | Standard | Share |
 |---|---|---|---|
-| `<base>.smt` | Diffuse: library albedo tiled in world space (1 texel per elmo, a transposed copy blended in by noise against visible tiling), blended by role weights (slope ≤ 27° / 27–54° / > 54°, height bands, paint with texture-following edges), broad tone, 15% shading from the northern sun, erosion streaks on slopes and cliffs, thin wobbly topolines on 2–26° ground | full detail | average material colours, no baked shading, in flat 4×4 blocks (packs ~6× smaller; the DNTS add the grain in-engine) |
+| `<base>.smt` | Diffuse: library albedo tiled in world space (1 texel per elmo, a transposed copy blended in by noise against visible tiling), blended by role weights (slope ≤ 27° / 27–54° / > 54° with a ±2° blend frayed by ±~2° of edge noise, height bands with lowland/highland patches, paint with texture-following edges), broad tone, 15% shading from the northern sun plus soft ambient occlusion in creases, dark cliff albedo lifted to read in the shade, erosion streaks on slopes and cliffs, thin wobbly topolines on 2–26° ground | full detail | average material colours, no baked shading, in flat 4×4 blocks (packs ~6× smaller; the DNTS add the grain in-engine) |
 | `<base>_splat.dds` | `splatDistrTex`, BC3: weights of the 4 splats from the same per-texel weights (sum 255) | 4 elmos/px | 8 elmos/px |
 | `dnts_<id>.png|dds` | `splatDetailNormalTex1..4` from the library; `texScales = 1/tileElmos` (aligned with the baked albedo), `texMults` 0.6–0.8 by class, `splatDetailNormalDiffuseAlpha = 1` | library PNG as is | BC3 DDS |
 | `<base>_normal.dds` | `detailNormalTex`, BC1, tangent space relative to the engine's heightmap normal: material relief (albedo luminance gradients, by class), erosion streaks down slopes and cliffs, topoline grooves | 1 elmo/px up to 8192 px | up to 4096 px |
@@ -78,7 +78,8 @@ What an export ships in `maps/` and lists in mapinfo `resources` / `splats`:
 | SMF grass header | 255 where > 60% of a 32-elmo cell is a `grass*` material, clear of metal, geos and starts | ✓ | ✓ |
 | SMF minimap | the bake at 8 elmos/px, lightened (gamma 0.85), water/lava drawn in | ✓ | ✓ |
 
-Archive: 7-Zip `-mx=1` (fast) for both presets; Share is smaller through its content, not the packer.
+Archive: 7-Zip `-mx=1` (fast, 1 MB LZMA2 chunks on every core) for both presets; Share is smaller through its content, not the packer.
+Measured on a 32×32 rolling-hills map (Ryzen 5 3600, 12 threads, other agents idle): Standard ~17.4 s / ~160 MB, Share ~13.7 s / ~36 MB.
 
 ## Module entry points
 Actual signatures after Wave 1 smoothing. Grid rects are `[x0, z0, x1, z1]` in heightmap samples, inclusive; positions are elmos.

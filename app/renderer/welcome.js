@@ -30,7 +30,8 @@ export function initWelcome(app) {
       frame, el('span', { class: 'text' }, el('span', { class: 'name' }, t.label), el('span', { class: 'desc' }, t.description), tags));
   }));
 
-  const items = TEMPLATES.map((t) => ({ id: t.id, symmetry: 'rot180', biome: SHOWCASE[t.id] ?? 'temperate' }));
+  // 6 × 4 previews fill the 3:2 cards edge to edge.
+  const items = TEMPLATES.map((t) => ({ id: t.id, symmetry: 'rot180', biome: SHOWCASE[t.id] ?? 'temperate', sx: 6, sz: 4 }));
   templateThumbs(items, 4).then(
     (thumbs) => { for (const [id, thumb] of thumbs) paintThumb(frames.get(id), thumb); },
     (error) => {

@@ -67,7 +67,7 @@ function buildMap(editor) {
   panel.replaceChildren();
 
   const info = section(panel, 'Map info');
-  text(info, 'Name', s, 'name', () => editor.updateTitle()).dataset.field = 'name'; // kept in step with the top bar's name
+  text(info, 'Name', s, 'name', () => editor.renamed()).dataset.field = 'name'; // kept in step with the top bar's name
   text(info, 'Version', s, 'version', changed);
   text(info, 'Author', s, 'author', changed);
   text(info, 'Description', s, 'description', changed, true);

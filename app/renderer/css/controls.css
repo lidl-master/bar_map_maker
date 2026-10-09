@@ -221,6 +221,12 @@ input.switch:disabled { opacity: 0.45; cursor: not-allowed; }
 .swatch.square { height: auto; aspect-ratio: 1; position: relative; overflow: hidden; }
 .swatch img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .choice.compact > .body { padding: 6px; gap: var(--s-1); }
+.swatch-grid.materials { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.swatch-grid.materials .choice > .body { padding: 3px; border-radius: var(--r-md); }
+.swatch-grid.materials .swatch { border-radius: var(--r-sm); }
+.material-group + .material-group { margin-top: var(--s-3); }
+.choice.preview > input:disabled + .body { opacity: 0.8; }
+.material-group h4 { margin: 0 0 6px; color: var(--text-2); font-size: var(--fs-11); font-weight: 500; }
 .choice.compact .name { font-size: var(--fs-11); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- badges and chips */

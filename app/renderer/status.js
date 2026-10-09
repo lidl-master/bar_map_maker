@@ -42,6 +42,9 @@ function showSaveState(state, label, tip = '') {
   chip.querySelector('.label').textContent = label;
 }
 
+const SAVED_TIP = 'Saved on this computer. Reopen it from the welcome screen.';
+export const markSaved = () => showSaveState('saved', 'Saved', SAVED_TIP);
+
 export function scheduleSave(editor) {
   showSaveState('dirty', 'Unsaved changes', 'Saved on this computer a moment after you stop editing');
   clearTimeout(saveTimer);
@@ -53,7 +56,7 @@ export async function saveNow(editor) {
   showSaveState('saving', 'Saving…');
   try {
     await saveMap(editor.docKey, editor.doc, thumbnail(editor.view2d.base));
-    showSaveState('saved', 'Saved', 'Saved on this computer. Reopen it from the welcome screen.');
+    markSaved();
   } catch (error) {
     console.error(error);
     showSaveState('error', 'Not saved', `Could not save on this computer: ${error.message}`);

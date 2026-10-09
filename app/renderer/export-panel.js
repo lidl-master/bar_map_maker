@@ -26,7 +26,7 @@ function render() {
   const bar = el('div');
   bar.style.width = `${Math.round(clamp(fraction, 0, 1) * 100)}%`;
   panel.dataset.state = phase;
-  panel.replaceChildren(
+  panel.replaceChildren(...[
     el('div', { class: 'ep-head' }, stateIcon,
       el('span', { class: 'title' }, el('strong', {}, head[1]), el('span', { class: 'sub' }, head[2] ?? '')),
       phase === 'running' ? el('span', { class: 'pct num' }, `${Math.round(fraction * 100)}%`) : null),
@@ -40,7 +40,7 @@ function render() {
     phase === 'error' ? el('div', { class: 'ep-error', role: 'alert' }, state.error) : null,
     phase === 'running' ? null : el('div', { class: 'ep-actions' }, ...state.actions.map(([label, attrs, iconName]) => btn(label, attrs, iconName)),
       btn('Close', { class: 'btn ghost', onclick: closeExportPanel })),
-  );
+  ].filter(Boolean));
   panel.hidden = false;
 }
 

@@ -131,6 +131,7 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
   backdrop-filter: blur(8px);
 }
 .hint-chip:empty { display: none; }
+.hint-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hint-chip .icon { color: var(--text-2); width: 14px; height: 14px; }
 .zoom { display: inline-flex; align-items: center; height: var(--h-control); padding: 2px; border-radius: var(--r-md); }
 .zoom > button { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--r-sm); color: var(--text-2); }
@@ -145,11 +146,15 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 .legend .item { display: flex; align-items: center; gap: var(--s-2); line-height: 22px; color: var(--text-1); }
 .legend .item i { width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); flex: none; }
 
-.loading { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(14, 16, 20, 0.72); animation: fade-in var(--dur) var(--ease); }
+.loading { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(14, 16, 20, 0.72); animation: fade-in var(--dur) var(--ease); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: var(--s-6) var(--s-8); border-radius: var(--r-xl); background: var(--bg-2); box-shadow: var(--shadow-pop); min-width: 280px; text-align: center; }
 .loading-card .spinner { margin-bottom: var(--s-2); }
 .loading-card strong { font-size: var(--fs-15); font-weight: 600; }
 .loading-card span { font-size: var(--fs-12); }
+
+body[data-screen=editor] .loading { inset: var(--topbar-h) var(--inspector-w) var(--status-h) var(--rail-w); }
+.zoom > button[aria-pressed=true] { color: var(--accent); }
+.zoom > button[aria-pressed=false] { color: var(--text-3); }
 
 /* ---- inspector */
 #panel { grid-area: panel; display: flex; flex-direction: column; min-height: 0; background: var(--bg-1); border-left: 1px solid var(--line-1); }
@@ -199,6 +204,7 @@ body[data-screen=welcome] #editor, body[data-screen=editor] #welcome { display: 
 .st .icon { width: 12px; height: 12px; color: var(--text-3); }
 .st b { color: var(--text-1); font-weight: 500; }
 .st-sep { width: 1px; height: 12px; background: var(--line-2); }
+#stCursor .label { white-space: pre; }
 .counts { gap: var(--s-3); }
 .counts > span { display: inline-flex; align-items: center; gap: var(--s-1); }
 #stBar .dot { width: 6px; height: 6px; }

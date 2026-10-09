@@ -40,8 +40,10 @@ export class View2D {
   rampPreview = null; // {a, b, width}
   selected = null;
   hover = null;
+  showFeatures = true;
   onDraw = null; // called after every frame (zoom read-out)
   #raf = 0;
+  #features = {}; // cached feature paths and what they were built from
 
   constructor(canvas) {
     this.canvas = canvas;
@@ -88,12 +90,14 @@ export class View2D {
     this.invalidate();
   }
 
+  /** Centres the whole map in the view, below the overlay bar at the top. */
   fit() {
     if (!this.doc) return;
-    const cw = this.canvas.width / this.dpr, ch = this.canvas.height / this.dpr;
-    this.zoom = Math.max(0.05, Math.min((cw - 64) / this.doc.W, (ch - 64) / this.doc.H));
-    this.ox = (cw - this.doc.W * this.zoom) / 2;
-    this.oy = (ch - this.doc.H * this.zoom) / 2;
+    const [top, side, bottom] = [56, 24, 24];
+    const cw = this.canvas.width / this.dpr - 2 * side, ch = this.canvas.height / this.dpr - top - bottom;
+    this.zoom = Math.max(0.05, Math.min(cw / this.doc.W, ch / this.doc.H));
+    this.ox = side + (cw - this.doc.W * this.zoom) / 2;
+    this.oy = top + (ch - this.doc.H * this.zoom) / 2;
     this.invalidate();
   }
 
@@ -164,22 +168,29 @@ export class View2D {
     ctx.strokeRect(Math.round(a.x) - 0.5, Math.round(a.y) - 0.5, Math.round(b.x - a.x) + 1, Math.round(b.y - a.y) + 1);
   }
 
-  // Trees and rocks as small dots: thousands of them, so one path per kind.
+  // Trees and rocks: 1k-20k dots, so one path per kind in map-sample units, drawn through the view transform and rebuilt
+  // only when the objects or the zoom band change. Far out, each dot keeps about one screen pixel.
   #drawFeatures() {
-    const { ctx, doc } = this, size = clamp(14 * this.scale, 1.5, 5);
-    const paths = { tree: new Path2D(), rock: new Path2D() };
-    let any = false;
-    for (const o of doc.objects) {
-      if (o.type !== 'feature') continue;
-      const s = this.toScreen(o.x, o.z);
-      paths[o.name?.startsWith('rocks') ? 'rock' : 'tree'].rect(s.x - size / 2, s.y - size / 2, size, size);
-      any = true;
+    if (!this.showFeatures) return;
+    const { ctx, doc } = this, band = Math.round(Math.log2(this.zoom) * 2);
+    const key = this.#features;
+    if (key.objects !== doc.objects || key.length !== doc.objects.length || key.band !== band) {
+      const tree = new Path2D(), rock = new Path2D(), min = 1.2 / this.zoom;
+      for (const o of doc.objects) {
+        if (o.type !== 'feature') continue;
+        const isRock = o.name.startsWith('rocks'), size = Math.max(min, (isRock ? 20 : 24) / SQ);
+        (isRock ? rock : tree).rect(o.x / SQ - size / 2, o.z / SQ - size / 2, size, size);
+      }
+      this.#features = { objects: doc.objects, length: doc.objects.length, band, tree, rock };
     }
-    if (!any) return;
-    ctx.fillStyle = 'rgba(18, 48, 20, 0.85)';
-    ctx.fill(paths.tree);
-    ctx.fillStyle = 'rgba(150, 144, 132, 0.9)';
-    ctx.fill(paths.rock);
+    ctx.save();
+    ctx.translate(this.ox, this.oy);
+    ctx.scale(this.zoom, this.zoom);
+    ctx.fillStyle = 'rgba(16, 44, 18, 0.8)';
+    ctx.fill(this.#features.tree);
+    ctx.fillStyle = 'rgba(176, 170, 158, 0.85)';
+    ctx.fill(this.#features.rock);
+    ctx.restore();
   }
 
   #drawAxes() {
@@ -222,18 +233,6 @@ export class View2D {
     ctx.stroke();
   }
 
-  #pill(text, x, y) {
-    const ctx = this.ctx;
-    ctx.font = `600 10px ${FONT}`;
-    const w = Math.ceil(ctx.measureText(text).width) + 8;
-    ctx.beginPath();
-    ctx.roundRect(Math.round(x - w / 2), Math.round(y - 7), w, 14, 4);
-    ctx.fillStyle = 'rgba(14, 16, 20, 0.85)';
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(text, Math.round(x), Math.round(y) + 0.5);
-  }
-
   #ring(s, r, color, width) {
     const ctx = this.ctx;
     ctx.beginPath();
@@ -262,24 +261,27 @@ export class View2D {
     ctx.restore();
   }
 
+  // The extractor's reach as a disc with the spot's metal value inside; too small for text, a dot.
   #drawMetal(o, s, k, highlight) {
-    const ctx = this.ctx, r = Math.max(5, this.doc.settings.extractorRadius * k), core = clamp(22 * k, 2.5, 6);
+    const ctx = this.ctx, r = Math.max(5, this.doc.settings.extractorRadius * k);
     ctx.beginPath();
     ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(14, 16, 20, 0.3)';
+    ctx.fillStyle = 'rgba(14, 16, 20, 0.6)';
     ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = 'rgba(233, 237, 245, 0.85)';
     ctx.stroke();
-    if (highlight) this.#ring(s, r + 2, highlight, 2);
+    if (highlight) this.#ring(s, r + 2.5, highlight, 2);
+    if (r >= 9) {
+      ctx.font = `600 ${Math.round(clamp(r * 0.8, 9, 13))}px ${FONT}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(o.metal.toFixed(1), s.x, s.y + 0.5);
+      return;
+    }
     ctx.beginPath();
-    ctx.arc(s.x, s.y, core, 0, Math.PI * 2);
+    ctx.arc(s.x, s.y, 2, 0, Math.PI * 2);
     ctx.fillStyle = '#e9edf5';
     ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(14, 16, 20, 0.8)';
-    ctx.stroke();
-    if (r >= 9) this.#pill(o.metal.toFixed(1), s.x, s.y + core + 9);
   }
 
   #drawGeo(s, k, highlight) {

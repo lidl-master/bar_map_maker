@@ -132,7 +132,7 @@ function refresh() {
   thumbTimer = setTimeout(async () => {
     const request = ++thumbRequest;
     // A template that forces its own symmetry ignores this one (the worker applies it).
-    const items = TEMPLATES.map((t) => ({ id: t.id, symmetry: forcedSymmetry() ? 'rot180' : state.symmetry, biome: state.biome }));
+    const items = TEMPLATES.map((t) => ({ id: t.id, symmetry: forcedSymmetry() ? 'rot180' : state.symmetry, biome: state.biome, sx: 4, sz: 4 }));
     try {
       const thumbs = await templateThumbs(items, state.players);
       if (request !== thumbRequest) return; // a newer request is on its way

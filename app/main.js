@@ -1,5 +1,4 @@
 import { app, BrowserWindow, Menu, net, protocol, session } from 'electron';
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerStudioIpc } from './ipc.js';
@@ -20,9 +19,6 @@ function serveAppFile(request) {
   if (url.host !== 'studio' || !SERVED.some((pattern) => pattern.test(rel)) || rel.includes('..')) {
     return new Response('Not found', { status: 404 });
   }
-  // shortcut: until src/ lands (Wave 1 integration), missing src modules resolve to the renderer stand-ins.
-  // Smoothing agent: delete this line and app/renderer/dev-stubs.js.
-  if (rel.startsWith('src/') && !existsSync(file)) return net.fetch(pathToFileURL(path.join(import.meta.dirname, 'renderer', 'dev-stubs.js')).href);
   return net.fetch(pathToFileURL(file).href);
 }
 

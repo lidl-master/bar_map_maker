@@ -2,6 +2,7 @@
 // doc's symmetry (mirrored copies share a group).
 import { addGroup, addObject, images, orbit, sampleHeight, slopeAt, symMode, symmetrize, worldSize } from '../core/index.js';
 import { flattenAround } from './brush.js';
+import { clearAroundResources } from './features.js';
 import { mulberry32 } from './noise.js';
 
 const TAU = Math.PI * 2;
@@ -23,8 +24,8 @@ function isGood(doc, x, z, margin, maxSlope) {
 }
 
 /**
- * Replace start positions, metal and geos (features are kept). Counts are map totals; mirrored
- * groups round them to the symmetry's orbit size. Defaults scale with the map area.
+ * Replace start positions, metal and geos (features are kept, except scattered ones now in the way). Counts are
+ * map totals; mirrored groups round them to the symmetry's orbit size. Defaults scale with the map area.
  */
 export function placeResources(doc, { players, metalPerBase = 4, expansions, geos, metalValue = 2, flattenBases = true, seed = 1 }) {
   checkPlayers(players);
@@ -80,6 +81,7 @@ export function placeResources(doc, { players, metalPerBase = 4, expansions, geo
     if ((o.type === 'metal' || o.type === 'geo') && slopeAt(doc, o.x, o.z) > 6) flattenAround(doc, o.x, o.z, o.type === 'geo' ? 50 : 40, 80, 6);
   }
   symmetrize(doc, 0.01);
+  clearAroundResources(doc);
 }
 
 // Highest-scoring random point over `tries`; score(x, z) returns null to reject.

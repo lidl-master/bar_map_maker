@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BAR Map Maker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 26 L11 10 L17 19 L21 13 L30 26 Z' fill='%233fb6a8'/%3E%3Ccircle cx='24' cy='7' r='3' fill='%23e8a33d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css?v=11">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand"><svg viewBox="0 0 32 32" width="22" height="22"><path d="M2 26 L11 10 L17 19 L21 13 L30 26 Z" fill="#3fb6a8"/><circle cx="24" cy="7" r="3" fill="#e8a33d"/></svg><span>BAR Map Maker</span></div>
+  <div class="group">
+    <button id="btnNew" title="New map (Ctrl+N)">New</button>
+    <button id="btnOpen" title="Open project (Ctrl+O)">Open</button>
+    <button id="btnSave" title="Save project (Ctrl+S)">Save</button>
+    <button id="btnExport" class="primary" title="Export a playable BAR map">Export map</button>
+  </div>
+  <div class="group">
+    <button id="btnUndo" class="icon" title="Undo (Ctrl+Z)">&#8630;</button>
+    <button id="btnRedo" class="icon" title="Redo (Ctrl+Y)">&#8631;</button>
+  </div>
+  <div class="group">
+    <label class="inline" title="Everything you sculpt, paint or place is mirrored so every player gets a fair start.">Symmetry
+      <select id="symmetry"></select>
+    </label>
+  </div>
+  <div class="group">
+    <label class="inline">Show
+      <select id="displayMode">
+        <option value="texture">Texture</option>
+        <option value="height">Height + contours</option>
+        <option value="slope">Pathing (who can drive where)</option>
+      </select>
+    </label>
+  </div>
+  <div class="group seg" id="viewMode">
+    <button data-view="2d" class="active">2D</button>
+    <button data-view="split">Split</button>
+    <button data-view="3d">3D</button>
+  </div>
+  <div class="spacer"></div>
+  <span id="mapTitle" class="muted"></span>
+  <button id="btnHelp" class="icon" title="Help (F1)">?</button>
+</header>
+
+<main>
+  <nav id="toolbar"></nav>
+
+  <section id="viewport" class="view-2d">
+    <div id="wrap2d">
+      <canvas id="canvas2d"></canvas>
+      <div id="hint"></div>
+      <div id="legend" hidden></div>
+      <div class="viewbtns">
+        <button id="btnFit" title="Fit map to view (Home)">Fit</button>
+        <button id="btnZoomIn" title="Zoom in">+</button>
+        <button id="btnZoomOut" title="Zoom out">−</button>
+      </div>
+    </div>
+    <div id="wrap3d">
+      <div id="view3d"></div>
+      <div class="hint3d">Left-drag: rotate · Right-drag: pan · Wheel: zoom
+        <label class="inline small">Height ×<input type="range" id="exaggerate" min="1" max="3" step="0.25" value="1"></label>
+      </div>
+    </div>
+  </section>
+
+  <aside id="panel">
+    <div class="tabs" id="tabs">
+      <button data-tab="tool" class="active">Tool</button>
+      <button data-tab="generate">Generate</button>
+      <button data-tab="texture">Texture</button>
+      <button data-tab="map">Map</button>
+    </div>
+    <div class="tabpage active" id="tab-tool"></div>
+    <div class="tabpage" id="tab-generate"></div>
+    <div class="tabpage" id="tab-texture"></div>
+    <div class="tabpage" id="tab-map"></div>
+  </aside>
+</main>
+
+<footer id="status">
+  <span id="stCursor">—</span>
+  <span id="stHeight"></span>
+  <span id="stSlope"></span>
+  <span class="spacer"></span>
+  <span id="stCounts"></span>
+  <span id="stSize"></span>
+  <span id="stSaved" class="muted"></span>
+</footer>
+
+<!-- New map -->
+<dialog id="dlgNew">
+  <form method="dialog" class="dlg">
+    <h2>Create a new map</h2>
+    <div id="restoreBox" hidden class="restore"></div>
+    <div class="grid2">
+      <label>Map name<input id="nmName" value="My BAR Map" maxlength="60"></label>
+      <label>Author<input id="nmAuthor" placeholder="your name"></label>
+      <label>Size
+        <select id="nmSize">
+          <option value="6x6">6 × 6 (tiny duel)</option>
+          <option value="8x8">8 × 8 (1v1)</option>
+          <option value="10x10">10 × 10</option>
+          <option value="12x12" selected>12 × 12 (2v2 / 3v3)</option>
+          <option value="16x16">16 × 16 (4v4)</option>
+          <option value="20x20">20 × 20 (large team)</option>
+          <option value="24x24">24 × 24 (8v8)</option>
+          <option value="16x8">16 × 8 (wide)</option>
+          <option value="20x12">20 × 12 (wide)</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </label>
+      <label id="nmCustomWrap" hidden>Custom size (even numbers, 2–32)
+        <span class="row"><input id="nmCx" type="number" min="2" max="32" step="2" value="12"> × <input id="nmCz" type="number" min="2" max="32" step="2" value="12"></span>
+      </label>
+      <label>Players (start positions)<input id="nmPlayers" type="number" min="2" max="16" value="2"></label>
+      <label>Symmetry<select id="nmSym"></select></label>
+      <label>Look<select id="nmPalette"></select></label>
+    </div>
+    <h3>Starting terrain</h3>
+    <div id="nmTemplates" class="templates"></div>
+    <label class="check"><input type="checkbox" id="nmResources" checked> Auto-place start positions, metal spots and geothermal vents</label>
+    <div class="actions">
+      <button value="cancel" id="nmCancel">Cancel</button>
+      <button value="ok" class="primary" id="nmCreate">Create map</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Export -->
+<dialog id="dlgExport">
+  <div class="dlg">
+    <h2>Export map</h2>
+    <ul id="exIssues" class="issues"></ul>
+    <div class="exopts">
+      <button id="exSdz" class="primary big">⬇ Playable map (.sdz)<small>Drop straight into Beyond All Reason</small></button>
+      <button id="exSrc" class="big">⬇ Source files (.zip)<small>Heightmap, texture, metal map, mapinfo.lua for pymapconv / SpringMapEdit</small></button>
+      <button id="exHm" class="big">⬇ Heightmap only (16-bit PNG)</button>
+    </div>
+    <div id="exProgress" hidden>
+      <div class="progress"><div id="exBar"></div></div>
+      <div id="exLabel" class="muted"></div>
+    </div>
+    <div id="exDone" hidden class="done"></div>
+    <div class="actions"><button id="exClose">Close</button></div>
+  </div>
+</dialog>
+
+<!-- Import heightmap -->
+<dialog id="dlgImport">
+  <form method="dialog" class="dlg">
+    <h2>Import heightmap image</h2>
+    <p class="muted">PNG (8 or 16-bit, e.g. from World Machine, Gaea, Wilbur) or JPG. It is stretched to the current map size. Black → minimum, white → maximum.</p>
+    <label>Image file<input type="file" id="imFile" accept="image/*,.png,.jpg,.jpeg"></label>
+    <div class="grid2">
+      <label>Height of black (elmos)<input type="number" id="imMin" value="-60"></label>
+      <label>Height of white (elmos)<input type="number" id="imMax" value="500"></label>
+    </div>
+    <div class="actions">
+      <button value="cancel">Cancel</button>
+      <button value="ok" class="primary" id="imOk">Import</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Resize -->
+<dialog id="dlgResize">
+  <form method="dialog" class="dlg">
+    <h2>Resize map</h2>
+    <p class="muted">Terrain, paint and resources are stretched to the new size. BAR map sizes must be even numbers.</p>
+    <div class="grid2">
+      <label>Width<input type="number" id="rsX" min="2" max="32" step="2"></label>
+      <label>Height<input type="number" id="rsZ" min="2" max="32" step="2"></label>
+    </div>
+    <div class="actions">
+      <button value="cancel">Cancel</button>
+      <button value="ok" class="primary">Resize</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Help -->
+<dialog id="dlgHelp">
+  <div class="dlg wide">
+    <h2>How to make a BAR map</h2>
+    <ol class="steps">
+      <li><b>Create</b> a map (New) – pick a size, number of players, symmetry and a starting terrain.</li>
+      <li><b>Sculpt</b> with the brushes on the left. Everything is mirrored by the <i>Symmetry</i> setting so the map stays fair.</li>
+      <li><b>Check pathing</b>: switch <i>Show → Pathing</i>. Green = all ground units, yellow = bots only (too steep for tanks), red = cliffs nobody can climb, light blue = shallow water units can wade, dark blue = deep water (ships/hover).</li>
+      <li><b>Place resources</b>: Metal spots (M), Geothermal vents (G) and Start positions (T) – or use <i>Generate → Auto-place resources</i>.</li>
+      <li><b>Texture</b>: choose a look in the Texture tab and paint materials (P) such as paths or rock.</li>
+      <li><b>Export</b> → <i>Playable map (.sdz)</i> and copy the file into your BAR maps folder:<br>
+        <code>%LOCALAPPDATA%\Programs\Beyond-All-Reason\data\maps\</code><br>
+        <span class="muted">(If you installed BAR elsewhere, use &lt;install folder&gt;\data\maps.) Restart the game / lobby and pick the map in a skirmish.</span></li>
+    </ol>
+    <h3>Mouse &amp; keyboard</h3>
+    <div class="keys">
+      <div><kbd>Left drag</kbd> use tool</div>
+      <div><kbd>Right / middle drag</kbd> or <kbd>Space</kbd>+drag – pan</div>
+      <div><kbd>Wheel</kbd> zoom · <kbd>Shift</kbd>+<kbd>Wheel</kbd> brush size</div>
+      <div><kbd>[</kbd> <kbd>]</kbd> brush size · <kbd>Shift</kbd> invert raise/lower</div>
+      <div><kbd>Alt</kbd>+click (Flatten) – pick height</div>
+      <div><kbd>Right-click</kbd> a resource – delete it</div>
+      <div><kbd>Del</kbd> delete selected · <kbd>Home</kbd> fit view</div>
+      <div><kbd>Ctrl+Z</kbd> undo · <kbd>Ctrl+Y</kbd> redo · <kbd>Ctrl+S</kbd> save</div>
+    </div>
+    <h3>Good to know</h3>
+    <ul class="tips">
+      <li>Heights are in <b>elmos</b> (BAR's world units). Water is everything below 0. A tank is about 30–40 elmos long; 1 map unit = 512 elmos.</li>
+      <li>Metal spot values are what players see in game (a T1 extractor on a "2.0" spot makes 2.0 metal/s).</li>
+      <li>Start <i>boxes</i> are drawn in the BAR lobby, not stored in the map. The map stores start <i>positions</i>.</li>
+      <li>Your work is autosaved in this browser. Use <b>Save</b> to keep a project file (.barmap) you can reopen later.</li>
+    </ul>
+    <div class="actions"><button id="helpClose" class="primary">Got it</button></div>
+  </div>
+</dialog>
+
+<input type="file" id="fileOpen" accept=".barmap" hidden>
+<div id="toast"></div>
+<div id="busy" hidden><div class="spinner"></div><div id="busyText">Working…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/noise.js?v=11"></script>
+<script src="js/map.js?v=11"></script>
+<script src="js/texture.js?v=11"></script>
+<script src="js/terrain.js?v=11"></script>
+<script src="js/io.js?v=11"></script>
+<script src="js/view2d.js?v=11"></script>
+<script src="js/view3d.js?v=11"></script>
+<script src="js/presets.js?v=11"></script>
+<script src="js/export.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
+</body>
+</html>

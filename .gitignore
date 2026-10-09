@@ -1,0 +1,9 @@
+node_modules/
+dist/
+output/
+.engine-tmp/
+.claude/worktrees/
+docs/gauntlet/.keys/
+*.sd7
+*.sdz
+*.log

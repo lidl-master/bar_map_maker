@@ -1,4 +1,4 @@
-// The Generate, Look and Map tabs. Rebuilt whenever a new map is loaded.
+// The Generate, Look and Map tabs. Rebuilt whenever a new map is loaded or a history step replaced doc parts.
 import { BIOMES } from '../../src/look/index.js';
 import { TEMPLATES } from '../../src/terrain/index.js';
 import { $, busy, check, el, heading, note, select, slider, stat, text } from './dom.js';
@@ -52,7 +52,10 @@ function buildLook(editor) {
   panel.replaceChildren();
   heading(panel, 'Biome');
   note(panel, 'Sets the colours of the ground. Paint (P) overrides it locally.');
-  select(panel, 'Biome', editor.doc, 'biome', Object.entries(BIOMES).map(([key, b]) => [key, b.label]), () => editor.lookChanged());
+  select(panel, 'Biome', editor.doc, 'biome', Object.entries(BIOMES).map(([key, b]) => [key, b.label]), (biome) => {
+    editor.doc.settings.sunDir = [...BIOMES[biome].sunDir];
+    editor.lookChanged();
+  });
 }
 
 function buildMap(editor) {

@@ -110,7 +110,7 @@ const editor = {
     updateUndoButtons();
   },
 
-  /** One undoable step that swaps in generated terrain and resources (settings stay). */
+  /** One undoable step that swaps in generated terrain and resources, plus the symmetry and lava the template set. */
   replaceTerrain(src, label) {
     const doc = editor.doc, all = [0, 0, doc.W - 1, doc.H - 1];
     editor.history.begin(doc, label);
@@ -118,10 +118,10 @@ const editor = {
     doc.paint.set(src.paint);
     doc.paintWeight.set(src.paintWeight);
     doc.objects = src.objects;
+    doc.symmetry = src.symmetry;
+    doc.settings.lava = src.settings.lava;
     editor.commit(all);
-    editor.select(null);
-    editor.terrainChanged(all);
-    editor.objectsChanged();
+    afterDocChange(all);
   },
 
   editObjects(label, change) {
@@ -146,11 +146,18 @@ const editor = {
 
 function afterHistory(verb, entry) {
   if (!entry) return;
-  editor.select(null);
-  if (entry.rect) editor.terrainChanged(entry.rect);
-  editor.objectsChanged();
+  afterDocChange(entry.rect);
   updateUndoButtons();
   toast(`${verb}: ${entry.label}`, 1200);
+}
+
+// After a step that may have replaced objects, symmetry or settings: the panels hold references into the doc, so rebuild them.
+function afterDocChange(rect) {
+  editor.select(null);
+  buildPanels(editor);
+  editor.updateTitle();
+  if (rect) editor.terrainChanged(rect);
+  editor.objectsChanged();
 }
 
 function updateUndoButtons() {

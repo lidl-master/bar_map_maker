@@ -1,9 +1,9 @@
-// Undo/redo. Each entry keeps only the changed rectangle of the grid layers plus, when they
-// changed, JSON snapshots of objects / symmetry / settings, so long sculpting sessions stay cheap.
+// Undo/redo. Each entry keeps only the changed rectangle of the grid layers plus JSON snapshots of
+// whichever of objects / symmetry / settings changed, so long sculpting sessions stay cheap and undoing
+// an object edit never reverts settings that were edited outside the history.
 const LAYERS = ['heights', 'paint', 'paintWeight'];
+const META = ['objects', 'symmetry', 'settings'];
 const LIMIT_BYTES = 400e6, MAX_ENTRIES = 100;
-
-const meta = (doc) => JSON.stringify({ objects: doc.objects, symmetry: doc.symmetry, settings: doc.settings });
 
 export class History {
   undoStack = [];
@@ -14,7 +14,7 @@ export class History {
 
   /** Snapshot before an edit; call commit(dirtyRect) afterwards (null rect = objects/settings only). */
   begin(doc, label) {
-    this.pending = { doc, label, layers: LAYERS.map((k) => doc[k].slice()), meta: meta(doc) };
+    this.pending = { doc, label, layers: LAYERS.map((k) => doc[k].slice()), meta: META.map((k) => JSON.stringify(doc[k])) };
   }
 
   cancel() { this.pending = null; }
@@ -35,9 +35,13 @@ export class History {
         entry.bytes = (x1 - x0 + 1) * (z1 - z0 + 1) * 12;
       }
     }
-    const now = meta(doc);
-    if (now !== p.meta) { entry.metaBefore = p.meta; entry.metaAfter = now; entry.bytes += now.length * 4; }
-    if (!entry.rect && !entry.metaBefore) return;
+    META.forEach((k, n) => {
+      const now = JSON.stringify(doc[k]);
+      if (now === p.meta[n]) return;
+      (entry.meta ??= {})[k] = { before: p.meta[n], after: now };
+      entry.bytes += (p.meta[n].length + now.length) * 2;
+    });
+    if (!entry.rect && !entry.meta) return;
     this.undoStack.push(entry);
     this.redoStack = [];
     let total = this.undoStack.reduce((s, e) => s + e.bytes, 0);
@@ -53,7 +57,7 @@ function apply(doc, from, to, which) {
   const e = from.pop();
   if (!e) return null;
   if (e.rect) LAYERS.forEach((k, n) => restore(doc, doc[k], e.rect, e[which][n]));
-  if (e.metaBefore) Object.assign(doc, JSON.parse(which === 'before' ? e.metaBefore : e.metaAfter));
+  for (const [k, json] of Object.entries(e.meta ?? {})) doc[k] = JSON.parse(json[which]);
   to.push(e);
   return e;
 }

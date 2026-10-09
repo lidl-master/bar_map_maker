@@ -63,4 +63,8 @@ test('history undoes and redoes a brush stroke and object edits', () => {
   h.redo(doc);
   assert.deepEqual(doc.heights, after);
   assert.equal(doc.objects.length, 2);
+  // Settings edited outside the history (the Map tab) survive undoing an object edit.
+  doc.settings.name = 'Renamed';
+  h.undo(doc);
+  assert.equal(doc.settings.name, 'Renamed');
 });

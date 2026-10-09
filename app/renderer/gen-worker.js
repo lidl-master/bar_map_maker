@@ -1,6 +1,6 @@
 // Module worker: terrain generation and resource placement run here, off the UI thread.
 import { createMap } from '../../src/core/index.js';
-import { previewColor } from '../../src/look/index.js';
+import { BIOMES, previewColor } from '../../src/look/index.js';
 import { TEMPLATES, generate, placeResources } from '../../src/terrain/index.js';
 
 const THUMB = 64;
@@ -8,9 +8,8 @@ const THUMB = 64;
 const jobs = {
   newMap({ sx, sz, symmetry, biome, template, players, seed }) {
     const doc = createMap({ sx, sz, symmetry, biome });
-    generate(doc, template, { players, seed });
-    // Templates that place their own resources (Volcano – King of the Hill) keep them.
-    if (!doc.objects.length) placeResources(doc, { players, seed });
+    doc.settings.sunDir = [...BIOMES[biome].sunDir];
+    generate(doc, template, { players, seed }); // also places starts, metal and geos
     return doc;
   },
 

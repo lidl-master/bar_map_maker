@@ -255,6 +255,7 @@ async function screens(size, { full = true } = {}) {
   await page.waitForTimeout(300);
   await shot('toast', size);
   await page.click('#tabs [data-tab=tool]');
+  await page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
 
   await page.keyboard.press('?');
   await page.locator('#dlgShortcuts[open]').waitFor();

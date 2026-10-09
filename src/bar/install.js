@@ -1,6 +1,7 @@
 // Install a map archive into a BAR maps folder. Node-only.
 import { createHash } from 'node:crypto';
-import { copyFileSync, createReadStream, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { createReadStream, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFile, rename, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { gzipSync } from 'node:zlib';
@@ -50,8 +51,12 @@ export async function installMap(archivePath, { mapsDir }) {
   const { name, files } = sameMap(archivePath, mapsDir);
   const installedPath = join(mapsDir, name);
   const partial = `${installedPath}.partial`; // BAR only scans .sd7/.sdz, so it never sees a half-copied file
-  copyFileSync(archivePath, partial);
-  renameSync(partial, installedPath);
+  try {
+    await copyFile(archivePath, partial);
+    await rename(partial, installedPath);
+  } finally {
+    await rm(partial, { force: true }); // a failed copy leaves nothing in the maps folder
+  }
   writeFileSync(`${installedPath}.md5.gz`, gzipSync(`${await md5(installedPath)}  ${name}\n`));
 
   const removed = files.filter((file) => file.otherExtension).map((file) => file.path);

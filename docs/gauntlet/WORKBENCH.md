@@ -47,6 +47,8 @@ Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR s
 | critic | Blind UI A/B, Wave 2 vs Wave 1 (3 pairs) | new UI preferred 3/3 (confidence 0.93 / 0.78 / 0.92) |
 | critic | Design score, 2 independent critics (pass: 8/10 from both) | 7.0 and 6.6: 3D viewport looks like a debug view, metal badges clutter, truncated hints, spinner-like symmetry glyph, garish pathing colours, dev copy |
 | 2.6 | UI polish: 32 fixes from both critics | merged (30 fixed, 2 partly: 3D marker de-overlap, pathing legend placement; hills 56% → 87.5% vehicle ground) |
+| critic | Design re-score after 2.6 (2 fresh critics) | 7.0 and 7.0 (was 7.0 / 6.6). Remaining: 3D depth (gradient, ground grid, contact shadow), tree glyphs in 2D, raw 7-Zip error text, export done/error card actions, sidebar nav vs CTA, open-map card names, units, preset state, stacked modals, generating state |
+| 2.8 | UI polish round 2 (re-score findings) | queued until 3.3 / 3.4 / 4.2 merge (same files) |
 | G3 critic | Blind in-game look A/B: our hills + volcano exports (mid/close) vs Pyroclast, Supreme Isthmus, Onyx Cauldron, Crimson Bay, Red River (8 pairs × 2 critics) | **ours preferred 11/16 (69%)**, bar ≥ 40%. Lost on: hills terrain reads as noise with brown contour stripes on slopes; volcano cliff walls look streaky/stretched; blocky mirrored layout; flat plateau floors |
 
 ## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)
@@ -67,5 +69,6 @@ Brief: [wave4.md](wave4.md).
 | 4.2 | Play-test in BAR vs BARb (isolated, no install), Check map (headless verdict + G7 checklist with one-click fixes) | building |
 | 4.3 | Start-box + maps-metadata helpers, G6 bench and perf fixes | after merges (needs a quiet machine for timings) |
 | 4.4 | UX driver + 4 persona task-card runs (G5) | after 4.1–4.3 |
-| critic | Blockers-only code pass over main (Waves 2–3) | running |
+| critic | Blockers-only code pass over main (Waves 2–3) | **block**, 4 blockers: 7-Zip 21.07 follows symlink entries in .sdz archives (writes outside temp; reachable from the Open screen); opened-map export keeps the original's name (Install could replace the official map); autosave evicts user maps after 8; app-open test race. Structure passes the thermo-nuclear bar (all files < 500 lines). |
+| 3.4 | Safety fixes: pre-extraction archive listing check (links, traversal, sizes), autosave without eviction, boot readiness, Lua import in a worker with timeout, atomic thumbnails, install .partial cleanup, ARCHITECTURE conflict markers | merged (106/106 twice; all 19 installed maps still open). Bundled 7-Zip stays 21.07: the only npm package with 7-Zip 26 (`7zip-bin-full`) is ~80 MB, over the 50 MB pre-approval — user decision |
 | 2.7 | In-game look polish from the blind critics' gaps (slope stripes, cliff stretch, plateau detail, other biomes) | building |

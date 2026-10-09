@@ -31,7 +31,7 @@ before(async () => {
   page = await app.firstWindow();
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.locator('#welcome').waitFor(); // the app has booted on its welcome screen
+  await page.locator('body[data-ready="1"]').waitFor(); // booted: every handler is bound
 });
 
 after(async () => {

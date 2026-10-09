@@ -2,12 +2,14 @@
 import { BIOMES } from '../../src/look/index.js';
 import { TEMPLATES } from '../../src/terrain/index.js';
 import { $, el, emptyState } from './dom.js';
+import { confirmDialog, toast } from './feedback.js';
 import { icon } from './icons.js';
-import { listMaps } from './recent.js';
+import { listMaps, removeMap } from './recent.js';
 import { openShortcuts } from './shortcuts.js';
 import { paintThumb, showcaseBiome, templateThumbs, thumbFailed, thumbFrame } from './thumbs.js';
 
 const THUMB_PX = 640; // canvas width: twice the widest card
+const STORAGE_NOTICE = 1e9; // bytes of saved maps (this app's storage) before Recent suggests removing some
 const ago = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
 export function initWelcome(app) {
@@ -43,9 +45,11 @@ export async function refreshWelcome(app) {
   if (app.doc) $('wContinue').querySelector('.action-text span').textContent = app.doc.settings.name;
   const list = $('recentList');
   try {
-    const maps = await listMaps();
+    const [maps, { usage = 0 }] = await Promise.all([listMaps(), navigator.storage.estimate().catch(() => ({}))]);
     list.replaceChildren(...maps.map((m) => recentRow(m, app)));
     if (!maps.length) list.replaceChildren(emptyState('clock', 'No recent maps yet', 'Maps you create are saved on this computer as you work.'));
+    // Saved maps are never removed for space; past ~1 GB the list says so instead.
+    if (usage > STORAGE_NOTICE) list.prepend(el('p', { class: 'note warn' }, icon('info'), `Saved maps use ${(usage / 1e9).toFixed(1)} GB on this computer. Remove the ones you no longer need.`));
   } catch (error) {
     list.replaceChildren(emptyState('triangle-alert', 'Recent maps are unavailable', error.message));
   }
@@ -56,11 +60,29 @@ function recentRow(m, app) {
   canvas.getContext('2d').putImageData(new ImageData(m.thumb.rgba, m.thumb.size, m.thumb.size), 0, 0);
   const minutes = Math.round((m.savedAt - Date.now()) / 60000);
   const when = Math.abs(minutes) < 60 ? ago.format(minutes, 'minute') : Math.abs(minutes) < 1440 ? ago.format(Math.round(minutes / 60), 'hour') : ago.format(Math.round(minutes / 1440), 'day');
-  // The whole row opens the map; on hover the time gives way to a ghost Open button.
+  // The row opens the map; on hover the time gives way to a ghost Open button and a Remove button appears.
+  // The map being edited has no Remove: its next autosave would bring it back.
   const editing = app.docKey === m.key;
-  return el('button', { class: 'recent', onclick: () => app.openRecent(m.key), 'aria-label': `Open ${m.name}` },
-    canvas,
-    el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num', 'data-tip': BIOMES[m.biome]?.label ?? m.biome }, `${m.sx}×${m.sz} · ${m.players}p`)),
-    el('span', { class: 'when' }, editing ? 'Editing' : when),
-    el('span', { class: 'open-ghost', 'aria-hidden': 'true' }, 'Open'));
+  return el('div', { class: 'recent-row' },
+    el('button', { class: 'recent', onclick: () => app.openRecent(m.key), 'aria-label': `Open ${m.name}` },
+      canvas,
+      el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num', 'data-tip': BIOMES[m.biome]?.label ?? m.biome }, `${m.sx}×${m.sz} · ${m.players}p`)),
+      el('span', { class: 'when' }, editing ? 'Editing' : when),
+      el('span', { class: 'open-ghost', 'aria-hidden': 'true' }, 'Open')),
+    editing ? null : el('button', { class: 'btn ghost square remove', 'data-tip': 'Remove from this computer', 'aria-label': `Remove ${m.name}`, onclick: () => removeRecent(m, app) }, icon('trash')));
+}
+
+async function removeRecent(m, app) {
+  const ok = await confirmDialog({
+    title: `Remove ${m.name}?`,
+    text: 'It is deleted from this computer and cannot be reopened. Maps you exported or installed are not affected.',
+    ok: 'Remove',
+  });
+  if (!ok) return;
+  try {
+    await removeMap(m.key);
+  } catch (error) {
+    toast(`Could not remove ${m.name}: ${error.message}`, 'error');
+  }
+  refreshWelcome(app);
 }

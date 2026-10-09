@@ -5,6 +5,7 @@ import { saveMap } from './recent.js';
 
 const SAVE_DELAY = 1500;
 let saveTimer = 0, edits = 0; // edits counts changes, so a save that finishes after a newer edit does not claim "Saved"
+let lastSave = Promise.resolve(); // the save in flight, for flushSave to wait on
 
 function showSaveState(state, label, tip = '') {
   const chip = $('saveState');
@@ -15,6 +16,8 @@ function showSaveState(state, label, tip = '') {
 
 const SAVED_TIP = 'Saved on this computer. Reopen it from the welcome screen.';
 export const markSaved = () => showSaveState('saved', 'Saved', SAVED_TIP);
+/** A map opened from an archive and not edited yet: not stored here (the archive has it). */
+export const markUnchanged = () => showSaveState('saved', 'Unchanged', 'Saved on this computer from your first change.');
 
 /** How many changes the open session has seen: equal counts mean the map did not change in between. */
 export const editCount = () => edits;
@@ -26,23 +29,24 @@ export function scheduleSave(editor) {
   saveTimer = setTimeout(() => saveNow(editor), SAVE_DELAY);
 }
 
-/** Saves now if a save is waiting: before another map replaces the open one. */
+/** Saves now if a save is waiting (before another map replaces the open one, or the window closes); resolves when stored. */
 export function flushSave(editor) {
-  if (saveTimer) saveNow(editor);
+  return saveTimer ? saveNow(editor) : lastSave;
 }
 
-export async function saveNow(editor) {
+export function saveNow(editor) {
   clearTimeout(saveTimer);
   saveTimer = 0;
   const saving = edits;
   showSaveState('saving', 'Saving…');
-  try {
-    await saveMap(editor.docKey, editor.doc, thumbnail(editor.view2d.base));
-    if (saving === edits) markSaved();
-  } catch (error) {
-    console.error(error);
-    showSaveState('error', 'Not saved', `Could not save on this computer: ${error.message}`);
-  }
+  lastSave = saveMap(editor.docKey, editor.doc, thumbnail(editor.view2d.base)).then(
+    () => { if (saving === edits) markSaved(); },
+    (error) => {
+      console.error(error);
+      showSaveState('error', 'Not saved', `Could not save on this computer: ${error.message}`);
+    },
+  );
+  return lastSave;
 }
 
 /** A 64×64 RGBA preview of the 2D map image for the recent maps list. */

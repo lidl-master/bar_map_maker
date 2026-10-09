@@ -1,7 +1,7 @@
 // Editor entry: owns the open map, undo history, views and screens; wires the top bar, tabs, status bar and dialogs.
 import { History } from '../../src/core/index.js';
 import { BIOMES } from '../../src/look/index.js';
-import { flushSave, markSaved, saveNow, scheduleSave } from './autosave.js';
+import { flushSave, markSaved, markUnchanged, saveNow, scheduleSave } from './autosave.js';
 import { bindBarActions, exportMap } from './bar-actions.js';
 import { bindCheck } from './check-panel.js';
 import { $, clamp, hydrateKeys } from './dom.js';
@@ -60,13 +60,18 @@ const editor = {
 
   async createMap(args, summary) {
     const doc = await withLoading('Generating terrain…', summary, () => runJob('newMap', args));
-    if (doc) editor.adoptDoc(doc);
+    if (!doc) return;
+    editor.adoptDoc(doc);
+    saveNow(editor); // a generated map exists nowhere else
   },
 
-  /** A map new to this computer (generated, or opened from an archive) in the editor, under its own autosave entry. */
+  /**
+   * A map new to this computer (generated, or opened from an archive) in the editor, under its own autosave entry.
+   * It is stored from its first change (markDirty), so maps that are only looked at never fill the disk.
+   */
   adoptDoc(doc) {
     editor.openDoc(doc, crypto.randomUUID());
-    saveNow(editor);
+    markUnchanged();
   },
 
   async openRecent(key) {
@@ -75,7 +80,9 @@ const editor = {
       return;
     }
     const doc = await withLoading('Opening map…', 'Loading it from this computer', () => loadMap(key));
-    if (doc) editor.openDoc(doc, key);
+    if (!doc) return;
+    editor.openDoc(doc, key);
+    markSaved();
   },
 
   openDoc(doc, key) {
@@ -90,7 +97,6 @@ const editor = {
     showCounts(doc);
     showCursor(doc, null);
     updateUndoButtons();
-    markSaved();
   },
 
   setTool(id) {
@@ -292,4 +298,10 @@ bindInput(editor);
 bindBarActions(editor);
 bindCheck(editor);
 bindPlaytest(editor);
-loadThumbs().catch((error) => console.error(error)).finally(() => editor.showScreen('welcome'));
+window.studio.onFlush(() => flushSave(editor)); // the window waits for the last edits before it closes
+loadThumbs().catch((error) => console.error(error)).finally(() => {
+  editor.showScreen('welcome');
+  // The welcome screen is inert until every handler is bound (index.html); tests wait for data-ready.
+  $('welcome').inert = false;
+  document.body.dataset.ready = '1';
+});

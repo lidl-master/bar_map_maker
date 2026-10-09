@@ -2,95 +2,214 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
   <title>BAR Map Studio</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/controls.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/screens.css">
   <script type="module" src="main.js"></script>
 </head>
-<body>
-<header id="topbar">
-  <div class="brand"><span class="logo"></span>BAR Map Studio</div>
-  <div class="group">
-    <button id="btnNew" title="New map (Ctrl+N)">New</button>
-    <button id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
-    <button id="btnRedo" title="Redo (Ctrl+Y)">Redo</button>
-  </div>
-  <div class="group seg" id="displayMode">
-    <button data-mode="look" class="active" title="The map's colours">Look</button>
-    <button data-mode="pathing" title="Where units can drive: vehicles up to 27°, bots up to 54°">Pathing</button>
-  </div>
-  <div class="group seg" id="viewMode">
-    <button data-view="2d" class="active">2D</button>
-    <button data-view="split">Split</button>
-    <button data-view="3d">3D</button>
-  </div>
-  <div class="spacer"></div>
-  <span id="mapTitle" class="muted"></span>
-  <button id="btnExport" title="Write a playable map archive (Ctrl+E)">Export</button>
-  <button id="btnInstall" class="primary" title="Export, then copy into your BAR maps folder (asks first)">Install to BAR</button>
-</header>
+<body data-screen="welcome">
 
-<main>
-  <nav id="toolbar"></nav>
+<!-- Welcome: shown on launch and from the Home button. -->
+<section id="welcome" class="welcome" aria-label="Welcome">
+  <aside class="wl-side">
+    <div class="wl-brand">
+      <span class="logo lg"><i data-icon="mountain-snow"></i></span>
+      <div>
+        <h1>BAR Map Studio</h1>
+        <p>Maps for Beyond All Reason</p>
+      </div>
+    </div>
+    <div class="wl-actions">
+      <button id="wContinue" class="action" hidden><span class="action-icon"><i data-icon="arrow-right"></i></span><span class="action-text"><strong class="label"></strong><span>Back to the editor</span></span></button>
+      <button id="wNew" class="action primary"><span class="action-icon"><i data-icon="plus"></i></span><span class="action-text"><strong>New map</strong><span>From a template</span></span><kbd class="on-accent">Ctrl N</kbd></button>
+      <button id="wOpen" class="action" disabled><span class="action-icon"><i data-icon="folder-open"></i></span><span class="action-text"><strong>Open existing BAR map</strong><span>Coming soon</span></span></button>
+    </div>
+    <div class="wl-recent">
+      <h2>Recent maps</h2>
+      <div id="recentList" class="recent-list"></div>
+    </div>
+    <div class="wl-foot">
+      <button id="wHelp" class="link"><i data-icon="keyboard"></i>Keyboard shortcuts</button>
+      <kbd>?</kbd>
+    </div>
+  </aside>
+  <main class="wl-main">
+    <header class="wl-head">
+      <h2>Start from a template</h2>
+      <p>Pick a starting terrain. Size, players, symmetry and biome come next.</p>
+    </header>
+    <div id="wTemplates" class="tpl-gallery"></div>
+  </main>
+</section>
+
+<!-- Editor: top bar, tool rail, map views, inspector, status bar. -->
+<div id="editor" class="editor">
+  <header id="topbar">
+    <div class="tb-left">
+      <button id="btnHome" class="logo-btn" data-tip="Home" aria-label="Home"><span class="logo"><i data-icon="mountain-snow"></i></span></button>
+      <button id="btnNew" class="btn ghost square" data-tip="New map" data-key="Ctrl+N" aria-label="New map"><i data-icon="file-plus"></i></button>
+      <span class="tb-sep"></span>
+      <input id="mapName" class="map-name" spellcheck="false" maxlength="80" aria-label="Map name" data-tip="Rename map">
+      <span id="mapMeta" class="map-meta num"></span>
+      <span id="saveState" class="save-state" data-state="saved"><span class="dot"></span><span class="label"></span></span>
+    </div>
+    <div class="tb-center">
+      <div class="seg" id="viewMode" role="group" aria-label="View">
+        <button data-view="2d" aria-pressed="true" data-tip="2D view" data-key="1"><i data-icon="square"></i><span>2D</span></button>
+        <button data-view="split" aria-pressed="false" data-tip="Split view" data-key="2"><i data-icon="columns-2"></i><span>Split</span></button>
+        <button data-view="3d" aria-pressed="false" data-tip="3D view" data-key="3"><i data-icon="box"></i><span>3D</span></button>
+      </div>
+    </div>
+    <div class="tb-right">
+      <button id="btnUndo" class="btn ghost square" data-tip="Undo" data-key="Ctrl+Z" aria-label="Undo"><i data-icon="undo-2"></i></button>
+      <button id="btnRedo" class="btn ghost square" data-tip="Redo" data-key="Ctrl+Y" aria-label="Redo"><i data-icon="redo-2"></i></button>
+      <button id="btnHelp" class="btn ghost square" data-tip="Keyboard shortcuts" data-key="?" aria-label="Keyboard shortcuts"><i data-icon="keyboard"></i></button>
+      <span class="tb-sep"></span>
+      <button id="btnInstall" class="btn" data-tip="Export, then copy into your BAR maps folder (asks first)"><i data-icon="hard-drive-download"></i><span>Install to BAR</span></button>
+      <button id="btnExport" class="btn primary" data-tip="Write a playable map archive" data-key="Ctrl+E"><i data-icon="package"></i><span>Export</span></button>
+    </div>
+  </header>
+
+  <nav id="toolbar" aria-label="Tools"></nav>
+
   <section id="viewport" class="view-2d">
     <div id="wrap2d">
       <canvas id="canvas2d"></canvas>
-      <div id="hint"></div>
-      <div id="legend" hidden></div>
-      <div class="viewbtns"><button id="btnFit" title="Fit map to view (Home)">Fit</button></div>
+      <div class="overlay top">
+        <div id="hint" class="hint-chip"></div>
+        <span class="spacer"></span>
+        <div class="zoom glass">
+          <button id="btnFeatures" aria-pressed="true" data-tip="Show trees and rocks" aria-label="Show trees and rocks"><i data-icon="trees"></i></button>
+        </div>
+        <div class="seg glass" id="displayMode" role="group" aria-label="Colours">
+          <button data-mode="look" aria-pressed="true" data-tip="The map's colours"><i data-icon="image"></i><span>Look</span></button>
+          <button data-mode="pathing" aria-pressed="false" data-tip="Where units can go: vehicles up to 27°, bots up to 54°"><i data-icon="route"></i><span>Pathing</span></button>
+        </div>
+        <div class="zoom glass">
+          <button id="btnZoomOut" data-tip="Zoom out" aria-label="Zoom out"><i data-icon="minus"></i></button>
+          <span id="zoomLevel" class="num">100%</span>
+          <button id="btnZoomIn" data-tip="Zoom in" aria-label="Zoom in"><i data-icon="plus"></i></button>
+          <span class="zoom-sep"></span>
+          <button id="btnFit" data-tip="Fit map to view" data-key="Home" aria-label="Fit map to view"><i data-icon="scan"></i></button>
+        </div>
+      </div>
+      <div id="legend" class="legend glass" hidden></div>
     </div>
     <div id="wrap3d">
       <div id="view3d"></div>
-      <div class="hint3d">Left-drag: rotate · Right-drag: pan · Wheel: zoom</div>
+      <div class="overlay bottom-left"><div class="hint-chip"><i data-icon="mouse"></i>Left-drag rotate · Right-drag pan · Wheel zoom</div></div>
     </div>
   </section>
-  <aside id="panel">
-    <div class="tabs" id="tabs">
-      <button data-tab="tool" class="active">Tool</button>
-      <button data-tab="generate">Generate</button>
-      <button data-tab="look">Look</button>
-      <button data-tab="map">Map</button>
+
+  <aside id="panel" aria-label="Inspector">
+    <div class="tabs" id="tabs" role="tablist">
+      <button data-tab="tool" role="tab" aria-selected="true">Tool</button>
+      <button data-tab="generate" role="tab" aria-selected="false">Generate</button>
+      <button data-tab="look" role="tab" aria-selected="false">Look</button>
+      <button data-tab="map" role="tab" aria-selected="false">Map</button>
     </div>
-    <div class="tabpage active" id="tab-tool"></div>
-    <div class="tabpage" id="tab-generate"></div>
-    <div class="tabpage" id="tab-look"></div>
-    <div class="tabpage" id="tab-map"></div>
+    <div class="tabpage active" id="tab-tool" role="tabpanel"></div>
+    <div class="tabpage" id="tab-generate" role="tabpanel"></div>
+    <div class="tabpage" id="tab-look" role="tabpanel"></div>
+    <div class="tabpage" id="tab-map" role="tabpanel"></div>
   </aside>
-</main>
 
-<footer id="status">
-  <span id="stCursor">—</span>
-  <span id="stSlope"></span>
-  <span class="spacer"></span>
-  <span id="stCounts"></span>
-  <span id="stBar" class="muted"></span>
-</footer>
+  <footer id="status">
+    <span id="stCursor" class="st num"><i data-icon="crosshair"></i><span class="label">Move over the map</span></span>
+    <span id="stSlope" class="st"></span>
+    <span class="spacer"></span>
+    <span id="stCounts" class="st counts"></span>
+    <span class="st-sep"></span>
+    <span id="stBar" class="st"><span class="dot"></span><span class="label">Looking for BAR…</span></span>
+  </footer>
+</div>
 
-<dialog id="dlgNew">
-  <div class="dlg">
-    <h2>Create a new map</h2>
-    <div class="grid2">
-      <label>Width (map units)<input id="nmWidth" type="number" min="2" max="32" step="2" value="12"></label>
-      <label>Height (map units)<input id="nmHeight" type="number" min="2" max="32" step="2" value="12"></label>
-      <label>Players<input id="nmPlayers" type="number" min="2" max="16" value="2"></label>
-      <label>Symmetry<select id="nmSymmetry"></select></label>
-      <label>Biome<select id="nmBiome"></select></label>
-    </div>
-    <p class="muted">Sizes are even numbers from 2 to 32; one unit is 512 elmos. 8 × 8 suits a 1v1, 12 × 12 a 2v2, 16 × 16 a 4v4. Symmetry mirrors everything you sculpt and place, so every player gets a fair start.</p>
-    <h3>Starting terrain</h3>
-    <div id="nmTemplates" class="templates"></div>
-    <div class="actions">
-      <button id="nmCancel">Cancel</button>
-      <button id="nmCreate" class="primary">Create map</button>
-    </div>
+<!-- New Map -->
+<dialog id="dlgNew" class="modal wide" aria-labelledby="nmTitle">
+  <header class="modal-head">
+    <h2 id="nmTitle">New map</h2>
+    <button class="btn ghost square" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </header>
+  <div class="modal-body nm">
+    <section class="nm-templates">
+      <h3>Starting terrain</h3>
+      <div id="nmTemplates" class="tpl-grid" role="radiogroup" aria-label="Starting terrain"></div>
+    </section>
+    <section class="nm-group">
+      <h3>Size</h3>
+      <div id="nmSizePresets" class="size-presets"></div>
+      <div class="nm-size">
+        <label>Width<input id="nmWidth" class="field" type="number" min="2" max="32" step="2" value="12"></label>
+        <span class="times">×</span>
+        <label>Height<input id="nmHeight" class="field" type="number" min="2" max="32" step="2" value="12"></label>
+        <span id="nmSizeNote" class="note num"></span>
+      </div>
+      <h3 class="later">Players</h3>
+      <div class="stepper">
+        <button id="nmPlayersDown" class="btn square" aria-label="Fewer players"><i data-icon="minus"></i></button>
+        <input id="nmPlayers" class="field" type="number" min="2" max="16" value="2" aria-label="Players">
+        <button id="nmPlayersUp" class="btn square" aria-label="More players"><i data-icon="plus"></i></button>
+        <span class="note">Starts, metal spots and geos are placed for every player.</span>
+      </div>
+    </section>
+    <section class="nm-group">
+      <h3>Symmetry <span id="nmSymLock" class="badge" hidden><i data-icon="lock"></i>Set by template</span></h3>
+      <div id="nmSymmetry" class="sym-grid" role="radiogroup" aria-label="Symmetry"></div>
+    </section>
+    <section class="nm-group">
+      <h3>Biome</h3>
+      <div id="nmBiome" class="swatch-grid biome-grid" role="radiogroup" aria-label="Biome"></div>
+    </section>
   </div>
+  <footer class="modal-foot">
+    <span id="nmSummary" class="muted num"></span>
+    <span class="spacer"></span>
+    <button class="btn" data-close>Cancel</button>
+    <button id="nmCreate" class="btn primary"><i data-icon="sparkles"></i>Create map</button>
+  </footer>
 </dialog>
 
-<div id="toast"></div>
-<div id="busy" hidden>
-  <div class="spinner"></div>
-  <div id="busyText"></div>
-  <div class="progress"><div id="busyBar"></div></div>
+<!-- Keyboard shortcuts (?) -->
+<dialog id="dlgShortcuts" class="modal" aria-labelledby="scTitle">
+  <header class="modal-head">
+    <h2 id="scTitle">Keyboard shortcuts</h2>
+    <button class="btn ghost square" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </header>
+  <div id="scList" class="modal-body sc-columns"></div>
+</dialog>
+
+<!-- Confirm -->
+<dialog id="dlgConfirm" class="modal small" aria-labelledby="cfTitle">
+  <div class="confirm">
+    <span class="confirm-icon"><i data-icon="triangle-alert"></i></span>
+    <div>
+      <h2 id="cfTitle"></h2>
+      <p id="cfText"></p>
+    </div>
+  </div>
+  <footer class="modal-foot">
+    <span class="spacer"></span>
+    <button id="cfCancel" class="btn">Cancel</button>
+    <button id="cfOk" class="btn danger-fill"></button>
+  </footer>
+</dialog>
+
+<!-- Long jobs: covers the map views, or the whole window on the welcome screen. -->
+<div id="loading" class="loading" hidden>
+  <div class="loading-card">
+    <div class="spinner lg"></div>
+    <strong id="loadingTitle"></strong>
+    <span id="loadingText" class="muted"></span>
+  </div>
 </div>
+
+<div class="notify">
+  <div id="toasts" aria-live="polite"></div>
+  <section id="exportPanel" class="export-panel" aria-live="polite" hidden></section>
+</div>
+<div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 </body>
 </html>

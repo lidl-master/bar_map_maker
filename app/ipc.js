@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -37,8 +37,13 @@ async function chooseExportDir(window) {
   return filePaths[0];
 }
 
-/** IPC behind window.studio. Only our own page may call it; installs only take archives this session exported. */
-export function registerStudioIpc(origin) {
+const QUALITIES = ['share', 'standard']; // export presets (src/bar, WP 2.2)
+
+/**
+ * IPC behind window.studio. Only our own page may call it; installs only take archives this session exported.
+ * servedFile(rel) → absolute path or null is the app:// allowlist: hasFiles only answers for files the page may load.
+ */
+export function registerStudioIpc(origin, servedFile) {
   const exported = new Set();
 
   function handle(channel, fn) {
@@ -50,16 +55,23 @@ export function registerStudioIpc(origin) {
 
   handle('studio:locateBar', async () => (await loadBar()).locateBar());
 
+  // Which generated files exist (texture thumbnails), so the page never requests missing ones.
+  handle('studio:hasFiles', (_event, paths) => paths.map((rel) => {
+    const file = typeof rel === 'string' ? servedFile(rel) : null;
+    return Boolean(file && existsSync(file));
+  }));
+
   handle('studio:chooseExportDir', (event) => chooseExportDir(BrowserWindow.fromWebContents(event.sender)));
 
-  handle('studio:exportMap', async (event, doc) => {
+  handle('studio:exportMap', async (event, doc, { quality } = {}) => {
+    if (!QUALITIES.includes(quality)) throw new Error(`Unknown export quality "${quality}"`);
     const { exportMap } = await loadBar();
     // The first export asks where maps go (the user keeps big files off C:); later exports reuse the choice.
     const outDir = readSettings().exportDir ?? await chooseExportDir(BrowserWindow.fromWebContents(event.sender));
     if (!outDir) return { cancelled: true };
     await mkdir(outDir, { recursive: true });
     const onProgress = (fraction, label) => event.sender.send('studio:progress', { label, fraction });
-    const { archivePath, bytes } = await exportMap(doc, outDir, { onProgress });
+    const { archivePath, bytes } = await exportMap(doc, outDir, { onProgress, quality });
     exported.add(archivePath);
     return { archivePath, bytes };
   });

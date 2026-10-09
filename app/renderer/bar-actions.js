@@ -1,47 +1,90 @@
 // Export and Install to BAR, through window.studio (the preload bridge). The main process asks before installing.
-import { $, busy, progress, toast } from './dom.js';
+import { $, el } from './dom.js';
+import { closeExportPanel, exportDone, exportFailed, exportProgress, startExport } from './export-panel.js';
+import { toast } from './feedback.js';
+import { icon } from './icons.js';
 
-const megabytes = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
+let exporting = false, barFound = false;
 
 export function bindBarActions(editor) {
-  window.studio.onProgress(({ label, fraction }) => progress(label, fraction));
+  window.studio.onProgress(exportProgress);
   $('btnExport').addEventListener('click', () => exportMap(editor));
   $('btnInstall').addEventListener('click', () => installMap(editor));
   window.studio.locateBar().then(
-    (bar) => { $('stBar').textContent = `BAR maps folder: ${bar.mapsDir}`; },
-    (error) => { $('stBar').textContent = 'BAR not found'; $('stBar').title = error.message; },
-  );
+    (bar) => {
+      barFound = true;
+      showBar('ok', 'BAR found', `BAR maps folder: ${bar.mapsDir}`);
+    },
+    (error) => {
+      showBar('missing', 'BAR not found', error.message);
+      $('btnInstall').dataset.tip = 'Beyond All Reason was not found on this computer';
+    },
+  ).finally(() => setExporting(exporting));
+}
+
+function showBar(state, label, tip) {
+  const node = $('stBar');
+  node.dataset.state = state;
+  node.dataset.tip = tip;
+  node.querySelector('.label').textContent = label;
 }
 
 export async function changeExportDir() {
   try {
     const dir = await window.studio.chooseExportDir();
-    if (dir) toast(`Maps will be exported to ${dir}`, 6000);
+    if (dir) toast(`Maps will be exported to ${dir}`, 'ok', 6000);
   } catch (error) {
-    toast(`Error: ${error.message}`, 8000);
+    toast(error.message, 'error');
   }
 }
 
-function exportMap(editor) {
-  return busy('Exporting…', async () => {
-    const result = await window.studio.exportMap(editor.doc);
-    if (result.cancelled) {
-      toast('Export cancelled: no export folder was chosen.');
-      return undefined;
-    }
-    toast(`Exported ${result.archivePath} (${megabytes(result.bytes)})`, 6000);
-    return result.archivePath;
-  });
+function setExporting(busy) {
+  exporting = busy;
+  $('btnExport').disabled = busy;
+  $('btnInstall').disabled = busy || !barFound;
+  $('btnExport').replaceChildren(icon(busy ? 'loader-circle' : 'package', busy ? 'spin' : ''), el('span', {}, busy ? 'Exporting…' : 'Export'));
+}
+
+/** Exports the open map; resolves with the archive path, or null when cancelled or failed (the panel says why). */
+export async function exportMap(editor) {
+  if (exporting) return null;
+  startExport(editor.doc.settings.name);
+  setExporting(true);
+  let result;
+  try {
+    result = await window.studio.exportMap(editor.doc, { quality: editor.exportQuality });
+  } catch (error) {
+    console.error(error);
+    exportFailed(error.message, [['Try again', { class: 'btn primary', onclick: () => exportMap(editor) }, 'package']]);
+    return null;
+  } finally {
+    setExporting(false);
+  }
+  if (result.cancelled) {
+    closeExportPanel();
+    toast('Export cancelled: no export folder was chosen.', 'warn');
+    return null;
+  }
+  exportDone(result, barFound ? [['Install to BAR', { class: 'btn primary', onclick: () => installArchive(result.archivePath) }, 'hard-drive-download']] : []);
+  return result.archivePath;
 }
 
 async function installMap(editor) {
   const archivePath = await exportMap(editor);
-  if (!archivePath) return;
+  if (archivePath) await installArchive(archivePath);
+}
+
+async function installArchive(archivePath) {
   try {
     const result = await window.studio.installMap(archivePath);
-    if (result.cancelled) toast('Install cancelled. Nothing in the BAR folder was changed.');
-    else toast(`Installed ${result.installedPath}${result.removed.length ? `, replaced ${result.removed.length} older file(s)` : ''}. Restart BAR to see it.`, 8000);
+    if (result.cancelled) {
+      toast('Install cancelled. Nothing in the BAR folder was changed.', 'info');
+      return;
+    }
+    closeExportPanel();
+    const replaced = result.removed.length ? `, replacing ${result.removed.length} older file${result.removed.length > 1 ? 's' : ''}` : '';
+    toast(`Installed ${result.installedPath}${replaced}. Restart BAR to see it.`, 'ok', 8000);
   } catch (error) {
-    toast(`Install failed: ${error.message}`, 8000);
+    toast(`Install failed: ${error.message}`, 'error');
   }
 }

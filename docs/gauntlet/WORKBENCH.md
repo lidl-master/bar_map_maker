@@ -10,7 +10,7 @@ Updated by the lead after every round. Bars: [bars.md](bars.md).
 | git repo, baseline commit, prototype moved to `legacy/` | done |
 | Electron 44.7.0 + Playwright 1.64.0 (caches on D:) | done |
 | Thermo-nuclear skill active in `.claude/skills/` | done |
-| WP 0.1 Electron skeleton + smoke test | building |
+| WP 0.1 Electron skeleton + smoke test | built (4/4 tests pass, branch `worktree-agent-af56fa54252bf2f70`), awaiting critic |
 | WP 0.2 Tools: format validator, BAR locator, headless engine check, blind A/B pairs | building |
 | First engine check of Volcano King | pending (WP 0.2) |
 

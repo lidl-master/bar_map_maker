@@ -9,6 +9,9 @@ const tan2 = (degrees) => Math.tan((degrees * Math.PI) / 180) ** 2;
 const STEEP = [tan2(26), tan2(28)];
 const CLIFF = [tan2(53), tan2(55)];
 const PATCH = 0.6; // how far the patch noise moves the lowland/highland split (share of highEnd - highStart)
+// Cliffs face the camera, so away from the northern sun: they get ambient light only. Darker cliff albedo is lifted
+// to this luminance (at most 1.6x) so its texture still reads in-game.
+const CLIFF_LUMINANCE = 72;
 
 // Per library class: splat channel (when the material is not one of the biome's 4 splats), detail-normal relief,
 // specular intensity (0..1) and gloss (specularTex alpha: exponent / 16).
@@ -39,7 +42,8 @@ export const swapAt = (x, z) => smoothstep(-0.12, 0.12, fbm(swapNoise, x / 260, 
 /**
  * @typedef {Object} Slot  one library material the bake can use
  * @property {string} id
- * @property {number[]} avgColor
+ * @property {number[]} avgColor  times gain
+ * @property {number} gain  brightness applied to the albedo (cliff lift)
  * @property {number} channel  splat channel 0..3 (splatDistrTex RGBA)
  * @property {number} relief  detail-normal strength
  * @property {number} spec
@@ -65,7 +69,9 @@ export function lookOf(doc) {
   const slots = ids.map((id) => {
     const m = libraryMaterial(id), cls = CLASSES[m.class];
     const splat = biome.splats.indexOf(id);
-    return { id, avgColor: m.avgColor, channel: splat >= 0 ? splat : cls.channel, relief: cls.relief, spec: cls.spec, gloss: cls.gloss, grass: id.startsWith('grass') };
+    const [r, g, b] = m.avgColor, luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const gain = m.class === 'cliff' ? Math.min(1.6, Math.max(1, CLIFF_LUMINANCE / luminance)) : 1;
+    return { id, avgColor: m.avgColor.map((c) => c * gain), gain, channel: splat >= 0 ? splat : cls.channel, relief: cls.relief, spec: cls.spec, gloss: cls.gloss, grass: id.startsWith('grass') };
   });
   const slotOf = (id) => ids.indexOf(id);
   const look = {

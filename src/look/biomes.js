@@ -65,7 +65,7 @@ export const BIOMES = {
   },
   volcanic: {
     label: 'Volcanic / lava',
-    materials: roles('ash', 'dirt_dark', 'dirt_rocky', 'basalt', 'dirt_dry', 'lava_rock', 'ash'),
+    materials: roles('ash', 'dirt_dark', 'dirt_rocky', 'basalt', 'regolith', 'lava_rock', 'ash'),
     splats: ['ash', 'dirt_rocky', 'basalt', 'lava_rock'],
     highStart: 200, highEnd: 1200, sandTop: 20, snowLine: 1400,
     sky: [0.36, 0.24, 0.2], fog: [0.42, 0.28, 0.22], sunColor: [1.0, 0.78, 0.55],

@@ -175,7 +175,7 @@ export function bakeStrip(ctx, tz0, rows) {
   const relief = Float32Array.from(slots, (s) => s.relief), spec = Float32Array.from(slots, (s) => s.spec);
   const gloss = Float32Array.from(slots, (s) => s.gloss), grassy = Uint8Array.from(slots, (s) => s.grass);
   // Share preset (diffuse > 1): average material colours only (the splat detail textures add the grain in-engine).
-  const detail = layers.diffuse === 1, avg = Float32Array.from(slots.flatMap((s) => s.avgColor));
+  const detail = layers.diffuse === 1, avg = Float32Array.from(slots.flatMap((s) => s.avgColor)), gain = Float32Array.from(slots, (s) => s.gain);
   const rw = new Float32Array(7), sw = new Float32Array(11), ss = new Int32Array(11), corner = [0, 1, W, W + 1], cw = new Float32Array(4);
   // The sample fields interpolated to the current texel row (z); per texel only the x interpolation is left.
   const fields = [grid.h, grid.gx, grid.gz, grid.patch, grid.light, grid.wobble, grid.swap];
@@ -214,7 +214,7 @@ export function bakeStrip(ctx, tz0, rows) {
           // its texture instead of a soft airbrush line.
           const slot = paintSlot[p], a0 = (paintWeight[k + corner[c]] / 255) * cw[c];
           const grain = tables[slot][rowBase[slot] + column[slot][x] + 5];
-          const amount = Math.min(1, Math.max(0, a0 + 4 * a0 * (1 - a0) * grain));
+          const amount = Math.min(1, Math.max(0, a0 + 8 * a0 * (1 - a0) * grain));
           for (let i = 0; i < n; i++) sw[i] *= 1 - amount;
           sw[n] = amount; ss[n++] = slot;
         }
@@ -226,7 +226,7 @@ export function bakeStrip(ctx, tz0, rows) {
       for (let i = 0; i < n; i++) {
         const s = ss[i], w = sw[i], tab = tables[s], o = rowBase[s] + column[s][x];
         if (detail) {
-          const o2 = row2[s] + column2[s][x], w1 = w * (1 - swap), w2 = w * swap;
+          const o2 = row2[s] + column2[s][x], w1 = w * gain[s] * (1 - swap), w2 = w * gain[s] * swap;
           cr += w1 * tab[o] + w2 * tab[o2]; cg += w1 * tab[o + 1] + w2 * tab[o2 + 1]; cb += w1 * tab[o + 2] + w2 * tab[o2 + 2];
         } else { cr += w * avg[s * 3]; cg += w * avg[s * 3 + 1]; cb += w * avg[s * 3 + 2]; }
         rx += w * relief[s] * tab[o + 3]; rz += w * relief[s] * tab[o + 4];
@@ -235,18 +235,19 @@ export function bakeStrip(ctx, tz0, rows) {
         grass += grassy[s] * w;
       }
 
-      // Topolines on gently sloping ground (~2-26°): thin dark lines every TOPO_STEP elmos of height, bent by
-      // the wobble noise, plus a matching groove in the detail normals.
       let m = LIGHT[a] + (LIGHT[a + 1] - LIGHT[a]) * u;
-      // Erosion streaks down bot slopes and cliffs (strongest on cliffs), projected along x or z by the facing.
+      // Erosion streaks down bot slopes and cliffs (strongest on cliffs), projected along x or z by the facing;
+      // in the diffuse only with albedo detail (Share keeps its flat blocks plain).
       const steep = rw[2] + rw[3];
       if (steep > 0) {
         const facingX = (gx * gx) / g2, cliffy = steep * (0.4 + 0.6 * rw[3]);
         const ix = ((zW & 127) * 64 + ((x >> 3) & 63)) * 2, iz = ((x & 127) * 64 + ((zW >> 3) & 63)) * 2;
-        m *= 1 + STREAK_DARK * cliffy * (facingX * STREAK[ix] + (1 - facingX) * STREAK[iz]);
+        if (detail) m *= 1 + STREAK_DARK * cliffy * (facingX * STREAK[ix] + (1 - facingX) * STREAK[iz]);
         rz += STREAK_RELIEF * cliffy * facingX * STREAK[ix + 1];
         rx += STREAK_RELIEF * cliffy * (1 - facingX) * STREAK[iz + 1];
       }
+      // Topolines on gently sloping ground (~2-26°): thin dark lines every TOPO_STEP elmos of height, bent by
+      // the wobble noise, plus a matching groove in the detail normals.
       const slope = Math.sqrt(g2);
       if (slope > 0.03 && slope < 0.5) {
         const f = (h + WOB[a] + (WOB[a + 1] - WOB[a]) * u) / TOPO_STEP, d = f - Math.round(f), dist = (Math.abs(d) * TOPO_STEP) / slope;
@@ -383,6 +384,18 @@ function mix(out, color, w) {
   out[2] += (color[2] - out[2]) * w;
 }
 
+const previewWeights = new Float32Array(7);
+let patchCache = { W: 0, H: 0, values: null };
+
+// patchAt() at heightmap sample k, cached per map size (it depends on the position only): the 2D view repaints
+// every sample of a 32x32 map.
+function patchSample(doc, k) {
+  if (patchCache.W !== doc.W || patchCache.H !== doc.H) patchCache = { W: doc.W, H: doc.H, values: new Float32Array(doc.W * doc.H).fill(NaN) };
+  const { values } = patchCache;
+  if (Number.isNaN(values[k])) values[k] = patchAt((k % doc.W) * SQUARE, Math.floor(k / doc.W) * SQUARE);
+  return values[k];
+}
+
 /**
  * Preview colour of heightmap sample (i, j) for the 2D view: the bake's materials (average colours), shading,
  * paint, plus water, void water and lava.
@@ -391,13 +404,12 @@ function mix(out, color, w) {
 export function previewColor(doc, i, j) {
   const look = lookOf(doc), k = j * doc.W + i, h = doc.heights[k];
   const [gx, gz] = gradient(doc, i, j);
-  const rw = new Float32Array(7);
-  roleWeights(look.biome, h, gx * gx + gz * gz, patchAt(i * SQUARE, j * SQUARE), rw);
+  roleWeights(look.biome, h, gx * gx + gz * gz, patchSample(doc, k), previewWeights);
   const c = [0, 0, 0];
-  rw.forEach((w, r) => {
+  for (let r = 0; r < 7; r++) {
     const avg = look.slots[look.roleSlot[r]].avgColor;
-    for (let n = 0; n < 3; n++) c[n] += w * avg[n];
-  });
+    for (let n = 0; n < 3; n++) c[n] += previewWeights[r] * avg[n];
+  }
   if (doc.paint[k]) {
     const slot = look.slots[look.paintSlot[doc.paint[k]]];
     if (!slot) throw new Error(`unknown paint material id ${doc.paint[k]}`);

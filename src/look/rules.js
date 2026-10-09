@@ -4,11 +4,14 @@ import { fbm, makeSimplex } from '../terrain/noise.js';
 import { biomeOf, libraryMaterial, MATERIALS, paintMaterialId, ROLES } from './biomes.js';
 
 const tan2 = (degrees) => Math.tan((degrees * Math.PI) / 180) ** 2;
-// Squared height gradient (tan² of the slope) around the passability limits, blended over ±1°: narrow, so
-// vehicle ground (<= 27°), bot slopes (27-54°) and cliffs (> 54°) read at a glance.
-const STEEP = [tan2(26), tan2(28)];
-const CLIFF = [tan2(53), tan2(55)];
+// Squared height gradient (tan² of the slope) around the passability limits, blended over ±2° and bent by the
+// edge noise (±~2°): vehicle ground (<= 27°), bot slopes (27-54°) and cliffs (> 54°) still read at a glance, but
+// meet along organic, not posterised, edges.
+const STEEP = [tan2(25), tan2(29)];
+const CLIFF = [tan2(52), tan2(56)];
+const EDGE_JITTER = 0.2; // share of tan² the edge noise moves the slope thresholds by
 const PATCH = 0.6; // how far the patch noise moves the lowland/highland split (share of highEnd - highStart)
+const PATCH_FINE = 0.12; // the same for the fine edge noise (breaks up flat areas such as start positions)
 // Cliffs face the camera, so away from the northern sun: they get ambient light only. Darker cliff albedo is lifted
 // to this luminance (at most 1.6x) so its texture still reads in-game.
 const CLIFF_LUMINANCE = 72;
@@ -30,12 +33,15 @@ export const smoothstep = (a, b, x) => {
 
 // Seeded noise fields in world elmos, the same for every map so a re-export bakes identical tiles.
 const patchNoise = makeSimplex(101), toneNoise = makeSimplex(202), wobbleNoise = makeSimplex(303), swapNoise = makeSimplex(404);
+const edgeNoise = makeSimplex(505);
 /** Lowland/highland patches, ~-0.7..0.7. */
 export const patchAt = (x, z) => fbm(patchNoise, x / 900, z / 900, 3, 2, 0.5);
 /** Broad brightness variation, ~-0.7..0.7. */
-export const toneAt = (x, z) => fbm(toneNoise, x / 2200, z / 2200, 3, 2, 0.5);
+export const toneAt = (x, z) => fbm(toneNoise, x / 2200, z / 2200, 5, 2, 0.6);
 /** Height offset (elmos) that bends the topolines. */
 export const wobbleAt = (x, z) => 5 * fbm(wobbleNoise, x / 180, z / 180, 2, 2, 0.5);
+/** Fine (~60 elmo) noise, ~-0.7..0.7, that frays material edges. */
+export const edgeAt = (x, z) => fbm(edgeNoise, x / 64, z / 64, 2, 2, 0.5);
 /** 0..1: how much of a material shows as its second, transposed copy (breaks up visible tiling). */
 export const swapAt = (x, z) => smoothstep(-0.12, 0.12, fbm(swapNoise, x / 260, z / 260, 2, 2, 0.5));
 
@@ -94,11 +100,14 @@ export function checkPaint(doc) {
 /**
  * Role weights (sum 1) at height h (elmos) with squared gradient g2, written to out (ROLES order).
  * @param {number} patch  patchAt() at this point
+ * @param {number} edge  edgeAt() at this point
  */
-export function roleWeights(biome, h, g2, patch, out) {
-  const cliff = smoothstep(CLIFF[0], CLIFF[1], g2), steep = smoothstep(STEEP[0], STEEP[1], g2);
+export function roleWeights(biome, h, g2, patch, edge, out) {
+  const g2e = g2 * (1 + EDGE_JITTER * edge);
+  const cliff = smoothstep(CLIFF[0], CLIFF[1], g2e), steep = smoothstep(STEEP[0], STEEP[1], g2e);
   const flat = 1 - steep; // steep is 1 wherever cliff > 0
-  const high = smoothstep(0, 1, (h - biome.highStart) / (biome.highEnd - biome.highStart) + PATCH * patch);
+  const split = (h - biome.highStart) / (biome.highEnd - biome.highStart) + PATCH * patch + PATCH_FINE * edge;
+  const high = smoothstep(0, 1, split);
   const sand = h < biome.sandTop ? 1 - smoothstep(biome.sandTop / 2, biome.sandTop, h) : 0;
   const seabed = h < 0 ? smoothstep(0, 24, -h) : 0;
   const snow = smoothstep(biome.snowLine - 25, biome.snowLine + 25, h);

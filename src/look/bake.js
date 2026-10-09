@@ -5,11 +5,12 @@
 // textures), blended by the rules.js role weights and paint, times broad tone variation, gentle shading from the
 // northern sun and thin, wobbly topolines. Traversability reads from the materials themselves: vehicle ground,
 // bot slope and cliff materials meet at 27° and 54° with a 2° blend.
-import { lookOf, patchAt, roleWeights, smoothstep, swapAt, toneAt, wobbleAt } from './rules.js';
+import { edgeAt, lookOf, patchAt, roleWeights, smoothstep, swapAt, toneAt, wobbleAt } from './rules.js';
 
 const SQUARE = 8; // elmos between heightmap samples
 const TILE = 32; // texels (elmos) per SMT tile side
 const SHADING = 0.15; // share of hill-shading baked in (the engine lights the ground as well)
+const OCCLUSION = 0.18; // darkening of creases and valley floors (soft ambient occlusion)
 const TONE = 0.1; // broad brightness variation
 const TOPO_STEP = 40; // elmos of height between topolines
 const TOPO_DARK = 0.12; // darkening at the centre of a topoline
@@ -132,18 +133,27 @@ function gradient(doc, i, j) {
   ];
 }
 
-// Per-sample inputs of heightmap rows j0 .. j0 + rows - 1; light = shading towards the sun (sun null: none) times
-// broad tone.
+// Ambient occlusion at heightmap sample (i, j): 1 on flat ground and ridges, less in creases (the height sum of
+// the samples 2 squares away exceeding 4x this one).
+function occlusion(doc, i, j) {
+  const { W, H, heights } = doc, at = (a, b) => heights[Math.min(Math.max(b, 0), H - 1) * W + Math.min(Math.max(a, 0), W - 1)];
+  const crease = at(i - 2, j) + at(i + 2, j) + at(i, j - 2) + at(i, j + 2) - 4 * heights[j * W + i];
+  return 1 - OCCLUSION * smoothstep(0, 40, crease);
+}
+
+// Per-sample inputs of heightmap rows j0 .. j0 + rows - 1; light = shading towards the sun and ambient occlusion
+// (sun null: neither) times broad tone.
 function sampleRows(doc, sun, j0, rows) {
   const { W } = doc, n = W * rows;
-  const grid = { h: new Float32Array(n), gx: new Float32Array(n), gz: new Float32Array(n), patch: new Float32Array(n), light: new Float32Array(n), wobble: new Float32Array(n), swap: new Float32Array(n) };
+  const grid = { h: new Float32Array(n), gx: new Float32Array(n), gz: new Float32Array(n), patch: new Float32Array(n), edge: new Float32Array(n), light: new Float32Array(n), wobble: new Float32Array(n), swap: new Float32Array(n) };
   for (let r = 0; r < rows; r++) {
     for (let i = 0; i < W; i++) {
       const k = r * W + i, x = i * SQUARE, z = (j0 + r) * SQUARE;
       grid.h[k] = doc.heights[(j0 + r) * W + i];
       [grid.gx[k], grid.gz[k]] = gradient(doc, i, j0 + r);
       grid.patch[k] = patchAt(x, z);
-      grid.light[k] = (sun ? shade(sun, grid.gx[k], grid.gz[k]) : 1) * (1 + TONE * toneAt(x, z));
+      grid.edge[k] = edgeAt(x, z);
+      grid.light[k] = (sun ? shade(sun, grid.gx[k], grid.gz[k]) * occlusion(doc, i, j0 + r) : 1) * (1 + TONE * toneAt(x, z));
       grid.wobble[k] = wobbleAt(x, z);
       grid.swap[k] = swapAt(x, z);
     }
@@ -178,8 +188,8 @@ export function bakeStrip(ctx, tz0, rows) {
   const detail = layers.diffuse === 1, avg = Float32Array.from(slots.flatMap((s) => s.avgColor)), gain = Float32Array.from(slots, (s) => s.gain);
   const rw = new Float32Array(7), sw = new Float32Array(11), ss = new Int32Array(11), corner = [0, 1, W, W + 1], cw = new Float32Array(4);
   // The sample fields interpolated to the current texel row (z); per texel only the x interpolation is left.
-  const fields = [grid.h, grid.gx, grid.gz, grid.patch, grid.light, grid.wobble, grid.swap];
-  const [H, GX, GZ, PATCH, LIGHT, WOB, SWAP] = fields.map(() => new Float32Array(W));
+  const fields = [grid.h, grid.gx, grid.gz, grid.patch, grid.edge, grid.light, grid.wobble, grid.swap];
+  const [H, GX, GZ, PATCH, EDGE, LIGHT, WOB, SWAP] = fields.map(() => new Float32Array(W));
   // Table offsets: rowBase[s] for the current texel row plus column[s][x]; the second copy of each material is
   // transposed and shifted by half a repeat (row2 + column2).
   const rowBase = new Int32Array(slots.length), row2 = new Int32Array(slots.length);
@@ -194,7 +204,7 @@ export function bakeStrip(ctx, tz0, rows) {
       rowBase[s] = sizes[s] ? (zW % sizes[s]) * sizes[s] * TABLE_STRIDE : 0;
       row2[s] = sizes[s] ? ((zW + (sizes[s] >> 1)) % sizes[s]) * TABLE_STRIDE : 0;
     }
-    [H, GX, GZ, PATCH, LIGHT, WOB, SWAP].forEach((row, f) => {
+    [H, GX, GZ, PATCH, EDGE, LIGHT, WOB, SWAP].forEach((row, f) => {
       const field = fields[f];
       for (let i = 0; i < W; i++) row[i] = field[b * W + i] * (1 - v) + field[(b + 1) * W + i] * v;
     });
@@ -202,7 +212,7 @@ export function bakeStrip(ctx, tz0, rows) {
       const a = x >> 3, u = ((x & 7) + 0.5) / SQUARE, k = b * W + a;
       const h = H[a] + (H[a + 1] - H[a]) * u, gx = GX[a] + (GX[a + 1] - GX[a]) * u, gz = GZ[a] + (GZ[a + 1] - GZ[a]) * u;
       const g2 = gx * gx + gz * gz;
-      roleWeights(biome, h, g2, PATCH[a] + (PATCH[a + 1] - PATCH[a]) * u, rw);
+      roleWeights(biome, h, g2, PATCH[a] + (PATCH[a + 1] - PATCH[a]) * u, EDGE[a] + (EDGE[a + 1] - EDGE[a]) * u, rw);
       let n = 0;
       for (let r = 0; r < 7; r++) if (rw[r] > 1e-3) { sw[n] = rw[r]; ss[n++] = roleSlot[r]; }
       if (paint[k] | paint[k + 1] | paint[k + W] | paint[k + W + 1]) {
@@ -385,15 +395,20 @@ function mix(out, color, w) {
 }
 
 const previewWeights = new Float32Array(7);
-let patchCache = { W: 0, H: 0, values: null };
+let noiseCache = { W: 0, H: 0, patch: null, edge: null };
 
-// patchAt() at heightmap sample k, cached per map size (it depends on the position only): the 2D view repaints
-// every sample of a 32x32 map.
-function patchSample(doc, k) {
-  if (patchCache.W !== doc.W || patchCache.H !== doc.H) patchCache = { W: doc.W, H: doc.H, values: new Float32Array(doc.W * doc.H).fill(NaN) };
-  const { values } = patchCache;
-  if (Number.isNaN(values[k])) values[k] = patchAt((k % doc.W) * SQUARE, Math.floor(k / doc.W) * SQUARE);
-  return values[k];
+// patchAt() and edgeAt() at heightmap sample k, cached per map size (they depend on the position only): the 2D
+// view repaints every sample of a 32x32 map.
+function noiseSample(doc, k) {
+  if (noiseCache.W !== doc.W || noiseCache.H !== doc.H) {
+    noiseCache = { W: doc.W, H: doc.H, patch: new Float32Array(doc.W * doc.H).fill(NaN), edge: new Float32Array(doc.W * doc.H) };
+  }
+  if (Number.isNaN(noiseCache.patch[k])) {
+    const x = (k % doc.W) * SQUARE, z = Math.floor(k / doc.W) * SQUARE;
+    noiseCache.patch[k] = patchAt(x, z);
+    noiseCache.edge[k] = edgeAt(x, z);
+  }
+  return noiseCache;
 }
 
 /**
@@ -404,7 +419,8 @@ function patchSample(doc, k) {
 export function previewColor(doc, i, j) {
   const look = lookOf(doc), k = j * doc.W + i, h = doc.heights[k];
   const [gx, gz] = gradient(doc, i, j);
-  roleWeights(look.biome, h, gx * gx + gz * gz, patchSample(doc, k), previewWeights);
+  const noise = noiseSample(doc, k);
+  roleWeights(look.biome, h, gx * gx + gz * gz, noise.patch[k], noise.edge[k], previewWeights);
   const c = [0, 0, 0];
   for (let r = 0; r < 7; r++) {
     const avg = look.slots[look.roleSlot[r]].avgColor;
@@ -415,7 +431,7 @@ export function previewColor(doc, i, j) {
     if (!slot) throw new Error(`unknown paint material id ${doc.paint[k]}`);
     mix(c, slot.avgColor, doc.paintWeight[k] / 255);
   }
-  const m = shade(unitSun(doc), gx, gz);
+  const m = shade(unitSun(doc), gx, gz) * occlusion(doc, i, j);
   for (let n = 0; n < 3; n++) c[n] *= m;
   waterTint(doc, h, c);
   return [Math.round(c[0]), Math.round(c[1]), Math.round(c[2])];

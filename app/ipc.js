@@ -5,6 +5,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { QUALITY } from '../src/look/index.js';
+import { registerEngineIpc } from './ipc-engine.js';
 
 const barModule = pathToFileURL(path.join(import.meta.dirname, '..', 'src', 'bar', 'index.js')).href;
 
@@ -70,8 +71,8 @@ async function cachedThumb(bar, file) {
 }
 
 /**
- * IPC behind window.studio. Only our own page may call it; install and show-in-folder only take archives this session
- * exported, and opening reads only archives in the BAR maps folder or ones the user picked.
+ * IPC behind window.studio. Only our own page may call it; install, show-in-folder, check and play-test (ipc-engine.js)
+ * only take archives this session exported, and opening reads only archives in the BAR maps folder or ones the user picked.
  * servedFile(rel) → absolute path or null is the app:// allowlist: hasFiles only answers for files the page may load.
  */
 export function registerStudioIpc(origin, servedFile) {
@@ -178,4 +179,6 @@ export function registerStudioIpc(origin, servedFile) {
     if (response !== 0) return { cancelled: true };
     return bar.installMap(archivePath, { mapsDir });
   });
+
+  registerEngineIpc(handle, { exported, readSettings });
 }

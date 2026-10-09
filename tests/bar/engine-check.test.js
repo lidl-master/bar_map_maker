@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseEngineLog } from '../../tools/engine/bar-game.js';
-import { failures, QUIT_FRAME } from '../../tools/engine/headless-check.js';
+import { failures, QUIT_FRAME } from '../../src/bar/check.js';
+import { engineMapName, parseEngineLog, scriptText } from '../../src/bar/engine.js';
 
 const T = '[t=00:00:17.313553][f=-000001] ';
 // Verbatim from the critic's probe map (a Volcano King copy with an extra comma in mapconfig/lava.lua).
@@ -73,4 +73,23 @@ test('failures: crash after load, timeout, early quit, map error, install change
   assert.deepEqual(failures({ ...clean, framesReached: 400 }), ['reached frame 400, needs 900']);
   assert.deepEqual(failures({ ...clean, mapErrors: { count: 2, lines: ['x'] } }), ['2 map error lines']);
   assert.deepEqual(failures({ ...clean, installChanges: ['C:/BAR/data/infolog.txt'] }), ['1 paths changed in the BAR install']);
+});
+
+test('failures: the engine loading an installed map of the same name instead of the export', () => {
+  const run = { ...clean, archive: 'D:/maps/out/my_map_1.0.sd7', mapArchive: 'my_map_1.0.sd7' };
+  assert.deepEqual(failures(run), []);
+  assert.deepEqual(failures({ ...run, mapArchive: 'My_Map_1.0.SD7' }), [], 'archive names compare case-insensitively');
+  assert.deepEqual(failures({ ...run, mapArchive: 'my_map_v1.sd7' }), ['BAR loaded my_map_v1.sd7, not my_map_1.0.sd7: an installed map has the same name']);
+});
+
+test('the engine name of a map adds the version unless the name has it', () => {
+  assert.equal(engineMapName({ name: 'Volcano King', version: '1.0' }), 'Volcano King 1.0');
+  assert.equal(engineMapName({ name: 'Shallow Straits v1.0.1', version: 'v1.0.1' }), 'Shallow Straits v1.0.1');
+  assert.equal(engineMapName({ name: 'Untitled', version: '' }), 'Untitled');
+});
+
+test('start scripts: nested sections, and values that would break the format are refused', () => {
+  assert.equal(scriptText({ GAME: { MapName: 'A 1.0', PLAYER0: { Team: 0 } } }), '[GAME]\n{\n\tMapName=A 1.0;\n\t[PLAYER0]\n\t{\n\t\tTeam=0;\n\t}\n}\n');
+  assert.throws(() => scriptText({ GAME: { MapName: 'x; IsHost=0' } }), /must not contain/);
+  assert.throws(() => scriptText({ GAME: { MapName: 'x\n[PLAYER1]' } }), /must not contain/);
 });

@@ -33,6 +33,8 @@ export function buildLook(editor) {
         },
       }, 'sun'));
   }
+  // Off: BAR's grass grows on grassy materials only. On: on all ground vehicles can cross (src/look/grass.js).
+  toggle(biome, 'Grass on all open ground', doc.settings, 'openGrass', () => editor.markDirty());
 
   buildFeatures(editor, panel);
 

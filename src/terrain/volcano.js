@@ -115,21 +115,26 @@ export function volcanoKing(doc, { players, seed }) {
   const bases = [...pick(KINGS, KING_AXIS, kings).map((p) => [...p, 2.4]), ...pick(ATTACKERS, ATTACKER_AXIS, players - kings).map((p) => [...p, 1.9])];
   for (const [x, z] of bases) addObject(doc, 'start', X(x), Z(z));
   // A spot is safe on flat ground with no lava within `ring`; off-axis spots keep clear of the axis
-  // so their mirror image does not overlap them.
-  const ring = Math.max(48, 120 * S);
-  const safe = (x, z, axis) => (axis || x < ww / 2 - 60 * S) && x > 0 && z > 0 && z < wh && slopeAt(doc, x, z) <= 14
+  // so their mirror image does not overlap them, and every spot keeps clear of the spots placed before it (BAR's
+  // spot finder sees touching metal discs as one spot; 128 elmos apart they never touch).
+  const ring = Math.max(48, 120 * S), apart = 128;
+  const clear = (x, z) => doc.objects.every((o) => o.type === 'start' || Math.hypot(o.x - x, o.z - z) >= apart);
+  const roomy = (x, z, axis) => (axis || x < ww / 2 - Math.max(60 * S, apart / 2)) && x > 0 && z > 0 && z < wh && clear(x, z);
+  const safe = (x, z, axis) => roomy(x, z, axis) && slopeAt(doc, x, z) <= 14
     && [0, 1, 2, 3, 4, 5, 6, 7].every((a) => sampleHeight(doc, x + Math.cos(a * TAU / 8) * ring, z + Math.sin(a * TAU / 8) * ring) >= LAVA + 15);
-  // Move a spot that landed in or next to lava, or on a cliff, to the nearest safe ground
-  // (axis spots slide along the axis).
-  const nudged = (x, z) => {
+  // The nearest point to (x, z) that passes `ok` (axis spots slide along the axis), or null.
+  const nearestOk = (x, z, ok) => {
     const axis = x === ww / 2;
-    if (safe(x, z, axis)) return [x, z];
+    if (ok(x, z, axis)) return [x, z];
     for (let r = 40 * S; r < 900 * S; r += 40 * S) for (let a = 0; a < 24; a++) {
       const nx = axis ? x : x + Math.cos(a / 24 * TAU) * r, nz = axis ? z + (a % 2 ? r : -r) : z + Math.sin(a / 24 * TAU) * r;
-      if (safe(nx, nz, axis)) return [nx, nz];
+      if (ok(nx, nz, axis)) return [nx, nz];
     }
-    return [x, z]; // shortcut: stays put on tiny maps; its pad below still lifts it out of the lava
+    return null;
   };
+  // A spot that landed in or next to lava, or on a cliff, moves to the nearest safe ground; on tiny maps without any,
+  // to the nearest ground clear of other spots (its pad below lifts it out of the lava).
+  const nudged = (x, z) => nearestOk(x, z, safe) ?? nearestOk(x, z, roomy) ?? [x, z];
   const spot = (type, x, z, props) => addObject(doc, type, ...nudged(X(x), Z(z)), props);
   for (const [x, z, metal] of bases) for (const [dx, dz] of x === AXIS ? AXIS_BASE_METAL : BASE_METAL) spot('metal', x + dx, z + dz, { metal });
   for (const [x, z, metal] of METAL) spot('metal', x, z, { metal });

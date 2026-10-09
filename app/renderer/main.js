@@ -3,6 +3,7 @@ import { History } from '../../src/core/index.js';
 import { BIOMES } from '../../src/look/index.js';
 import { flushSave, markSaved, markUnchanged, saveNow, scheduleSave } from './autosave.js';
 import { bindBarActions, exportMap } from './bar-actions.js';
+import { bindCheck } from './check-panel.js';
 import { $, clamp, hydrateKeys } from './dom.js';
 import { bindTooltips, withLoading } from './feedback.js';
 import { runJob } from './generator.js';
@@ -13,6 +14,7 @@ import { initNewMap, openNewMap } from './new-map.js';
 import { removeGroup } from './objects.js';
 import { initOpenMap } from './open-map.js';
 import { buildPanels } from './panels.js';
+import { bindPlaytest } from './playtest-menu.js';
 import { loadMap } from './recent.js';
 import { openShortcuts } from './shortcuts.js';
 import { showCounts, showCursor } from './status.js';
@@ -294,6 +296,8 @@ initWelcome(editor);
 initOpenMap(editor);
 bindInput(editor);
 bindBarActions(editor);
+bindCheck(editor);
+bindPlaytest(editor);
 window.studio.onFlush(() => flushSave(editor)); // the window waits for the last edits before it closes
 loadThumbs().catch((error) => console.error(error)).finally(() => {
   editor.showScreen('welcome');

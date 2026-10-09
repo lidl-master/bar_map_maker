@@ -3,5 +3,6 @@
 export { BIOMES, MATERIALS, ROLES } from './biomes.js';
 export { MATERIAL_LIBRARY } from './library-manifest.js';
 export { bakeMaterials, bakeStrip, finishMinimap, materialTable, prepareBake, previewColor } from './bake.js';
+export { openGroundGrass } from './grass.js';
 export { checkPaint } from './rules.js';
 export { QUALITY, texturePlan } from './stack.js';

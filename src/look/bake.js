@@ -5,6 +5,7 @@
 // textures), blended by the rules.js role weights and paint, times broad tone variation, gentle shading from the
 // northern sun and thin, wobbly topolines. Traversability reads from the materials themselves: vehicle ground,
 // bot slope and cliff materials meet at 27° and 54° with a 2° blend.
+import { clearResources } from './grass.js';
 import { edgeAt, FLAT_ROLES, flatWeights, lookOf, patchAt, roleWeights, smoothstep, steepWeights, swapAt, toneAt, wobbleAt } from './rules.js';
 
 const SQUARE = 8; // elmos between heightmap samples
@@ -17,7 +18,6 @@ const TOPO_DARK = 0.12; // darkening at the centre of a topoline
 const TOPO_RELIEF = 0.25; // slope of the topoline groove in the detail normals
 const GEO_RADIUS = 48; // elmos of scorched ground around a geothermal vent
 const GRASS_COVER = 0.6; // share of a 32-elmo grass cell that must be grassy ground
-const GRASS_CLEAR = 64; // elmos kept clear of grass around metal spots, geos and start positions
 const VENT_GLOW = [150, 60, 20];
 const VENT_SCORCH = [24, 20, 18];
 const LAVA = [255, 96, 16];
@@ -400,17 +400,7 @@ function boxDown(rgb, w, h, f) {
 function grassBytes(doc, acc, tz0, tilesX) {
   const out = new Uint8Array(acc.length);
   for (let t = 0; t < acc.length; t++) out[t] = acc[t] / (TILE * TILE) > GRASS_COVER ? 255 : 0;
-  for (const o of doc.objects) {
-    if (o.type === 'feature') continue;
-    const r = GRASS_CLEAR / TILE;
-    for (let tz = Math.floor(o.z / TILE - r); tz <= Math.floor(o.z / TILE + r); tz++) {
-      if (tz < tz0 || tz >= tz0 + acc.length / tilesX) continue;
-      for (let tx = Math.max(0, Math.floor(o.x / TILE - r)); tx <= Math.min(tilesX - 1, Math.floor(o.x / TILE + r)); tx++) {
-        out[(tz - tz0) * tilesX + tx] = 0;
-      }
-    }
-  }
-  return out;
+  return clearResources(doc, out, tz0, tilesX);
 }
 
 function mix(out, color, w) {

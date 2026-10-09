@@ -19,6 +19,9 @@ export const markSaved = () => showSaveState('saved', 'Saved', SAVED_TIP);
 /** A map opened from an archive and not edited yet: not stored here (the archive has it). */
 export const markUnchanged = () => showSaveState('saved', 'Unchanged', 'Saved on this computer from your first change.');
 
+/** How many changes the open session has seen: equal counts mean the map did not change in between. */
+export const editCount = () => edits;
+
 export function scheduleSave(editor) {
   edits++;
   showSaveState('dirty', 'Unsaved changes', 'Saved on this computer a moment after you stop editing');

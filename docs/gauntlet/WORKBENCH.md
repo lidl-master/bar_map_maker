@@ -40,7 +40,7 @@ Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR s
 | WP | Scope | Status |
 |---|---|---|
 | 2.1 | Texture library: 24 CC0 ambientCG materials → albedo, DNTS (layout from the engine shader), thumbnails, licence manifest | merged |
-| 2.2 | Full BAR texture stack export | building |
+| 2.2 | Full BAR texture stack export | merged (90/90 tests; headless ok, 0 map errors; 32×32 Share 36 MB in 14 s, Standard 160 MB in 17 s) |
 | 2.3 | Tree/rock scatter with BAR built-in features, O(1) object ids | merged |
 | 2.4 | Commercial-grade UI: Inter + Lucide, welcome, New Map, editor shell, Look tab, feedback states, 125% layout | merged (61/61 tests) |
 | 2.5 | G3 in-engine screenshot tool (fixed camera presets, isolated windowed BAR) | merged |

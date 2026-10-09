@@ -47,6 +47,8 @@ Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR s
 | critic | Blind UI A/B, Wave 2 vs Wave 1 (3 pairs) | new UI preferred 3/3 (confidence 0.93 / 0.78 / 0.92) |
 | critic | Design score, 2 independent critics (pass: 8/10 from both) | 7.0 and 6.6: 3D viewport looks like a debug view, metal badges clutter, truncated hints, spinner-like symmetry glyph, garish pathing colours, dev copy |
 | 2.6 | UI polish: 32 fixes from both critics | merged (30 fixed, 2 partly: 3D marker de-overlap, pathing legend placement; hills 56% → 87.5% vehicle ground) |
+| critic | Design re-score after 2.6 (2 fresh critics) | 7.0 and 7.0 (was 7.0 / 6.6). Remaining: 3D depth (gradient, ground grid, contact shadow), tree glyphs in 2D, raw 7-Zip error text, export done/error card actions, sidebar nav vs CTA, open-map card names, units, preset state, stacked modals, generating state |
+| 2.8 | UI polish round 2 (re-score findings) | queued until 3.3 / 3.4 / 4.2 merge (same files) |
 | G3 critic | Blind in-game look A/B: our hills + volcano exports (mid/close) vs Pyroclast, Supreme Isthmus, Onyx Cauldron, Crimson Bay, Red River (8 pairs × 2 critics) | **ours preferred 11/16 (69%)**, bar ≥ 40%. Lost on: hills terrain reads as noise with brown contour stripes on slopes; volcano cliff walls look streaky/stretched; blocky mirrored layout; flat plateau floors |
 
 ## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)

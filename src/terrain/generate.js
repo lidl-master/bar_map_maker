@@ -3,6 +3,7 @@
 import { SQUARE, blendSymmetry, heightRange, symMode, worldSize } from '../core/index.js';
 import { smoothAll } from './brush.js';
 import { erode } from './erosion.js';
+import { scatterFeatures } from './features.js';
 import { fbm, makeSimplex, mulberry32, ridged, smoothstep } from './noise.js';
 import { placeResources } from './place.js';
 import { volcanoKing } from './volcano.js';
@@ -31,8 +32,10 @@ export const TEMPLATES = [
   },
 ];
 
+const FEATURE_DENSITY = 0.4; // trees and rocks every new map gets (the UI can rescatter at another density)
+
 /**
- * Replace the terrain and resources with a template.
+ * Replace the terrain, resources and scattered features with a template.
  * @param {{players:number, seed?:number}} opts players 2..16; noise templates also take overrides of their params.
  */
 export function generate(doc, templateId, { players, seed = 1, ...overrides }) {
@@ -40,6 +43,7 @@ export function generate(doc, templateId, { players, seed = 1, ...overrides }) {
   if (!t) throw new RangeError(`unknown template '${templateId}'`);
   doc.settings.lava.enabled = false;
   t.build(doc, { ...t.params, ...overrides, players, seed });
+  scatterFeatures(doc, { density: FEATURE_DENSITY, seed });
 }
 
 // Style shape functions: (x, z) in feature-size units, (u, v) normalized map position -> raw value.

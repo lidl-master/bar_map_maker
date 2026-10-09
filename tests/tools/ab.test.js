@@ -23,7 +23,7 @@ test('A/B files match the key, and both orders occur', () => {
     assert.deepEqual(readFileSync(join(pairDir, 'A.png')), readFileSync(source[key.A]));
     assert.deepEqual(readFileSync(join(pairDir, 'B.png')), readFileSync(source[key.B]));
     assert.notEqual(key.A, key.B);
-    assert.ok(existsSync(join(root, 'docs', 'gauntlet', '.keys', `pair-${i}.json`)));
+    assert.ok(existsSync(join(root, 'keys', `pair-${i}.json`)));
     orders.add(key.A);
   }
   assert.deepEqual([...orders].sort(), ['ours', 'reference']); // fails by chance with p = 2^-39
@@ -39,5 +39,5 @@ test('rejects path-like pair ids and non-PNG input', () => {
   const text = join(root, 'not-a-png.png');
   writeFileSync(text, 'hello');
   assert.throws(() => makePair(root, 'text', text, reference), /ours image is not a PNG/);
-  assert.equal(existsSync(join(root, 'docs', 'gauntlet', 'ab', 'text')), false);
+  assert.equal(existsSync(join(root, 'pairs', 'text')), false);
 });

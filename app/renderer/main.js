@@ -198,6 +198,14 @@ const editor = {
     afterDocChange(all);
   },
 
+  /** One undoable step that swaps in a whole new doc of another size (src/core extendMap / resizeMap). */
+  replaceDoc(next, label) {
+    editor.history.replace(editor.doc, next, label);
+    showDoc(next);
+    afterDocChange(null);
+    updateUndoButtons();
+  },
+
   editObjects(label, change) {
     editor.history.begin(editor.doc, label);
     change();
@@ -236,10 +244,18 @@ const editor = {
   },
 };
 
-function afterHistory(entry) {
-  if (!entry) return;
-  afterDocChange(entry.rect);
+function afterHistory(step) {
+  if (!step) return;
+  if (step.doc !== editor.doc) showDoc(step.doc); // undo or redo of a reshape
+  afterDocChange(step.rect);
   updateUndoButtons();
+}
+
+// Another doc object takes over the editor (a reshape or its undo): the views resize to it.
+function showDoc(doc) {
+  editor.doc = doc;
+  view2d.setDoc(doc);
+  view3d.setDoc(doc);
 }
 
 // After a step that may have replaced objects, symmetry or settings: the panels hold references into the doc, so rebuild them.

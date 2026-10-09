@@ -1,4 +1,4 @@
-/* Screens and floating UI: welcome, template cards, modals (New Map, shortcuts, confirm), toasts, export panel, tooltip. */
+/* Screens and floating UI: welcome, template cards, modals (New Map, Map size, shortcuts, confirm), toasts, export panel, tooltip. */
 
 /* ---- welcome */
 .welcome { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100%; animation: fade-in var(--dur) var(--ease); }
@@ -151,6 +151,31 @@ dialog.modal::backdrop { background: rgba(6, 8, 11, 0.66); animation: fade-in va
 .sym-grid input:checked + .body svg { color: var(--accent); }
 .sym-grid .name { font-size: var(--fs-11); white-space: nowrap; }
 .biome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* ---- Map size (extend, crop, resize) */
+.rs-open { margin-top: var(--s-3); }
+.rs { display: flex; flex-direction: column; gap: var(--s-4); }
+.rs-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: '. north .' 'west preview east' '. south .';
+  align-items: center;
+  justify-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+.rs-side { display: flex; flex-direction: column; align-items: center; gap: var(--s-1); }
+.rs-side.north { grid-area: north; }
+.rs-side.east { grid-area: east; }
+.rs-side.south { grid-area: south; }
+.rs-side.west { grid-area: west; }
+.rs-label { font-size: var(--fs-11); font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.rs-preview { grid-area: preview; display: block; width: 240px; height: 240px; border-radius: var(--r-md); background: var(--bg-0); box-shadow: inset 0 0 0 1px var(--line-1); }
+.rs-resize { display: flex; align-items: center; gap: var(--s-6); }
+.rs-resize-controls { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.rs-resize-controls .note { margin: 0; }
+.rs-warn { display: flex; gap: var(--s-2); color: var(--warn); font-size: var(--fs-12); }
+.rs-summary { display: flex; align-items: center; gap: var(--s-2); color: var(--text-2); font-size: var(--fs-12); font-variant-numeric: tabular-nums; min-width: 0; }
+.rs-summary.warn { color: var(--warn); }
 
 /* ---- shortcuts overlay */
 .sc-columns { columns: 3 220px; column-gap: var(--s-8); }

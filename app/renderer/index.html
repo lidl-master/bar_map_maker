@@ -172,6 +172,21 @@
   </footer>
 </dialog>
 
+<!-- Map size: extend, crop or resize (Map tab); filled by reshape.js -->
+<dialog id="dlgReshape" class="modal" aria-labelledby="rsTitle">
+  <header class="modal-head">
+    <h2 id="rsTitle">Map size</h2>
+    <button class="btn ghost square" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </header>
+  <div id="rsBody" class="modal-body rs"></div>
+  <footer class="modal-foot">
+    <span id="rsSummary" class="rs-summary"></span>
+    <span class="spacer"></span>
+    <button class="btn" data-close>Cancel</button>
+    <button id="rsApply" class="btn primary"><i data-icon="check"></i>Apply</button>
+  </footer>
+</dialog>
+
 <!-- Keyboard shortcuts (?) -->
 <dialog id="dlgShortcuts" class="modal" aria-labelledby="scTitle">
   <header class="modal-head">

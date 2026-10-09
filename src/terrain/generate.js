@@ -18,16 +18,18 @@ const noiseTemplate = (id, label, description, params) => ({ id, label, descript
 
 export const TEMPLATES = [
   noiseTemplate('flat', 'Flat', 'A nearly flat plain to sculpt from scratch.', { minHeight: 94, maxHeight: 106, roughness: 0 }),
-  noiseTemplate('hills', 'Rolling hills', 'Gentle hills with a few ponds.', { minHeight: -40, maxHeight: 350, water: 5, warp: 0.6, erosion: 0.3 }),
+  // Broad, low-octave and barely warped so most land stays vehicle-passable (<= 27°).
+  noiseTemplate('hills', 'Rolling hills', 'Gentle hills with a few ponds.', { minHeight: -40, maxHeight: 350, water: 5, featureSize: 2400, roughness: 0.1, warp: 0.2, erosion: 0.1 }),
   noiseTemplate('mountains', 'Mountains', 'Ridged mountain ranges with eroded valleys.', { minHeight: -30, maxHeight: 700, water: 3, featureSize: 2200, roughness: 0.55, warp: 0.5, erosion: 0.5 }),
   noiseTemplate('mesas', 'Plateaus', 'Flat-topped plateaus separated by cliffs.', { maxHeight: 450, featureSize: 1600, roughness: 0.4, warp: 0.8, terraces: 4, erosion: 0.15 }),
   noiseTemplate('canyons', 'Canyons', 'A high plateau cut by winding canyons.', { minHeight: -20, maxHeight: 500, featureSize: 2500, roughness: 0.45, warp: 0.7, erosion: 0.3 }),
   noiseTemplate('islands', 'Islands', 'An archipelago in a sea that deepens towards the map edges.', { minHeight: -150, maxHeight: 300, water: 45, featureSize: 1800, warp: 0.6, edges: 'sink', erosion: 0.2 }),
-  noiseTemplate('continents', 'Two shores', 'Two land masses facing each other across a sea channel on the symmetry line.', { minHeight: -120, maxHeight: 350, water: 30, warp: 0.5, erosion: 0.25 }),
+  noiseTemplate('continents', 'Two shores', 'Two land masses facing each other across a sea channel.', { minHeight: -120, maxHeight: 350, water: 30, warp: 0.5, erosion: 0.25 }),
   noiseTemplate('craters', 'Craters', 'Moon-like ground pocked with craters.', { warp: 0.2 }),
   {
-    id: 'volcano-koth', label: 'Volcano – King of the Hill', symmetry: 'mirrorX', build: volcanoKing,
-    description: 'One-way uphill assault: attackers start in the southern lowlands, the kings hold a volcano summit in the north. '
+    id: 'volcano-koth', label: 'Volcano – King of the Hill', short: 'Volcano KotH', symmetry: 'mirrorX', build: volcanoKing,
+    description: 'Kings hold a volcano peak; attackers climb from the south.',
+    details: 'One-way uphill assault: attackers start in the southern lowlands, the kings hold a volcano summit in the north. '
       + 'Four cliff tiers with ever fewer, narrower ramps; two lava rivers split three lanes. Half the players are kings.',
   },
 ];

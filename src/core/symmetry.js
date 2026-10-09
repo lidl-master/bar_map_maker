@@ -12,14 +12,14 @@ export const tz = (t, x, z, ez) => { const v = t & 4 ? x : z; return t & 2 ? ez 
 // depth(u, v): how deep a normalized point lies inside the source domain (< 0 = outside).
 // rot90 lists R180 second so a 2-player trim of its orbit picks opposite corners.
 export const SYMMETRY = {
-  none: { label: 'None (free-form)', T: [I], src: () => true },
-  mirrorX: { label: 'Mirror left ↔ right', T: [I, MX], src: (i, j, a) => 2 * i <= a, depth: (u) => 0.5 - u },
-  mirrorZ: { label: 'Mirror top ↕ bottom', T: [I, MZ], src: (i, j, a, b) => 2 * j <= b, depth: (u, v) => 0.5 - v },
-  rot180: { label: 'Rotate 180° (point)', T: [I, R180], src: (i, j, a, b) => 2 * i < a || (2 * i === a && 2 * j <= b), depth: (u) => 0.5 - u },
-  diag: { label: 'Mirror diagonal ╲', square: true, T: [I, DIAG], src: (i, j) => i >= j, depth: (u, v) => (u - v) * 0.7071 },
-  adiag: { label: 'Mirror diagonal ╱', square: true, T: [I, ADIAG], src: (i, j, a) => i + j <= a, depth: (u, v) => (1 - u - v) * 0.7071 },
-  quad: { label: 'Quad mirror (4 corners)', T: [I, MX, MZ, R180], src: (i, j, a, b) => 2 * i <= a && 2 * j <= b, depth: (u, v) => Math.min(0.5 - u, 0.5 - v) },
-  rot90: { label: 'Rotate 90° (4-way)', square: true, T: [I, R180, R90, R270], src: (i, j, a, b) => 2 * i < a && 2 * j <= b, depth: (u, v) => Math.min(0.5 - u, 0.5 - v) },
+  none: { label: 'None', T: [I], src: () => true },
+  mirrorX: { label: 'Mirror left–right', T: [I, MX], src: (i, j, a) => 2 * i <= a, depth: (u) => 0.5 - u },
+  mirrorZ: { label: 'Mirror top–bottom', T: [I, MZ], src: (i, j, a, b) => 2 * j <= b, depth: (u, v) => 0.5 - v },
+  rot180: { label: 'Rotate 180°', T: [I, R180], src: (i, j, a, b) => 2 * i < a || (2 * i === a && 2 * j <= b), depth: (u) => 0.5 - u },
+  diag: { label: 'Diagonal (TL–BR)', square: true, T: [I, DIAG], src: (i, j) => i >= j, depth: (u, v) => (u - v) * 0.7071 },
+  adiag: { label: 'Diagonal (TR–BL)', square: true, T: [I, ADIAG], src: (i, j, a) => i + j <= a, depth: (u, v) => (1 - u - v) * 0.7071 },
+  quad: { label: 'Quad mirror', T: [I, MX, MZ, R180], src: (i, j, a, b) => 2 * i <= a && 2 * j <= b, depth: (u, v) => Math.min(0.5 - u, 0.5 - v) },
+  rot90: { label: 'Rotate 90°', square: true, T: [I, R180, R90, R270], src: (i, j, a, b) => 2 * i < a && 2 * j <= b, depth: (u, v) => Math.min(0.5 - u, 0.5 - v) },
 };
 
 /** The doc's symmetry mode. Throws on an unknown mode or a square-only mode on a non-square map. */

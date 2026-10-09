@@ -5,14 +5,9 @@ import { $, el, emptyState } from './dom.js';
 import { icon } from './icons.js';
 import { listMaps } from './recent.js';
 import { openShortcuts } from './shortcuts.js';
-import { paintThumb, templateThumbs, thumbFailed, thumbFrame } from './thumbs.js';
+import { paintThumb, showcaseBiome, templateThumbs, thumbFailed, thumbFrame } from './thumbs.js';
 
-// Each card previews its template in the biome it suits best; picking the card starts New Map with that biome.
-const SHOWCASE = {
-  flat: 'temperate', hills: 'temperate', mountains: 'arctic', mesas: 'desert', canyons: 'redPlanet',
-  islands: 'tropical', continents: 'temperate', craters: 'lunar', 'volcano-koth': 'volcanic',
-};
-const PLAYERS = '2–16 players'; // every template places 2..16 players (src/terrain checkPlayers)
+const THUMB_PX = 640; // canvas width: twice the widest card
 const ago = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
 export function initWelcome(app) {
@@ -21,19 +16,20 @@ export function initWelcome(app) {
   $('wContinue').addEventListener('click', () => app.showScreen('editor'));
 
   const frames = new Map();
+  // One chip row per card: the biome it is shown in, and a lock when the template sets its own symmetry.
   $('wTemplates').append(...TEMPLATES.map((t) => {
-    const frame = thumbFrame(), biome = SHOWCASE[t.id] ?? 'temperate';
+    const frame = thumbFrame(), biome = showcaseBiome(t.id);
     frames.set(t.id, frame);
-    const tags = el('span', { class: 'tags' }, el('span', { class: 'badge' }, icon('users'), PLAYERS), el('span', { class: 'badge' }, BIOMES[biome].label));
-    if (t.symmetry) tags.append(el('span', { class: 'badge accent' }, icon('lock'), 'Fixed symmetry'));
+    const tags = el('span', { class: 'tags' }, el('span', { class: 'badge' }, BIOMES[biome].label),
+      t.symmetry ? el('span', { class: 'badge', 'data-tip': 'The template sets its own symmetry' }, icon('lock'), 'Fixed symmetry') : null);
     return el('button', { class: 'tpl-card', 'data-template': t.id, onclick: () => app.openNewMap({ template: t.id, biome }) },
       frame, el('span', { class: 'text' }, el('span', { class: 'name' }, t.label), el('span', { class: 'desc' }, t.description), tags));
   }));
 
   // 6 × 4 previews fill the 3:2 cards edge to edge.
-  const items = TEMPLATES.map((t) => ({ id: t.id, symmetry: 'rot180', biome: SHOWCASE[t.id] ?? 'temperate', sx: 6, sz: 4 }));
+  const items = TEMPLATES.map((t) => ({ id: t.id, symmetry: 'rot180', biome: showcaseBiome(t.id), sx: 6, sz: 4 }));
   templateThumbs(items, 4).then(
-    (thumbs) => { for (const [id, thumb] of thumbs) paintThumb(frames.get(id), thumb); },
+    (thumbs) => { for (const [id, thumb] of thumbs) paintThumb(frames.get(id), thumb, THUMB_PX); },
     (error) => {
       console.error(error);
       for (const frame of frames.values()) thumbFailed(frame);
@@ -44,7 +40,7 @@ export function initWelcome(app) {
 /** Refreshes "continue editing" and the recent maps; called whenever the welcome screen is shown. */
 export async function refreshWelcome(app) {
   $('wContinue').hidden = !app.doc;
-  if (app.doc) $('wContinue').querySelector('.label').textContent = `Continue editing ${app.doc.settings.name}`;
+  if (app.doc) $('wContinue').querySelector('.action-text span').textContent = app.doc.settings.name;
   const list = $('recentList');
   try {
     const maps = await listMaps();
@@ -60,8 +56,11 @@ function recentRow(m, app) {
   canvas.getContext('2d').putImageData(new ImageData(m.thumb.rgba, m.thumb.size, m.thumb.size), 0, 0);
   const minutes = Math.round((m.savedAt - Date.now()) / 60000);
   const when = Math.abs(minutes) < 60 ? ago.format(minutes, 'minute') : Math.abs(minutes) < 1440 ? ago.format(Math.round(minutes / 60), 'hour') : ago.format(Math.round(minutes / 1440), 'day');
-  return el('button', { class: 'recent', onclick: () => app.openRecent(m.key) },
+  // The whole row opens the map; on hover the time gives way to a ghost Open button.
+  const editing = app.docKey === m.key;
+  return el('button', { class: 'recent', onclick: () => app.openRecent(m.key), 'aria-label': `Open ${m.name}` },
     canvas,
-    el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num' }, `${m.sx} × ${m.sz} · ${BIOMES[m.biome]?.label ?? m.biome} · ${m.players} players`)),
-    app.docKey === m.key ? el('span', { class: 'badge accent' }, 'Open') : el('span', { class: 'when' }, when));
+    el('span', {}, el('span', { class: 'name' }, m.name), el('span', { class: 'meta num', 'data-tip': BIOMES[m.biome]?.label ?? m.biome }, `${m.sx}×${m.sz} · ${m.players}p`)),
+    el('span', { class: 'when' }, editing ? 'Editing' : when),
+    el('span', { class: 'open-ghost', 'aria-hidden': 'true' }, 'Open'));
 }

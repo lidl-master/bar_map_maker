@@ -23,8 +23,8 @@
       </div>
     </div>
     <div class="wl-actions">
-      <button id="wContinue" class="action" hidden><span class="action-icon"><i data-icon="arrow-right"></i></span><span class="action-text"><strong class="label"></strong><span>Back to the editor</span></span></button>
-      <button id="wNew" class="action primary"><span class="action-icon"><i data-icon="plus"></i></span><span class="action-text"><strong>New map</strong><span>From a template</span></span><kbd class="on-accent">Ctrl N</kbd></button>
+      <button id="wContinue" class="action" hidden><span class="action-icon"><i data-icon="arrow-right"></i></span><span class="action-text"><strong>Continue editing</strong><span></span></span></button>
+      <button id="wNew" class="action primary"><span class="action-icon"><i data-icon="plus"></i></span><span class="action-text"><strong>New map</strong><span>From a template</span></span><span data-keys="Ctrl+N" class="on-accent"></span></button>
       <button id="wOpen" class="action"><span class="action-icon"><i data-icon="folder-open"></i></span><span class="action-text"><strong>Open existing BAR map</strong><span>Edit or extend an installed map</span></span></button>
     </div>
     <div class="wl-recent">
@@ -33,13 +33,13 @@
     </div>
     <div class="wl-foot">
       <button id="wHelp" class="link"><i data-icon="keyboard"></i>Keyboard shortcuts</button>
-      <kbd>?</kbd>
+      <span data-keys="?"></span>
     </div>
   </aside>
   <main id="wTemplatesView" class="wl-main">
     <header class="wl-head">
       <h2>Start from a template</h2>
-      <p>Pick a starting terrain. Size, players, symmetry and biome come next.</p>
+      <p>Pick a starting terrain. Every template takes 2 to 16 players; size, symmetry and biome come next.</p>
     </header>
     <div id="wTemplates" class="tpl-gallery"></div>
   </main>
@@ -50,7 +50,7 @@
         <h2>Open a BAR map</h2>
         <p id="oWhere">Maps in your BAR maps folder. Opening a map only reads it; the BAR folder is never changed.</p>
       </div>
-      <button id="oBrowse" class="btn"><i data-icon="folder-search"></i><span>Browse…</span></button>
+      <button id="oBrowse" class="btn accent-icon" data-tip="Open a .sd7 or .sdz map file from anywhere"><i data-icon="folder-search"></i><span>Browse…</span></button>
     </header>
     <div id="oError" class="open-error" role="alert" hidden></div>
     <div id="oMaps" class="tpl-gallery map-gallery"></div>
@@ -62,7 +62,7 @@
   <header id="topbar">
     <div class="tb-left">
       <button id="btnHome" class="logo-btn" data-tip="Home" aria-label="Home"><span class="logo"><i data-icon="mountain-snow"></i></span></button>
-      <button id="btnNew" class="btn ghost square" data-tip="New map" data-key="Ctrl+N" aria-label="New map"><i data-icon="file-plus"></i></button>
+      <button id="btnNew" class="btn ghost square" data-tip="New map" data-key="Ctrl+N" aria-label="New map"><i data-icon="map-plus"></i></button>
       <span class="tb-sep"></span>
       <input id="mapName" class="map-name" spellcheck="false" maxlength="80" aria-label="Map name" data-tip="Rename map">
       <span id="mapMeta" class="map-meta num"></span>
@@ -80,8 +80,18 @@
       <button id="btnRedo" class="btn ghost square" data-tip="Redo" data-key="Ctrl+Y" aria-label="Redo"><i data-icon="redo-2"></i></button>
       <button id="btnHelp" class="btn ghost square" data-tip="Keyboard shortcuts" data-key="?" aria-label="Keyboard shortcuts"><i data-icon="keyboard"></i></button>
       <span class="tb-sep"></span>
-      <button id="btnInstall" class="btn" data-tip="Export, then copy into your BAR maps folder (asks first)"><i data-icon="hard-drive-download"></i><span>Install to BAR</span></button>
-      <button id="btnExport" class="btn primary" data-tip="Write a playable map archive" data-key="Ctrl+E"><i data-icon="package"></i><span>Export</span></button>
+      <button id="btnInstall" class="btn" data-tip="Export, then copy into your BAR maps folder (asks first)" aria-label="Install to BAR"><i data-icon="hard-drive-download"></i><span>Install to BAR</span></button>
+      <div class="split-btn">
+        <button id="btnExport" class="btn primary" data-tip="Write a playable map archive" data-key="Ctrl+E"><i data-icon="file-output"></i><span>Export</span></button>
+        <button id="btnExportOptions" class="btn primary square" popovertarget="exportOptions" data-tip="Export options" aria-label="Export options"><i data-icon="chevron-down"></i></button>
+      </div>
+    </div>
+    <div id="exportOptions" class="popover menu export-options" popover aria-label="Export options">
+      <h4>Export quality</h4>
+      <div id="qualityChoice"></div>
+      <p id="qualityHelp" class="note"></p>
+      <div class="menu-sep" role="separator"></div>
+      <button id="btnExportDir" class="menu-item"><i data-icon="folder-open"></i>Change export folder…</button>
     </div>
   </header>
 
@@ -91,14 +101,12 @@
     <div id="wrap2d">
       <canvas id="canvas2d"></canvas>
       <div class="overlay top">
-        <div id="hint" class="hint-chip"></div>
+        <div id="toolChip" class="tool-chip glass" role="status" hidden></div>
         <span class="spacer"></span>
-        <div class="zoom glass">
-          <button id="btnFeatures" aria-pressed="true" data-tip="Show trees and rocks" aria-label="Show trees and rocks"><i data-icon="trees"></i></button>
-        </div>
-        <div class="seg glass" id="displayMode" role="group" aria-label="Colours">
-          <button data-mode="look" aria-pressed="true" data-tip="The map's colours"><i data-icon="image"></i><span>Look</span></button>
-          <button data-mode="pathing" aria-pressed="false" data-tip="Where units can go: vehicles up to 27°, bots up to 54°"><i data-icon="route"></i><span>Pathing</span></button>
+        <button id="btnOverlays" class="glass-btn glass" popovertarget="overlayMenu" data-tip="Overlays" aria-label="Overlays"><i data-icon="layers"></i></button>
+        <div class="seg glass" id="displayMode" role="group" aria-label="Map colours">
+          <button data-mode="look" aria-pressed="true" data-tip="Shaded terrain in the map's own colours" aria-label="Shaded"><i data-icon="mountain"></i><span>Shaded</span></button>
+          <button data-mode="pathing" aria-pressed="false" data-tip="Where units can go: vehicles up to 27°, bots up to 54°" aria-label="Pathing"><i data-icon="footprints"></i><span>Pathing</span></button>
         </div>
         <div class="zoom glass">
           <button id="btnZoomOut" data-tip="Zoom out" aria-label="Zoom out"><i data-icon="minus"></i></button>
@@ -108,13 +116,32 @@
           <button id="btnFit" data-tip="Fit map to view" data-key="Home" aria-label="Fit map to view"><i data-icon="scan"></i></button>
         </div>
       </div>
-      <div id="legend" class="legend glass" hidden></div>
+      <div class="overlay bottom">
+        <div id="scaleBar" class="scale-bar glass" aria-hidden="true"><span class="bar"></span><span class="label num"></span></div>
+        <span class="spacer"></span>
+        <div id="legend" class="legend glass" hidden></div>
+      </div>
     </div>
+    <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize the 2D and 3D views" tabindex="0" data-tip="Drag to resize"></div>
     <div id="wrap3d">
       <div id="view3d"></div>
-      <div class="overlay bottom-left"><div class="hint-chip"><i data-icon="mouse"></i>Left-drag rotate · Right-drag pan · Wheel zoom</div></div>
+      <div class="overlay top-right">
+        <div class="zoom glass" role="group" aria-label="3D camera">
+          <button id="btn3dFit" data-tip="Fit map to view" aria-label="Fit map to view"><i data-icon="scan"></i></button>
+          <button id="btn3dTop" data-tip="Top view" aria-label="Top view"><i data-icon="arrow-down-to-dot"></i></button>
+          <button id="btn3dReset" data-tip="Reset camera" aria-label="Reset camera"><i data-icon="rotate-ccw"></i></button>
+        </div>
+        <button id="compass" class="compass glass" data-tip="North: the sun is in the north on BAR maps. Click to face north" aria-label="Face north"></button>
+      </div>
+      <div id="hint3d" class="overlay bottom-center"><div class="hint-chip"><i data-icon="mouse"></i><span>Left-drag rotate · Right-drag pan · Wheel zoom</span></div></div>
     </div>
   </section>
+  <div id="overlayMenu" class="popover menu" popover aria-label="Overlays">
+    <h4>Overlays</h4>
+    <button class="menu-check" data-overlay="features" role="menuitemcheckbox" aria-checked="true" data-tip="Trees and rocks on the map"><i data-icon="trees"></i><span>Features</span><i data-icon="check" class="tick"></i></button>
+    <button class="menu-check" data-overlay="labels" role="menuitemcheckbox" aria-checked="true" data-tip="Metal values that differ from the usual one, and all of them from 150 % zoom"><i data-icon="tag"></i><span>Labels</span><i data-icon="check" class="tick"></i></button>
+    <button class="menu-check" data-overlay="guides" role="menuitemcheckbox" aria-checked="true" data-tip="The symmetry centre and mirror lines"><i data-icon="square-centerline-dashed-vertical"></i><span>Symmetry guides</span><i data-icon="check" class="tick"></i></button>
+  </div>
 
   <aside id="panel" aria-label="Inspector">
     <div class="tabs" id="tabs" role="tablist">
@@ -130,7 +157,7 @@
   </aside>
 
   <footer id="status">
-    <span id="stCursor" class="st num"><i data-icon="crosshair"></i><span class="label">Move over the map</span></span>
+    <span id="stCursor" class="st"></span>
     <span id="stSlope" class="st"></span>
     <span class="spacer"></span>
     <span id="stCounts" class="st counts"></span>
@@ -160,10 +187,7 @@
         <span id="nmSizeNote" class="note num"></span>
       </div>
       <h3 class="later">Players</h3>
-      <div class="stepper">
-        <button id="nmPlayersDown" class="btn square" aria-label="Fewer players"><i data-icon="minus"></i></button>
-        <input id="nmPlayers" class="field" type="number" min="2" max="16" value="2" aria-label="Players">
-        <button id="nmPlayersUp" class="btn square" aria-label="More players"><i data-icon="plus"></i></button>
+      <div id="nmPlayersRow" class="players-row">
         <span class="note">Starts, metal spots and geos are placed for every player.</span>
       </div>
     </section>
@@ -180,7 +204,7 @@
     <span id="nmSummary" class="muted num"></span>
     <span class="spacer"></span>
     <button class="btn" data-close>Cancel</button>
-    <button id="nmCreate" class="btn primary"><i data-icon="sparkles"></i>Create map</button>
+    <button id="nmCreate" class="btn primary"><i data-icon="plus"></i>Create map</button>
   </footer>
 </dialog>
 
@@ -200,7 +224,7 @@
 </dialog>
 
 <!-- Keyboard shortcuts (?) -->
-<dialog id="dlgShortcuts" class="modal" aria-labelledby="scTitle">
+<dialog id="dlgShortcuts" class="modal shortcuts" aria-labelledby="scTitle" tabindex="-1">
   <header class="modal-head">
     <h2 id="scTitle">Keyboard shortcuts</h2>
     <button class="btn ghost square" data-close aria-label="Close"><i data-icon="x"></i></button>

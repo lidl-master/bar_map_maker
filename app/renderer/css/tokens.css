@@ -16,7 +16,7 @@
   --bg-1: #15171c;
   --bg-2: #1c1f26;
   --bg-3: #242832; /* hover on raised surfaces only */
-  --glass: rgba(21, 23, 28, 0.86); /* overlays floating on the map */
+  --glass: rgba(21, 23, 28, 0.92); /* overlays floating on the map */
   --hover: rgba(255, 255, 255, 0.05);
   --press: rgba(255, 255, 255, 0.09);
   --line-1: #262a33; /* dividers */
@@ -25,16 +25,16 @@
 
   /* Text: every tier is at least 4.5:1 on every surface. */
   --text-1: #eceef2;
-  --text-2: #a3a9b6;
-  --text-3: #8a91a0;
+  --text-2: #adb3bf;
+  --text-3: #9aa1ae; /* 4.5:1 even on --line-2 and the tooltip */
   --text-on-accent: #ffffff;
 
-  /* One accent. --accent-fill carries white text at 4.6:1. */
+  /* One accent. --accent-fill carries white text at 5.3:1 (hover 6.1:1, press 7:1). */
   --accent: #7aa5ff;
-  --accent-fill: #3a6fe0;
-  --accent-fill-hover: #3366da;
-  --accent-fill-press: #2c5cc8;
-  --accent-soft: rgba(58, 111, 224, 0.18);
+  --accent-fill: #2f64d8;
+  --accent-fill-hover: #2a5bc9;
+  --accent-fill-press: #2552b8;
+  --accent-soft: rgba(47, 100, 216, 0.2);
   --focus: #7aa5ff;
 
   /* State colours: only for success, warning and danger. */
@@ -72,6 +72,7 @@
   --r-xl: 14px;
 
   --h-control: 28px;
+  --w-value: 60px; /* every number field next to a slider or stepper */
   --topbar-h: 48px;
   --status-h: 24px;
   --rail-w: 52px;
@@ -111,6 +112,7 @@ input, textarea { user-select: text; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--line-3); }
 ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
 
+/* One icon size (16 px; the tool rail alone uses 20) and one stroke (1.5 px at every size). */
 .icon {
   width: 16px;
   height: 16px;
@@ -121,28 +123,34 @@ input, textarea { user-select: text; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.icon > * { vector-effect: non-scaling-stroke; } /* one stroke weight (1.5 px) at every icon size */
-.icon.lg { width: 20px; height: 20px; }
+.icon > * { vector-effect: non-scaling-stroke; }
 
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--text-2); }
 .spacer { flex: 1; }
 
+/* The one key-cap component (dom.js keys()): one chip per key, joined by a thin "+". */
+.keys { display: inline-flex; align-items: center; gap: 3px; color: var(--text-3); font-size: var(--fs-11); white-space: nowrap; }
+.keys .plus { color: var(--text-3); font-size: var(--fs-11); }
+.keys .or { margin: 0 var(--s-1); color: var(--text-2); font-size: var(--fs-12); }
+.keys .mouse { color: var(--text-2); font-size: var(--fs-12); }
 kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 var(--s-1);
+  padding: 0 5px;
   border: 1px solid var(--line-2);
   border-bottom-width: 2px;
   border-radius: var(--r-sm);
   background: var(--bg-2);
-  color: var(--text-2);
+  color: var(--text-1);
   font: 500 var(--fs-11) / 1 var(--font);
   font-variant-numeric: tabular-nums;
 }
+.keys.on-accent kbd { background: rgba(0, 0, 0, 0.22); border-color: rgba(0, 0, 0, 0.3); color: #fff; }
+.keys.on-accent .plus { color: #fff; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-in { from { opacity: 0; } }

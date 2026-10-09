@@ -11,7 +11,8 @@ export function union(a, b) {
   return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 }
 
-function falloff(d, hardness) {
+/** Brush weight at normalised distance d (0 centre, 1 edge): full inside `hardness`, then a smoothstep to 0. */
+export function falloff(d, hardness) {
   if (d >= 1) return 0;
   const h = Math.min(0.98, hardness);
   if (d <= h) return 1;

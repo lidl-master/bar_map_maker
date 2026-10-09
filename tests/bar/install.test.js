@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { gunzipSync } from 'node:zlib';
 import { TEMP_ROOT } from '../../src/archive/index.js';
-import { installMap } from '../../src/bar/index.js';
+import { installMap, planInstall } from '../../src/bar/index.js';
 
 mkdirSync(TEMP_ROOT, { recursive: true });
 const root = mkdtempSync(join(TEMP_ROOT, 'install-test-'));
@@ -22,7 +22,12 @@ test('installs with an md5 sidecar and removes the same map under the other exte
     writeFileSync(join(mapsDir, name), 'old');
   }
 
+  const plan = planInstall(archive, { mapsDir });
   const { installedPath, removed } = await installMap(archive, { mapsDir });
+
+  // The confirm dialog names every file the install overwrites or removes, and nothing else.
+  const replaced = ['My_Map_1.0.sdz.md5.gz', 'my_map_1.0.sd7', 'my_map_1.0.sd7.md5.gz', 'my_map_1.0.sdz'];
+  assert.deepEqual(plan.replaces.sort(), replaced.map((name) => join(mapsDir, name)).sort());
 
   assert.equal(installedPath, join(mapsDir, 'my_map_1.0.sd7'));
   assert.deepEqual(removed.sort(), [join(mapsDir, 'My_Map_1.0.sdz.md5.gz'), join(mapsDir, 'my_map_1.0.sdz')].sort());

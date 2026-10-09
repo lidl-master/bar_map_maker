@@ -13,11 +13,24 @@ export function bindBarActions(editor) {
   );
 }
 
+export async function changeExportDir() {
+  try {
+    const dir = await window.studio.chooseExportDir();
+    if (dir) toast(`Maps will be exported to ${dir}`, 6000);
+  } catch (error) {
+    toast(`Error: ${error.message}`, 8000);
+  }
+}
+
 function exportMap(editor) {
   return busy('Exporting…', async () => {
-    const { archivePath, bytes } = await window.studio.exportMap(editor.doc);
-    toast(`Exported ${archivePath} (${megabytes(bytes)})`, 6000);
-    return archivePath;
+    const result = await window.studio.exportMap(editor.doc);
+    if (result.cancelled) {
+      toast('Export cancelled: no export folder was chosen.');
+      return undefined;
+    }
+    toast(`Exported ${result.archivePath} (${megabytes(result.bytes)})`, 6000);
+    return result.archivePath;
   });
 }
 

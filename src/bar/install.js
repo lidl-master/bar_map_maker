@@ -13,6 +13,32 @@ async function md5(path) {
   return hash.digest('hex');
 }
 
+// The replace rule, shared by planInstall and installMap: every file in mapsDir that is this map under either
+// extension, with or without its sidecar. Same extension: overwritten; other extension: removed.
+function sameMap(archivePath, mapsDir) {
+  const name = basename(archivePath);
+  const match = ARCHIVE.exec(name);
+  if (!match || match[3]) throw new Error(`not a map archive (.sd7 or .sdz): ${name}`);
+  const files = [];
+  for (const entry of readdirSync(mapsDir)) {
+    const other = ARCHIVE.exec(entry);
+    if (other && other[1].toLowerCase() === match[1].toLowerCase()) {
+      files.push({ path: join(mapsDir, entry), otherExtension: other[2].toLowerCase() !== match[2].toLowerCase() });
+    }
+  }
+  return { name, files };
+}
+
+/**
+ * What installMap would replace, for the user to confirm first.
+ * @param {string} archivePath
+ * @param {{mapsDir: string}} options
+ * @returns {{mapsDir: string, replaces: string[]}}
+ */
+export function planInstall(archivePath, { mapsDir }) {
+  return { mapsDir, replaces: sameMap(archivePath, mapsDir).files.map((file) => file.path) };
+}
+
 /**
  * Copies the archive into mapsDir with its `.md5.gz` sidecar (gzip of "<md5>  <file name>\n", as BAR writes it),
  * then removes archives of the same name with the other extension (.sd7 vs .sdz) and their sidecars.
@@ -21,22 +47,14 @@ async function md5(path) {
  * @returns {Promise<{installedPath: string, removed: string[]}>}
  */
 export async function installMap(archivePath, { mapsDir }) {
-  const name = basename(archivePath);
-  const match = ARCHIVE.exec(name);
-  if (!match || match[3]) throw new Error(`not a map archive (.sd7 or .sdz): ${name}`);
+  const { name, files } = sameMap(archivePath, mapsDir);
   const installedPath = join(mapsDir, name);
   const partial = `${installedPath}.partial`; // BAR only scans .sd7/.sdz, so it never sees a half-copied file
   copyFileSync(archivePath, partial);
   renameSync(partial, installedPath);
   writeFileSync(`${installedPath}.md5.gz`, gzipSync(`${await md5(installedPath)}  ${name}\n`));
 
-  const removed = [];
-  for (const entry of readdirSync(mapsDir)) {
-    const other = ARCHIVE.exec(entry);
-    if (other && other[1].toLowerCase() === match[1].toLowerCase() && other[2].toLowerCase() !== match[2].toLowerCase()) {
-      rmSync(join(mapsDir, entry));
-      removed.push(join(mapsDir, entry));
-    }
-  }
+  const removed = files.filter((file) => file.otherExtension).map((file) => file.path);
+  for (const path of removed) rmSync(path);
   return { installedPath, removed };
 }

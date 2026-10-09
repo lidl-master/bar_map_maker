@@ -1,6 +1,7 @@
 // The Generate, Look and Map tabs. Rebuilt whenever a new map is loaded or a history step replaced doc parts.
 import { BIOMES } from '../../src/look/index.js';
 import { TEMPLATES } from '../../src/terrain/index.js';
+import { changeExportDir } from './bar-actions.js';
 import { $, busy, check, el, heading, note, select, slider, stat, text } from './dom.js';
 import { runJob } from './generator.js';
 import { counts } from './objects.js';
@@ -82,4 +83,8 @@ function buildMap(editor) {
   note(panel, 'Everything below the lava level becomes BAR\'s animated, damaging lava instead of water.');
   check(panel, 'Lava map', s.lava, 'enabled', changed);
   slider(panel, 'Lava level (elmos)', s.lava, 'level', -100, 1000, 1, changed);
+
+  heading(panel, 'Export');
+  note(panel, 'Export asks for a folder the first time and remembers it.');
+  panel.append(el('button', { class: 'wide', onclick: changeExportDir }, 'Change export folder…'));
 }

@@ -8,6 +8,7 @@ const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args).catch(
 
 contextBridge.exposeInMainWorld('studio', {
   locateBar: () => invoke('studio:locateBar'),
+  chooseExportDir: () => invoke('studio:chooseExportDir'),
   exportMap: (doc) => invoke('studio:exportMap', doc),
   installMap: (archivePath) => invoke('studio:installMap', archivePath),
   onProgress: (callback) => { ipcRenderer.on('studio:progress', (_event, progress) => callback(progress)); },

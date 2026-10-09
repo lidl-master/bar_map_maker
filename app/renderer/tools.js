@@ -1,5 +1,6 @@
 // The tool list (rail, shortcuts, hints) and the Tool tab: the active tool's settings and the selection.
-import { $, btn, el, emptyState, formatInt, note, section, segmented, slider, value } from './dom.js';
+import { falloff } from '../../src/terrain/index.js';
+import { $, btn, el, emptyState, formatInt, keys, note, section, segmented, slider, value } from './dom.js';
 import { icon } from './icons.js';
 import { materialPicker } from './materials.js';
 import { groupOf } from './objects.js';
@@ -8,10 +9,10 @@ import { PATHING, heightAt } from './sample.js';
 // kind: brush = drag to sculpt/paint · ramp = drag a line · place = click to add · pick = click an existing object
 export const TOOLS = [
   { id: 'select', kind: 'pick', group: 'Edit', label: 'Select', key: 'V', icon: 'mouse-pointer-2', hint: 'Click a metal spot, geo vent or start position to select it. Drag to move it; mirrored copies follow. Del deletes.' },
-  { id: 'delete', kind: 'pick', group: 'Edit', label: 'Delete', key: 'X', icon: 'trash', hint: 'Click a metal spot, geo vent or start position to delete it and its mirrored copies.' },
+  { id: 'delete', kind: 'pick', group: 'Edit', label: 'Delete', key: 'X', icon: 'eraser', hint: 'Click a metal spot, geo vent or start position to delete it and its mirrored copies.' },
   { id: 'raise', kind: 'brush', group: 'Sculpt', label: 'Raise', key: 'R', icon: 'arrow-up-from-line', hint: 'Drag to raise terrain. Hold Shift to lower. Shift+wheel or [ ] changes the brush size.' },
   { id: 'lower', kind: 'brush', group: 'Sculpt', label: 'Lower', key: 'L', icon: 'arrow-down-to-line', hint: 'Drag to lower terrain. Below 0 is water. Hold Shift to raise.' },
-  { id: 'smooth', kind: 'brush', group: 'Sculpt', label: 'Smooth', key: 'S', icon: 'waves-horizontal', hint: 'Drag to smooth bumps and soften cliffs.' },
+  { id: 'smooth', kind: 'brush', group: 'Sculpt', label: 'Smooth', key: 'S', icon: 'spline', hint: 'Drag to smooth bumps and soften cliffs.' },
   { id: 'flatten', kind: 'brush', group: 'Sculpt', label: 'Flatten', key: 'F', icon: 'equal', hint: 'Drag to flatten to the height where the stroke starts. Alt+click picks a fixed height.' },
   { id: 'noise', kind: 'brush', group: 'Sculpt', label: 'Roughen', key: 'N', icon: 'audio-waveform', hint: 'Drag to add natural roughness. Hold Shift to subtract.' },
   { id: 'ramp', kind: 'ramp', group: 'Sculpt', label: 'Ramp', key: 'A', icon: 'triangle-right', hint: 'Drag a line from one height to another to cut a ramp between plateaus.' },
@@ -35,6 +36,15 @@ export const defaultToolSettings = () => ({
 });
 
 const BRUSH_COLORS = { lower: '#ffab91', paint: '#ffd27a', ramp: '#7ad7ff' };
+
+// One click sets radius, strength and hardness together.
+const BRUSH_PRESETS = [
+  ['Fine', { radius: 64, strength: 0.5, hardness: 0.5 }],
+  ['Soft', { radius: 220, strength: 0.35, hardness: 0.1 }],
+  ['Firm', { radius: 160, strength: 0.75, hardness: 0.7 }],
+  ['Broad', { radius: 640, strength: 0.4, hardness: 0.25 }],
+];
+const NS = 'http://www.w3.org/2000/svg';
 
 /** The 2D view's brush cursor for the active tool (null for click tools). */
 export function brushCursor(editor) {
@@ -71,14 +81,19 @@ export function buildToolPanel(editor) {
     el('div', { class: 'tool-head' },
       el('span', { class: 'tool-icon' }, icon(t.icon)),
       el('div', {}, el('h2', {}, t.label), el('p', {}, `${t.group} tool`)),
-      el('kbd', {}, t.key)),
+      keys(t.key)),
     el('p', { class: 'note' }, t.hint)));
 
   if (t.kind === 'brush') {
-    const brush = section(panel, 'Brush');
-    slider(brush, 'Radius', s, 'radius', { min: 16, max: 1500, onChange: preview });
-    slider(brush, 'Strength', s, 'strength', { min: 0.02, max: 1, step: 0.01 });
-    slider(brush, 'Hardness', s, 'hardness', { min: 0, max: 0.95, step: 0.01, onChange: preview });
+    const brush = section(panel, 'Brush'), curve = falloffPreview(s);
+    const changed = () => { preview(); curve.update(); };
+    brush.append(presetChips(s, () => {
+      buildToolPanel(editor);
+      preview();
+    }), curve.node);
+    slider(brush, 'Radius', s, 'radius', { min: 16, max: 1500, onChange: changed });
+    slider(brush, 'Strength', s, 'strength', { min: 0.02, max: 1, step: 0.01, onChange: changed });
+    slider(brush, 'Hardness', s, 'hardness', { min: 0, max: 0.95, step: 0.01, onChange: changed });
   }
   if (t.id === 'flatten') {
     const target = section(panel, 'Target height');
@@ -99,6 +114,41 @@ export function buildToolPanel(editor) {
   }
   if (t.id === 'metal') slider(section(panel, 'New spots'), 'Metal', s, 'metal', { min: 0.1, max: 10, step: 0.1 });
   if (t.id === 'select' || t.kind === 'place') buildSelection(editor, section(panel, 'Selection'));
+}
+
+function presetChips(s, onPick) {
+  const matches = ([, p]) => Object.entries(p).every(([k, v]) => s[k] === v);
+  return el('div', { class: 'chips', role: 'group', 'aria-label': 'Brush presets' }, ...BRUSH_PRESETS.map((preset) => el('button', {
+    type: 'button', class: 'chip', 'aria-pressed': String(matches(preset)),
+    'data-tip': `Radius ${preset[1].radius} · strength ${preset[1].strength} · hardness ${preset[1].hardness}`,
+    onclick: () => { Object.assign(s, preset[1]); onPick(); },
+  }, preset[0])));
+}
+
+// The brush profile across its diameter: flat inside the hardness, falling off to the edge; as tall as the strength.
+function falloffPreview(s) {
+  const svg = document.createElementNS(NS, 'svg'), area = document.createElementNS(NS, 'path'), line = document.createElementNS(NS, 'path');
+  const core = document.createElementNS(NS, 'path'), caption = el('span', { class: 'num' });
+  svg.setAttribute('viewBox', '0 0 240 80');
+  svg.setAttribute('aria-hidden', 'true');
+  area.setAttribute('class', 'fo-area');
+  line.setAttribute('class', 'fo-line');
+  core.setAttribute('class', 'fo-core');
+  svg.append(area, core, line);
+  const update = () => {
+    const pts = [];
+    for (let n = 0; n <= 60; n++) {
+      const t = n / 30 - 1, y = 72 - falloff(Math.abs(t), s.hardness) * (14 + 52 * s.strength);
+      pts.push(`${(120 + t * 108).toFixed(1)} ${y.toFixed(1)}`);
+    }
+    line.setAttribute('d', `M${pts.join(' L')}`);
+    area.setAttribute('d', `M12 72 L${pts.join(' L')} L228 72 Z`);
+    const h = 108 * Math.min(0.98, s.hardness);
+    core.setAttribute('d', h > 1 ? `M${120 - h} 74 V8 M${120 + h} 74 V8` : '');
+    caption.textContent = `${formatInt(s.radius * 2)} elmos across · ${Math.round(s.hardness * 100)} % hard core`;
+  };
+  update();
+  return { node: el('div', { class: 'falloff' }, svg, caption), update };
 }
 
 const OBJECT_KINDS = { metal: ['Metal spot', 'circle-dot'], geo: ['Geothermal vent', 'flame'], start: ['Start position', 'flag'] };

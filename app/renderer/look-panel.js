@@ -1,16 +1,11 @@
-// The Look tab: biome, trees and rocks, the export quality preset (WP 2.2) and, last because it is long, paint materials.
+// The Look tab: biome, trees and rocks and, last because it is long, paint materials.
 import { BIOMES } from '../../src/look/index.js';
-import { $, btn, el, formatInt, note, section, segmented, slider, toggle } from './dom.js';
+import { $, btn, el, formatInt, note, section, slider, toggle } from './dom.js';
 import { toast, withLoading } from './feedback.js';
 import { runJob } from './generator.js';
 import { icon } from './icons.js';
 import { materialPicker } from './materials.js';
 import { biomeChoices } from './pickers.js';
-
-export const QUALITY = {
-  share: { label: 'Share · ≤ 50 MB', help: 'Keeps the archive under 50 MB for sharing and downloads; textures are slightly softer.' },
-  standard: { label: 'Standard', help: 'Full texture detail. A larger archive, fine for local play and testing.' },
-};
 
 export function buildLook(editor) {
   const panel = $('tab-look'), doc = editor.doc;
@@ -27,13 +22,6 @@ export function buildLook(editor) {
   })));
 
   buildFeatures(editor, panel);
-
-  const quality = section(panel, 'Export quality');
-  const help = el('p', { class: 'note' }, QUALITY[editor.exportQuality].help);
-  quality.append(segmented(Object.entries(QUALITY).map(([key, q]) => [key, q.label]), editor.exportQuality, (key) => {
-    editor.setExportQuality(key);
-    help.textContent = QUALITY[key].help;
-  }, 'block'), help);
 
   const paint = section(panel, 'Paint materials');
   note(paint, 'Pick a material, then drag on the map. Shift-drag paints back to automatic.');
@@ -54,14 +42,14 @@ function buildFeatures(editor, panel) {
   toggle(features, 'Trees', s, 'trees');
   toggle(features, 'Rocks', s, 'rocks');
   features.append(btn('Scatter features', {
-    class: 'btn primary block',
+    class: 'btn accent-icon block',
     onclick: async () => {
       const kinds = ['trees', 'rocks'].filter((k) => s[k]);
       if (!kinds.length) {
         toast('Turn on trees, rocks or both first.', 'warn');
         return;
       }
-      const result = await withLoading('Scattering features', `${kinds.join(' and ')} · density ${s.density}%`,
+      const result = await withLoading('Scattering features…', `${kinds.join(' and ')} · density ${s.density}%`,
         () => runJob('scatterFeatures', { doc, density: s.density / 100, seed: Math.floor(Math.random() * 1e6), kinds }));
       if (!result) return;
       editor.editObjects('scatter features', () => { doc.objects = result.objects; });

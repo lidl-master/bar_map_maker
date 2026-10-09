@@ -23,9 +23,11 @@ export function mapFileBase(text) {
 
 function sunDirection(sunDir) {
   const [x, y, z] = sunDir ?? [];
-  if (![x, y, z].every(Number.isFinite) || !(y > 0) || !(z < 0)) {
+  if (![x, y, z].every(Number.isFinite) || !(y > 0)) {
     throw new Error(`settings.sunDir must be [x, y > 0, z < 0] (sun above the horizon, in the north), got ${JSON.stringify(sunDir)}`);
   }
+  // Maps opened from BAR may light from the south (Volcano King); a new export needs the northern sun the bake shades for.
+  if (!(z < 0)) throw new Error(`The sun is in the south (sunDir z = ${z}); exported maps need it in the north. Move the sun to the north in the Look tab.`);
   const len = Math.hypot(x, y, z);
   return [x, y, z].map((v) => (v / len).toFixed(4)).join(', ');
 }

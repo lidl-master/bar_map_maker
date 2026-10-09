@@ -48,6 +48,7 @@ import Scan from '../../node_modules/lucide/dist/esm/icons/scan.mjs';
 import Spline from '../../node_modules/lucide/dist/esm/icons/spline.mjs';
 import Square from '../../node_modules/lucide/dist/esm/icons/square.mjs';
 import SquareCenterlineDashedVertical from '../../node_modules/lucide/dist/esm/icons/square-centerline-dashed-vertical.mjs';
+import Sun from '../../node_modules/lucide/dist/esm/icons/sun.mjs';
 import Tag from '../../node_modules/lucide/dist/esm/icons/tag.mjs';
 import Trash from '../../node_modules/lucide/dist/esm/icons/trash.mjs';
 import Trees from '../../node_modules/lucide/dist/esm/icons/trees.mjs';
@@ -67,7 +68,7 @@ const ICONS = {
   'loader-circle': LoaderCircle, lock: Lock, map: MapIcon, 'map-plus': MapPlus, minus: Minus, mountain: Mountain,
   'mountain-snow': MountainSnow, mouse: Mouse, 'mouse-pointer-2': MousePointer2, paintbrush: Paintbrush, plus: Plus,
   'redo-2': Redo2, 'rotate-ccw': RotateCcw, scaling: Scaling, scan: Scan, spline: Spline, square: Square,
-  'square-centerline-dashed-vertical': SquareCenterlineDashedVertical, tag: Tag, trash: Trash, trees: Trees,
+  'square-centerline-dashed-vertical': SquareCenterlineDashedVertical, sun: Sun, tag: Tag, trash: Trash, trees: Trees,
   'triangle-alert': TriangleAlert, 'triangle-right': TriangleRight, 'undo-2': Undo2, x: X,
 };
 

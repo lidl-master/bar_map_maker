@@ -20,6 +20,19 @@ export function buildLook(editor) {
     buildLook(editor); // material colours follow the biome
     editor.refreshToolPanel();
   })));
+  // Some BAR maps light from the south (Volcano King); an export needs the sun in the north.
+  const [x, y, z] = doc.settings.sunDir;
+  if (!(z < 0)) {
+    biome.append(el('p', { class: 'note warn' }, icon('triangle-alert'), 'The sun is in the south. Exported maps need it in the north.'),
+      btn('Move sun north', {
+        class: 'btn accent-icon block',
+        onclick: () => {
+          doc.settings.sunDir = [x, y, -Math.abs(z) || -0.5];
+          editor.lookChanged();
+          buildLook(editor);
+        },
+      }, 'sun'));
+  }
 
   buildFeatures(editor, panel);
 

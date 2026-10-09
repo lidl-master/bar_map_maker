@@ -316,6 +316,8 @@ input.switch:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .section > h3 .badge { margin-left: auto; }
 .note { color: var(--text-2); font-size: var(--fs-12); line-height: var(--lh); margin: var(--s-2) 0; }
+.note.warn { display: flex; gap: var(--s-2); color: var(--warn); }
+.note.warn .icon { flex: none; margin-top: 1px; }
 .section > h3 + .note { margin-top: calc(-1 * var(--s-1)); }
 .value { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); min-height: 24px; font-size: var(--fs-12); color: var(--text-2); }
 .value b { color: var(--text-1); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

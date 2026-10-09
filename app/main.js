@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, net, protocol, session } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, net, protocol, session } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerStudioIpc } from './ipc.js';
@@ -55,6 +55,17 @@ app.whenReady().then(() => {
     backgroundColor: '#0e1014',
     // These match Electron's defaults; stated so a later edit cannot drop them silently.
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(import.meta.dirname, 'preload.cjs') },
+  });
+  // Closing first lets the page save the open map's last edits (autosave waits 1.5 s after an edit), for up to 3 s.
+  let flushed = false;
+  mainWindow.on('close', (event) => {
+    if (flushed) return;
+    flushed = true;
+    event.preventDefault();
+    const close = () => { if (!mainWindow.isDestroyed()) mainWindow.close(); };
+    ipcMain.once('studio:flushed', close);
+    setTimeout(close, 3000);
+    mainWindow.webContents.send('studio:flush');
   });
   return mainWindow.loadURL(`${APP_ORIGIN}/app/renderer/index.html`);
 }).catch((error) => {

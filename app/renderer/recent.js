@@ -1,7 +1,8 @@
 // Local autosave: the maps you work on, kept in IndexedDB (this app's origin, inside Electron's userData folder).
 // 'meta' holds the small list the welcome screen shows; 'docs' holds the MapDocs (typed arrays clone natively).
-// shortcut: a real project file (save as / open) comes with Wave 3's open-existing-map work; revisit then.
-const DB_NAME = 'bar-map-studio', KEEP = 8;
+// A map stays until the user removes it from Recent maps: nothing is ever evicted. An exported .sd7 can be reopened
+// from the Open screen, so it doubles as a file copy of a map.
+const DB_NAME = 'bar-map-studio';
 
 let dbPromise = null;
 function db() {
@@ -27,7 +28,7 @@ async function run(stores, mode, fn) {
   });
 }
 
-/** Saves doc under key with a small preview ({size, rgba}); keeps the KEEP most recent maps. */
+/** Saves doc under key with a small preview ({size, rgba}). */
 export async function saveMap(key, doc, thumb) {
   const meta = {
     key, thumb, savedAt: Date.now(), name: doc.settings.name, sx: doc.sx, sz: doc.sz, biome: doc.biome,
@@ -37,8 +38,14 @@ export async function saveMap(key, doc, thumb) {
     metas.put(meta);
     docs.put({ key, doc });
   });
-  const old = (await listMaps()).slice(KEEP);
-  if (old.length) await run(['meta', 'docs'], 'readwrite', (metas, docs) => old.forEach((m) => { metas.delete(m.key); docs.delete(m.key); }));
+}
+
+/** Deletes a saved map; only the user does this (Recent maps → Remove). */
+export function removeMap(key) {
+  return run(['meta', 'docs'], 'readwrite', (metas, docs) => {
+    metas.delete(key);
+    docs.delete(key);
+  });
 }
 
 /** Newest first. */

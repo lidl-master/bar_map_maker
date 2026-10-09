@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "map": "Pyroclast 1.0.4",
+  "archive": null,
+  "engine": "recoil_2026.07.04",
+  "game": "Beyond All Reason test-31536-188afa8",
+  "quitFrame": 900,
+  "engineExit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "loaded": true,
+  "ingame": true,
+  "framesReached": 900,
+  "mapCheck": {
+    "frame": 900,
+    "lavaLevel": "nil",
+    "mexCount": 100,
+    "geoSpots": 3
+  },
+  "mapProblems": {
+    "count": 1,
+    "lines": [
+      "Warning: [CSMFReadMap::CreateSplatDetailTextures] Invalid SMF splatDetailTex maps/iwantDNTS.tga. Creating fallback texture"
+    ]
+  },
+  "luaErrors": {
+    "count": 1,
+    "lines": [
+      "Error in Initialize(): [string \"luaui/Widgets/gui_pip.lua\"]:9330: attempt to call field 'CreateShader' (a nil value)"
+    ]
+  },
+  "errors": {
+    "count": 9,
+    "lines": [
+      "Error: [SetConfigInt] key \"AdvSky\" is deprecated",
+      "[weapondefs.lua] Error: removed ceg_test_projectile_unit_ceg_test_projectile weaponDef, missing model",
+      "Error: [GetFeatureDef] could not find FeatureDef \"corfast_dead\"",
+      "Error: [GetFeatureDef] could not find FeatureDef \"corhack_dead\"",
+      "Error: Could not finalize groundFX texture atlas. Use fewer/smaller textures.",
+      "ERROR: PBR enabler: gl.CreateShader is nil",
+      "Error in Initialize(): [string \"luaui/Widgets/gui_pip.lua\"]:9330: attempt to call field 'CreateShader' (a nil value)",
+      "LuaShader: [AoE Napalm Shader] shader error(s):",
+      "LuaShader: [Reclaim Field GL4] shader error(s):"
+    ]
+  },
+  "lava": {
+    "count": 7,
+    "lines": [
+      "Lava Mapname, Pyroclast 1.0.4",
+      "Loaded synced gadget:  Map Lava Gadget 2.5  <map_lava.lua>",
+      "Loaded unsynced gadget:  Map Lava Gadget 2.5  <map_lava.lua>",
+      "[MapCheck] start frame=0 lavaLevel=nil mexCount=100 geoSpots=3",
+      "[MapCheck] quit frame=900 lavaLevel=nil mexCount=100 geoSpots=3"
+    ]
+  },
+  "metal": {
+    "count": 18,
+    "lines": [
+      "Loaded synced gadget:  Map Lua Metal Spot Placer  <map_metal_spot_placer.lua>",
+      "Loaded synced gadget:  API Resource Spot Finder (mex/geo)  <api_resource_spot_finder.lua>",
+      "Loaded synced gadget:  Area Mex            <cmd_area_mex.lua>",
+      "Loaded synced gadget:  Metal Brush         <cmd_metal_brush.lua>",
+      "Loaded synced gadget:  Mex Upgrade Reclaimer  <unit_mex_upgrade_reclaimer.lua>",
+      "Loaded synced gadget:  Deny Invalid Mex Orders  <cmd_mex_denier.lua>",
+      "Headless: skipped unsynced gadget: cmd_metal_brush.lua",
+      "Headless: skipped unsynced gadget: map_metal_spot_placer.lua",
+      "Failed to load: tf_metal.lua  (no GetInfo() call)",
+      "Loading widget from mod:   API Resource Spot Finder (mex/geo)  <api_resource_spot_finder.lua> ...",
+      "Loading widget from mod:   API Resource Spot Builder (mex/geo)  <api_resource_spot_builder.lua> ...",
+      "Loading widget from mod:   Area Mex            <cmd_area_mex.lua> ...",
+      "Loading widget from mod:   Extractor Snap (mex/geo)  <cmd_extractor_snap.lua> ...",
+      "Loading widget from mod:   Geothermalspots     <gui_geothermalspots.lua> ...",
+      "Loading widget from mod:   Metalspots          <gui_metalspots.lua> ...",
+      "Loading widget from mod:   Quick Build (mex/geo)  <cmd_quick_build_extractor.lua> ...",
+      "[MapCheck] start frame=0 lavaLevel=nil mexCount=100 geoSpots=3",
+      "[MapCheck] quit frame=900 lavaLevel=nil mexCount=100 geoSpots=3"
+    ]
+  },
+  "installChanges": [],
+  "runDir": "D:\\bar_map_maker\\.claude\\worktrees\\agent-a68c7a1d2ac241b09\\.engine-tmp\\headless-2026-10-09T15-13-45-382Z-Pyroclast_1_0_4",
+  "log": "D:\\bar_map_maker\\.claude\\worktrees\\agent-a68c7a1d2ac241b09\\.engine-tmp\\headless-2026-10-09T15-13-45-382Z-Pyroclast_1_0_4\\engine-log.txt"
+}

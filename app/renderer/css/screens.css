@@ -29,12 +29,12 @@
 .action.primary:hover { background: var(--accent-fill-hover); }
 .action.primary:active { background: var(--accent-fill-press); }
 .action.primary .action-icon { background: rgba(255, 255, 255, 0.16); color: #fff; }
-.action.primary .action-text span { color: rgba(255, 255, 255, 0.85); }
+.action.primary .action-text span { color: #fff; }
 .action:disabled { cursor: not-allowed; background: transparent; border-style: dashed; border-color: var(--line-2); }
 .action:disabled .action-icon { background: var(--bg-2); color: var(--text-3); }
 .action:disabled strong { color: var(--text-2); }
 .action:disabled .action-text span { color: var(--text-3); }
-kbd.on-accent { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.22); color: #fff; }
+kbd.on-accent { background: rgba(0, 0, 0, 0.2); border-color: rgba(0, 0, 0, 0.25); color: #fff; }
 .wl-recent { display: flex; flex-direction: column; gap: var(--s-2); min-height: 0; flex: 1; }
 .wl-recent h2, .wl-head h2 { font-size: var(--fs-12); font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
 .recent-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; margin: 0 calc(-1 * var(--s-2)); padding: 0 var(--s-2); }
@@ -150,7 +150,6 @@ dialog.modal::backdrop { background: rgba(6, 8, 11, 0.66); animation: fade-in va
 .sym-grid input:checked + .body svg { color: var(--accent); }
 .sym-grid .name { font-size: var(--fs-11); white-space: nowrap; }
 .biome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.biome-grid .swatch { height: 24px; }
 
 /* ---- shortcuts overlay */
 .sc-columns { columns: 3 220px; column-gap: var(--s-8); }
@@ -239,6 +238,7 @@ body[data-screen=editor] .notify { right: calc(var(--inspector-w) + var(--s-4));
 
 @media (max-width: 1100px) {
   .welcome { grid-template-columns: 280px minmax(0, 1fr); }
+  .tpl-gallery { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
   .wl-main { padding: var(--s-8) var(--s-6); }
   .nm { gap: var(--s-4) var(--s-4); }
   .modal-body { padding: var(--s-4) var(--s-5); }

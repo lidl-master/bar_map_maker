@@ -19,6 +19,7 @@ export class View3D {
   visible = false;
   showFeatures = true;
   #orbit = { yaw: 0.6, pitch: 0.85, dist: 6000, tx: 0, tz: 0 };
+  #framed = true; // the camera still shows the whole map (the user has not moved it): keep doing so on resize
   #raf = 0;
 
   constructor(container, sourceCanvas) {
@@ -51,6 +52,7 @@ export class View3D {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y, o = this.#orbit;
       drag.x = e.clientX;
       drag.y = e.clientY;
+      this.#framed = false;
       if (drag.button === 0) {
         o.yaw -= dx * 0.006;
         o.pitch = Math.min(1.5, Math.max(0.08, o.pitch + dy * 0.005));
@@ -64,6 +66,7 @@ export class View3D {
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.#orbit.dist = Math.min(80000, Math.max(300, this.#orbit.dist * 1.0015 ** e.deltaY));
+      this.#framed = false;
       this.render();
     }, { passive: false });
   }
@@ -81,7 +84,9 @@ export class View3D {
     geometry.translate(w / 2, 0, h / 2);
     this.mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ map: this.texture }));
     this.scene.add(this.mesh);
-    Object.assign(this.#orbit, { tx: w / 2, tz: h / 2, dist: Math.max(w, h) * 1.15 });
+    Object.assign(this.#orbit, { tx: w / 2, tz: h / 2 });
+    this.#framed = true;
+    this.#frame();
     this.update();
   }
 
@@ -145,12 +150,20 @@ export class View3D {
     }
   }
 
+  // Far enough back that the whole map fits, also in a tall, narrow split pane.
+  #frame() {
+    if (!this.#framed || !this.doc) return;
+    const [w, h] = worldSize(this.doc);
+    this.#orbit.dist = Math.max(w, h) * 1.15 * Math.max(1, 1 / this.camera.aspect);
+  }
+
   resize() {
     const r = this.container.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return;
     this.renderer.setSize(r.width, r.height);
     this.camera.aspect = r.width / r.height;
     this.camera.updateProjectionMatrix();
+    this.#frame();
     this.render();
   }
 

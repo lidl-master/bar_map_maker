@@ -46,7 +46,7 @@ export function symmetryChoices(name, current, onChange) {
 
 export function biomeChoices(name, current, onChange) {
   return Object.entries(BIOMES).map(([key, b]) => choice(
-    { name, value: key, checked: key === current, className: 'compact', onChange },
+    { name, value: key, checked: key === current, className: 'compact biome', onChange },
     biomeSwatch(key), el('span', { class: 'name' }, b.label),
   ));
 }

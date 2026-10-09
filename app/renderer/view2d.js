@@ -131,13 +131,9 @@ export class View2D {
     if (!doc) return;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const w = doc.W * this.zoom, h = doc.H * this.zoom;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctx.shadowBlur = 28;
-    ctx.shadowOffsetY = 6;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(this.ox, this.oy, w, h);
-    ctx.restore();
+    // A soft drop shadow from a few translucent outlines: canvas shadowBlur on a map-sized rect costs a frame.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    for (const grow of [12, 8, 4]) ctx.fillRect(this.ox - grow, this.oy - grow + 4, w + 2 * grow, h + 2 * grow);
     ctx.imageSmoothingEnabled = this.zoom < 2;
     ctx.drawImage(this.base, this.ox, this.oy, w, h);
     this.#drawGrid();

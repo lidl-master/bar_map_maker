@@ -91,10 +91,17 @@ async function screens(size, { exportToo = true } = {}) {
   await shot('editor-split', size);
   await page.click('#viewMode [data-view="2d"]');
 
-  await page.click('#tabs [data-tab=look]');
-  await page.waitForTimeout(300);
-  await shot('look', size);
+  for (const tab of ['look', 'generate', 'map']) {
+    await page.click(`#tabs [data-tab=${tab}]`);
+    await page.waitForTimeout(300);
+    await shot(tab, size);
+  }
   await page.click('#tabs [data-tab=tool]');
+  // Keyboard focus is always visible: Tab from the tool rail onto the next control.
+  await page.focus('#toolbar [data-tool=smooth]');
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(600); // the focused control's tooltip
+  await shot('focus', size);
 
   if (exportToo) {
     await page.click('#btnExport');

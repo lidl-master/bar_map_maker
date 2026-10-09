@@ -19,6 +19,11 @@ Critics judge against these. Builders aim for them. Change a bar only with the u
 3. Re-texture a map with another biome and export it under 50 MB.
 4. Find and fix a checklist failure.
 
+## Pace (user request, 2026-10-09): move fast
+- One critic pass per wave, blockers only: the app runs, maps load in BAR's engine, nothing corrupts a map or the BAR folder. Small findings go to a list, not a re-review loop.
+- Tests only where a mistake breaks maps or files: binary formats, archive I/O, metal maths, engine-check verdict. No tests for UI details, no mutation testing.
+- Bigger work packages, more builders in parallel.
+
 ## Rules every builder follows
 - ponytail ladder before writing code: does it need to exist, is it already here, stdlib, platform, BAR's own assets, installed dependency, one line, then the minimum.
 - Never render user or file text as HTML. Sun in the north (negative z). Check every external program's exit code. Tests live in the repo. No unused options. Heavy work off the UI thread. Presets respect the player count.

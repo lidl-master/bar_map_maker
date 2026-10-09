@@ -13,5 +13,10 @@
   "devDependencies": {
     "electron": "44.7.0",
     "playwright": "1.64.0"
+  },
+  "dependencies": {
+    "7zip-bin": "5.2.0",
+    "three": "0.186.1",
+    "wasmoon": "1.16.0"
   }
 }

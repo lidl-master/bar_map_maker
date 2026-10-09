@@ -1,5 +1,7 @@
 // Top-down 2D view: the map image (look or pathing colours) plus overlays (grid, symmetry axes, features, markers, brush, ramp).
+// An opened BAR map shows its own texture where it has one; its image is also the 3D view's texture.
 import { orbit } from '../../src/core/index.js';
+import { originalColor, originalPreview } from '../../src/import/preview.js';
 import { previewColor } from '../../src/look/index.js';
 import { clamp } from './dom.js';
 import { iconPaths } from './icons.js';
@@ -30,6 +32,7 @@ const AXES = {
 
 export class View2D {
   doc = null;
+  original = null; // an opened map's own texture (src/import originalPreview), or null
   mode = 'look'; // 'look' | 'pathing'
   zoom = 1; // screen px per heightmap sample
   ox = 0;
@@ -54,6 +57,7 @@ export class View2D {
 
   setDoc(doc) {
     this.doc = doc;
+    this.original = doc.original?.tileIndex ? originalPreview(doc.original) : null;
     this.selected = this.hover = null;
     this.base.width = doc.W;
     this.base.height = doc.H;
@@ -70,7 +74,9 @@ export class View2D {
     const x1 = Math.min(doc.W - 1, rect[2] + 1), z1 = Math.min(doc.H - 1, rect[3] + 1);
     for (let j = z0; j <= z1; j++) {
       for (let i = x0; i <= x1; i++) {
-        const rgb = this.mode === 'pathing' ? PATHING_LEGEND[pathingClass(doc, i, j)].color : previewColor(doc, i, j);
+        // shortcut: the original texture is drawn without the preview's water and lava tint; revisit if users miss it in 2D.
+        const rgb = this.mode === 'pathing' ? PATHING_LEGEND[pathingClass(doc, i, j)].color
+          : (this.original && originalColor(doc, this.original, i, j)) ?? previewColor(doc, i, j);
         const o = (j * doc.W + i) * 4;
         data[o] = rgb[0];
         data[o + 1] = rgb[1];

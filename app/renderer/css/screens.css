@@ -249,3 +249,29 @@ body[data-screen=editor] .notify { right: calc(var(--inspector-w) + var(--s-4));
   .tpl-desc { min-height: 0; }
   .wl-side { padding-top: var(--s-6); gap: var(--s-5); }
 }
+
+/* ---- open an existing BAR map (welcome main area) */
+.action[aria-current=page] { border-color: var(--accent-fill); background: var(--accent-soft); }
+.action[aria-current=page] .action-icon { background: var(--accent-fill); color: var(--text-on-accent); }
+.open-head { display: flex; align-items: flex-start; gap: var(--s-3); }
+.open-head .btn.square { margin: 2px 0 0 calc(-1 * var(--s-2)); }
+.open-title { flex: 1; min-width: 0; }
+.open-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  max-width: 1480px;
+  margin: 0 auto var(--s-5);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border: 1px solid rgba(255, 107, 110, 0.35);
+  border-radius: var(--r-lg);
+  background: var(--danger-soft);
+}
+.open-error > .icon { margin-top: 2px; color: var(--danger); }
+.open-error .text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.open-error strong { font-weight: 600; }
+.open-error span { color: var(--text-2); font-size: var(--fs-12); overflow-wrap: anywhere; user-select: text; }
+.map-gallery { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+.map-card .thumb { aspect-ratio: 1; }
+.map-card .thumb canvas { object-fit: contain; }
+.map-card .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,4 +1,4 @@
-// DXT1 (BC1) encoder with a full mip chain down to 4x4, as SMT tiles and the SMF minimap store it.
+// DXT1 (BC1) encoder with a full mip chain down to 4x4, as SMT tiles and the SMF minimap store it, and a decoder.
 // Range fit along the colour block's principal axis (power iteration), always 4-colour mode (c0 > c1).
 
 const clamp = (v, hi) => (v < 0 ? 0 : v > hi ? hi : v);
@@ -108,4 +108,39 @@ export function encodeDxt1Mips(rgb, size) {
     level = halve(level, size);
     size >>= 1;
   }
+}
+
+const palette = new Uint8Array(16); // four RGBA colours of the block being decoded
+
+/**
+ * One DXT1 image (8-byte blocks, row-major) to RGBA. width and height are multiples of 4.
+ * 3-colour blocks (c0 <= c1) decode index 3 as transparent black, as the GPU does.
+ * @returns {Uint8ClampedArray} width*height*4
+ */
+export function decodeDxt1(bytes, width, height) {
+  const blocksX = width / 4, blocks = blocksX * (height / 4);
+  if (!Number.isInteger(blocks) || bytes.length < blocks * 8) throw new Error(`DXT1: ${bytes.length} bytes do not hold a ${width}x${height} image`);
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let b = 0; b < blocks; b++) {
+    const o = b * 8, c0 = bytes[o] | (bytes[o + 1] << 8), c1 = bytes[o + 2] | (bytes[o + 3] << 8), four = c0 > c1;
+    from565(c0, palette, 0);
+    from565(c1, palette, 4);
+    for (let c = 0; c < 3; c++) {
+      const a = palette[c], d = palette[4 + c];
+      palette[8 + c] = four ? (2 * a + d) / 3 : (a + d) / 2; // the typed array rounds down
+      palette[12 + c] = four ? (a + 2 * d) / 3 : 0;
+    }
+    palette[3] = palette[7] = palette[11] = 255;
+    palette[15] = four ? 255 : 0;
+    const bits = bytes[o + 4] | (bytes[o + 5] << 8) | (bytes[o + 6] << 16) | (bytes[o + 7] << 24);
+    const x0 = (b % blocksX) * 4, y0 = (b - (b % blocksX)) / blocksX * 4;
+    for (let p = 0; p < 16; p++) {
+      const k = ((bits >>> (2 * p)) & 3) * 4, d = ((y0 + (p >> 2)) * width + x0 + (p & 3)) * 4;
+      out[d] = palette[k];
+      out[d + 1] = palette[k + 1];
+      out[d + 2] = palette[k + 2];
+      out[d + 3] = palette[k + 3];
+    }
+  }
+  return out;
 }

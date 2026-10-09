@@ -12,6 +12,7 @@ import ChevronDown from '../../node_modules/lucide/dist/esm/icons/chevron-down.m
 import CircleAlert from '../../node_modules/lucide/dist/esm/icons/circle-alert.mjs';
 import CircleCheck from '../../node_modules/lucide/dist/esm/icons/circle-check.mjs';
 import CircleDot from '../../node_modules/lucide/dist/esm/icons/circle-dot.mjs';
+import CircleX from '../../node_modules/lucide/dist/esm/icons/circle-x.mjs';
 import Clock from '../../node_modules/lucide/dist/esm/icons/clock.mjs';
 import Columns2 from '../../node_modules/lucide/dist/esm/icons/columns-2.mjs';
 import Copy from '../../node_modules/lucide/dist/esm/icons/copy.mjs';
@@ -27,9 +28,11 @@ import FolderOpen from '../../node_modules/lucide/dist/esm/icons/folder-open.mjs
 import FolderSearch from '../../node_modules/lucide/dist/esm/icons/folder-search.mjs';
 import Footprints from '../../node_modules/lucide/dist/esm/icons/footprints.mjs';
 import HardDriveDownload from '../../node_modules/lucide/dist/esm/icons/hard-drive-download.mjs';
+import Gamepad2 from '../../node_modules/lucide/dist/esm/icons/gamepad-2.mjs';
 import Info from '../../node_modules/lucide/dist/esm/icons/info.mjs';
 import Keyboard from '../../node_modules/lucide/dist/esm/icons/keyboard.mjs';
 import Layers from '../../node_modules/lucide/dist/esm/icons/layers.mjs';
+import ListChecks from '../../node_modules/lucide/dist/esm/icons/list-checks.mjs';
 import LoaderCircle from '../../node_modules/lucide/dist/esm/icons/loader-circle.mjs';
 import Lock from '../../node_modules/lucide/dist/esm/icons/lock.mjs';
 import MapIcon from '../../node_modules/lucide/dist/esm/icons/map.mjs';
@@ -48,27 +51,29 @@ import Scan from '../../node_modules/lucide/dist/esm/icons/scan.mjs';
 import Spline from '../../node_modules/lucide/dist/esm/icons/spline.mjs';
 import Square from '../../node_modules/lucide/dist/esm/icons/square.mjs';
 import SquareCenterlineDashedVertical from '../../node_modules/lucide/dist/esm/icons/square-centerline-dashed-vertical.mjs';
+import Sun from '../../node_modules/lucide/dist/esm/icons/sun.mjs';
 import Tag from '../../node_modules/lucide/dist/esm/icons/tag.mjs';
 import Trash from '../../node_modules/lucide/dist/esm/icons/trash.mjs';
 import Trees from '../../node_modules/lucide/dist/esm/icons/trees.mjs';
 import TriangleAlert from '../../node_modules/lucide/dist/esm/icons/triangle-alert.mjs';
 import TriangleRight from '../../node_modules/lucide/dist/esm/icons/triangle-right.mjs';
 import Undo2 from '../../node_modules/lucide/dist/esm/icons/undo-2.mjs';
+import Wrench from '../../node_modules/lucide/dist/esm/icons/wrench.mjs';
 import X from '../../node_modules/lucide/dist/esm/icons/x.mjs';
 
 const ICONS = {
   'arrow-down-to-dot': ArrowDownToDot, 'arrow-down-to-line': ArrowDownToLine, 'arrow-left': ArrowLeft,
   'arrow-right': ArrowRight, 'arrow-up-from-line': ArrowUpFromLine, 'audio-waveform': AudioWaveform, box: Box,
   check: Check, 'chevron-down': ChevronDown, 'circle-alert': CircleAlert, 'circle-check': CircleCheck,
-  'circle-dot': CircleDot, clock: Clock, 'columns-2': Columns2, copy: Copy, crop: Crop, crosshair: Crosshair,
+  'circle-dot': CircleDot, 'circle-x': CircleX, clock: Clock, 'columns-2': Columns2, copy: Copy, crop: Crop, crosshair: Crosshair,
   'dice-5': Dice5, equal: Equal, eraser: Eraser, 'file-output': FileOutput, flag: Flag, flame: Flame,
-  'folder-open': FolderOpen, 'folder-search': FolderSearch, footprints: Footprints,
-  'hard-drive-download': HardDriveDownload, info: Info, keyboard: Keyboard, layers: Layers,
+  'folder-open': FolderOpen, 'folder-search': FolderSearch, footprints: Footprints, 'gamepad-2': Gamepad2,
+  'hard-drive-download': HardDriveDownload, info: Info, keyboard: Keyboard, layers: Layers, 'list-checks': ListChecks,
   'loader-circle': LoaderCircle, lock: Lock, map: MapIcon, 'map-plus': MapPlus, minus: Minus, mountain: Mountain,
   'mountain-snow': MountainSnow, mouse: Mouse, 'mouse-pointer-2': MousePointer2, paintbrush: Paintbrush, plus: Plus,
   'redo-2': Redo2, 'rotate-ccw': RotateCcw, scaling: Scaling, scan: Scan, spline: Spline, square: Square,
-  'square-centerline-dashed-vertical': SquareCenterlineDashedVertical, tag: Tag, trash: Trash, trees: Trees,
-  'triangle-alert': TriangleAlert, 'triangle-right': TriangleRight, 'undo-2': Undo2, x: X,
+  'square-centerline-dashed-vertical': SquareCenterlineDashedVertical, sun: Sun, tag: Tag, trash: Trash, trees: Trees,
+  'triangle-alert': TriangleAlert, 'triangle-right': TriangleRight, 'undo-2': Undo2, wrench: Wrench, x: X,
 };
 
 const NS = 'http://www.w3.org/2000/svg';

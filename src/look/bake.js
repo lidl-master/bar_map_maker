@@ -7,6 +7,7 @@
 // vehicle ground, bot slope and cliff materials meet at 27° and 54° with a 2° blend; bot-slope ground turns into
 // the slope material gradually (rules.js slopeCover), along the material's grain. Cliffs sample their rock from
 // the side (u along the contour, v = height), so steep faces show unstretched rock and strata.
+import { clearResources } from './grass.js';
 import {
   accentAt, coverAt, coverRange, edgeAt, FLAT_ROLES, flatWeights, lookOf, mesoAt, patchAt, roleWeights, slopeCover, smoothstep,
   steepWeights, swapAt, toneAt, wobbleAt,
@@ -23,7 +24,6 @@ const MESO = 0.1; // meso (~100 elmo) brightness variation
 // added nothing; the meso tone and the frayed slope cover carry the ground's shape instead.
 const GEO_RADIUS = 48; // elmos of scorched ground around a geothermal vent
 const GRASS_COVER = 0.6; // share of a 32-elmo grass cell that must be grassy ground
-const GRASS_CLEAR = 64; // elmos kept clear of grass around metal spots, geos and start positions
 const VENT_GLOW = [150, 60, 20];
 const VENT_SCORCH = [24, 20, 18];
 const LAVA = [255, 96, 16];
@@ -540,17 +540,7 @@ function boxDown(rgb, w, h, f) {
 function grassBytes(doc, acc, tz0, tilesX) {
   const out = new Uint8Array(acc.length);
   for (let t = 0; t < acc.length; t++) out[t] = acc[t] / (TILE * TILE) > GRASS_COVER ? 255 : 0;
-  for (const o of doc.objects) {
-    if (o.type === 'feature') continue;
-    const r = GRASS_CLEAR / TILE;
-    for (let tz = Math.floor(o.z / TILE - r); tz <= Math.floor(o.z / TILE + r); tz++) {
-      if (tz < tz0 || tz >= tz0 + acc.length / tilesX) continue;
-      for (let tx = Math.max(0, Math.floor(o.x / TILE - r)); tx <= Math.min(tilesX - 1, Math.floor(o.x / TILE + r)); tx++) {
-        out[(tz - tz0) * tilesX + tx] = 0;
-      }
-    }
-  }
-  return out;
+  return clearResources(doc, out, tz0, tilesX);
 }
 
 function mix(out, color, w) {

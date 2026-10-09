@@ -12,6 +12,7 @@ function defaultSettings() {
     minWind: 5, maxWind: 20, tidalStrength: 15, gravity: 130, extractorRadius: 90, voidWater: false,
     lava: { enabled: false, level: 60, damage: 100 },
     sunDir: [0.4, 0.75, -0.5],
+    openGrass: false,
   };
 }
 

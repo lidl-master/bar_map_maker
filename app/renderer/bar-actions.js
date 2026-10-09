@@ -1,6 +1,7 @@
 // Export and Install to BAR, through window.studio (the preload bridge), plus the Export options popover (quality preset,
 // export folder). One busy state drives the top bar and the export card, so their buttons always agree.
 // The main process asks before installing.
+import { editCount } from './autosave.js';
 import { $, el, segmented } from './dom.js';
 import { closeExportPanel, exportDone, exportFailed, exportProgress, refreshExportPanel, startExport } from './export-panel.js';
 import { toast } from './feedback.js';
@@ -13,6 +14,7 @@ const QUALITY = {
 };
 
 let busy = null, barFound = false, cancelRequested = false; // busy: null | 'export' | 'install'
+let lastExport = null; // {archivePath, doc, edits}: the archive Check map and Play-test use while the map is unchanged
 let quality = savedQuality();
 
 function savedQuality() {
@@ -93,6 +95,7 @@ export async function exportMap(editor) {
     window.studio.cancelExport();
   });
   setBusy('export');
+  const exported = { doc: editor.doc, edits: editCount() }; // the map as it is sent; edits during the export are not in it
   let result;
   try {
     result = await window.studio.exportMap(editor.doc, { quality });
@@ -109,7 +112,15 @@ export async function exportMap(editor) {
     return null;
   }
   exportDone(result, doneActions(result.archivePath));
+  lastExport = { ...exported, archivePath: result.archivePath };
   return result.archivePath;
+}
+
+/** The open map's archive as the map is now: the last export while nothing changed since, else a fresh export (null when
+ * that is cancelled or fails). */
+export async function currentExport(editor) {
+  if (lastExport?.doc === editor.doc && lastExport.edits === editCount()) return lastExport.archivePath;
+  return exportMap(editor);
 }
 
 async function installMap(editor) {

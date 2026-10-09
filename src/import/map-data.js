@@ -1,10 +1,11 @@
 // The SMF and its SMT tile files inside a map archive, found the way the engine finds them. Pure.
-import { readSmf, readSmt, TILE_BYTES } from '../formats/index.js';
+import { concatBytes, readSmf, readSmt, TILE_BYTES } from '../formats/index.js';
+import { vfsPath } from '../lua/index.js';
 
 /** Case-insensitive lookup of archive paths, like the engine's VFS: the first candidate that exists, or null. */
 function finder(files) {
-  const byLower = new Map([...files.keys()].map((path) => [path.toLowerCase(), path]));
-  return (...candidates) => candidates.map((c) => c && byLower.get(c.replaceAll('\\', '/').replace(/^\.?\/+/, '').toLowerCase())).find(Boolean) ?? null;
+  const byVfs = new Map([...files.keys()].map((path) => [vfsPath(path), path]));
+  return (...candidates) => candidates.map((c) => c && byVfs.get(vfsPath(c))).find(Boolean) ?? null;
 }
 
 /**
@@ -29,12 +30,8 @@ export function readMapData(files, info) {
     if (tiles.length < bytes) throw new Error(`${path} has ${tiles.length / TILE_BYTES} tiles, the map file expects ${smf.tileFiles[i].count}`);
     return tiles.subarray(0, bytes);
   });
-  let tiles = parts[0];
-  if (parts.length > 1) { // rare: most maps keep every tile in one SMT, and that one is not copied again
-    tiles = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-    let offset = 0;
-    for (const p of parts) { tiles.set(p, offset); offset += p.length; }
-  }
+  // Most maps keep every tile in one SMT, and that one is not copied again.
+  const tiles = parts.length === 1 ? parts[0] : concatBytes(parts);
   const count = tiles.length / TILE_BYTES;
   if (smf.tileIndex.some((t) => t < 0 || t >= count)) throw new Error(`the map file's tile index points past its ${count} tiles`);
   return { smfPath, smtPaths, smf, tiles };

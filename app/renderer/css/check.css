@@ -1,0 +1,57 @@
+/* Check map dialog and the Play-test popover (WP 4.2). */
+
+/* ---- Play-test popover, under its top-bar button */
+#btnPlaytest { anchor-name: --playtest; }
+#playtestMenu { position-anchor: --playtest; top: calc(anchor(bottom) + 6px); right: anchor(right); width: 280px; }
+.playtest-menu { padding: var(--s-2) var(--s-3) var(--s-3); }
+.playtest-menu h4 { padding-left: 0; padding-right: 0; }
+.playtest-menu .pt-field { margin: var(--s-2) 0 var(--s-1); color: var(--text-2); font-size: var(--fs-12); }
+.playtest-menu .seg { margin: 0; }
+.playtest-menu .note { margin: var(--s-3) 0; }
+
+/* ---- Check map dialog */
+dialog.modal.check { width: min(760px, calc(100vw - 96px)); height: min(720px, calc(100vh - 48px)); }
+.ck-title { display: flex; align-items: baseline; gap: var(--s-3); min-width: 0; }
+.ck-title .muted { font-size: var(--fs-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck { flex: 1; display: flex; flex-direction: column; gap: var(--s-5); }
+.ck h3 { margin-bottom: var(--s-2); color: var(--text-2); font-size: var(--fs-12); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.ck-note { font-size: var(--fs-12); }
+.ck .detail { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: var(--lh); overflow-wrap: anywhere; user-select: text; }
+.ck .text { flex: 1; min-width: 0; }
+.ck .text strong { display: block; font-weight: 500; }
+
+.ck-wait { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4); border: 1px solid var(--line-1); border-radius: var(--r-lg); color: var(--text-2); }
+.ck-error { padding: var(--s-3) var(--s-4); border-radius: var(--r-lg); background: var(--danger-soft); color: var(--text-1); font-size: var(--fs-12); overflow-wrap: anywhere; }
+
+/* Engine verdict: one card */
+.ck-engine { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--line-1); border-radius: var(--r-lg); background: var(--bg-2); }
+.ck-engine .state-icon { width: 20px; height: 20px; margin-top: 1px; color: var(--accent); }
+.ck-engine[data-state=pass] .state-icon { color: var(--ok); }
+.ck-engine[data-state=fail] .state-icon { color: var(--danger); }
+.ck-engine[data-state=cancelled] .state-icon { color: var(--text-2); }
+.ck-engine .progress { margin-top: var(--s-2); }
+.ck-engine > .btn { align-self: center; }
+.ck-problems { margin: var(--s-2) 0 0; padding-left: var(--s-4); color: var(--text-1); font-size: var(--fs-12); user-select: text; overflow-wrap: anywhere; }
+
+/* Checklist: counts, then one row per check (problems first) */
+.ck-counts { display: flex; gap: var(--s-2); margin-bottom: var(--s-2); }
+.ck-counts .badge.ck-pass .icon { color: var(--ok); }
+.ck-counts .badge.ck-warn .icon { color: var(--warn); }
+.ck-counts .badge.ck-fail .icon { color: var(--danger); }
+.ck-counts .badge .icon { width: 14px; height: 14px; }
+.ck-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line-1); border-radius: var(--r-lg); overflow: hidden; }
+.ck-row { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) var(--s-4); }
+.ck-row + .ck-row { border-top: 1px solid var(--line-1); }
+.ck-row > .icon { margin-top: 2px; }
+.ck-row[data-status=pass] > .icon { color: var(--ok); }
+.ck-row[data-status=warn] > .icon { color: var(--warn); }
+.ck-row[data-status=fail] > .icon { color: var(--danger); }
+.ck-row[data-status=fail] { background: var(--danger-soft); }
+.ck-row > .btn { align-self: center; flex: none; }
+
+/* The top bar holds Check map and Play-test with labels from 1440 px; narrower windows (1280 at 100%, 125% scaling)
+   show their icons only, with the tooltip and aria-label naming them. */
+@media (max-width: 1439px) {
+  #btnCheck > span, #btnPlaytest > span { display: none; }
+  #btnCheck, #btnPlaytest { width: var(--h-control); padding: 0; }
+}

@@ -19,4 +19,16 @@ contextBridge.exposeInMainWorld('studio', {
   mapThumb: (file) => invoke('studio:mapThumb', file),
   openMap: (file) => invoke('studio:openMap', file),
   onOpenProgress: (callback) => { ipcRenderer.on('studio:openProgress', (_event, progress) => callback(progress)); },
+  mapFacts: (archivePath) => invoke('studio:mapFacts', archivePath),
+  checkMap: (archivePath) => invoke('studio:checkMap', archivePath),
+  cancelCheck: () => invoke('studio:cancelCheck'),
+  onCheckProgress: (callback) => { ipcRenderer.on('studio:checkProgress', (_event, progress) => callback(progress)); },
+  playtest: (archivePath, options) => invoke('studio:playtest', archivePath, options),
+  onPlaytestExit: (callback) => { ipcRenderer.on('studio:playtestExit', (_event, result) => callback(result)); },
+  // Before the window closes: callback() saves the last edits; the main process waits for it (briefly).
+  onFlush: (callback) => {
+    ipcRenderer.on('studio:flush', async () => {
+      try { await callback(); } finally { ipcRenderer.send('studio:flushed'); }
+    });
+  },
 });

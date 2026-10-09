@@ -8,12 +8,13 @@
   <link rel="stylesheet" href="css/controls.css">
   <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/screens.css">
+  <link rel="stylesheet" href="css/check.css">
   <script type="module" src="main.js"></script>
 </head>
 <body data-screen="welcome">
 
 <!-- Welcome: shown on launch and from the Home button. -->
-<section id="welcome" class="welcome" aria-label="Welcome">
+<section id="welcome" class="welcome" aria-label="Welcome" inert>
   <aside class="wl-side">
     <div class="wl-brand">
       <span class="logo lg"><i data-icon="mountain-snow"></i></span>
@@ -80,6 +81,8 @@
       <button id="btnRedo" class="btn ghost square" data-tip="Redo" data-key="Ctrl+Y" aria-label="Redo"><i data-icon="redo-2"></i></button>
       <button id="btnHelp" class="btn ghost square" data-tip="Keyboard shortcuts" data-key="?" aria-label="Keyboard shortcuts"><i data-icon="keyboard"></i></button>
       <span class="tb-sep"></span>
+      <button id="btnCheck" class="btn" aria-label="Check map" data-tip="Load the map in BAR's engine and run BAR's map checklist (exports first if needed)"><i data-icon="list-checks"></i><span>Check map</span></button>
+      <button id="btnPlaytest" class="btn" popovertarget="playtestMenu" aria-label="Play-test" data-tip="Play the map in BAR against the AI, without installing it"><i data-icon="gamepad-2"></i><span>Play-test</span></button>
       <button id="btnInstall" class="btn" data-tip="Export, then copy into your BAR maps folder (asks first)" aria-label="Install to BAR"><i data-icon="hard-drive-download"></i><span>Install to BAR</span></button>
       <div class="split-btn">
         <button id="btnExport" class="btn primary" data-tip="Write a playable map archive" data-key="Ctrl+E"><i data-icon="file-output"></i><span>Export</span></button>
@@ -92,6 +95,15 @@
       <p id="qualityHelp" class="note"></p>
       <div class="menu-sep" role="separator"></div>
       <button id="btnExportDir" class="menu-item"><i data-icon="folder-open"></i>Change export folder…</button>
+    </div>
+    <div id="playtestMenu" class="popover menu playtest-menu" popover aria-label="Play-test">
+      <h4>Play against the AI</h4>
+      <label class="pt-field" for="ptDifficulty">BARb difficulty</label>
+      <select id="ptDifficulty" class="field"></select>
+      <span class="pt-field">Your faction</span>
+      <div id="ptSide"></div>
+      <p class="note">Opens BAR in a window with your own graphics settings. The map is not installed.</p>
+      <button id="ptStart" class="btn accent-icon"><i data-icon="gamepad-2"></i>Start BAR</button>
     </div>
   </header>
 
@@ -220,6 +232,21 @@
     <span class="spacer"></span>
     <button class="btn" data-close>Cancel</button>
     <button id="rsApply" class="btn primary"><i data-icon="check"></i>Apply</button>
+  </footer>
+</dialog>
+
+<!-- Check map: engine verdict and BAR's map checklist (check-panel.js) -->
+<dialog id="dlgCheck" class="modal check" aria-labelledby="ckTitle">
+  <header class="modal-head">
+    <div class="ck-title"><h2 id="ckTitle">Check map</h2><span id="ckSub" class="muted"></span></div>
+    <button class="btn ghost square" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </header>
+  <div id="ckBody" class="modal-body ck"></div>
+  <footer class="modal-foot">
+    <span class="ck-note muted">Fixes edit the map and undo with Ctrl+Z. Check again to test them in BAR.</span>
+    <span class="spacer"></span>
+    <button id="ckAgain" class="btn"><i data-icon="rotate-ccw"></i>Check again</button>
+    <button class="btn" data-close>Close</button>
   </footer>
 </dialog>
 

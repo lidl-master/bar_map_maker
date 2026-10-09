@@ -41,7 +41,10 @@ export function placeResources(doc, { players, metalPerBase = 4, expansions, geo
 
   const spots = [];
   const addSpot = (type, x, z, props) => { for (const o of addObject(doc, type, x, z, props)) spots.push([o.x, o.z]); };
-  const free = (x, z, d) => nearest([x, z], spots) >= d;
+  // Room around a candidate: to every placed spot and to its own mirror images (one near the symmetry axis would touch
+  // its twin, and BAR's spot finder sees touching metal as one spot). An image on the point itself is the point.
+  const room = (x, z) => nearest([x, z], [...spots, ...images(doc, x, z).filter((p) => dist(p, [x, z]) > 1)]);
+  const free = (x, z, d) => room(x, z) >= d;
   // Base metal: a ring around each start (source side; mirrored).
   for (const [sx, sz] of bases) {
     const a0 = rnd() * TAU;
@@ -57,7 +60,7 @@ export function placeResources(doc, { players, metalPerBase = 4, expansions, geo
   for (let n = 0, want = Math.round(expansions / sides); n < want; n++) {
     const best = bestSpot(rnd, ww, wh, (x, z) => {
       if (!inSrc(x, z) || !isGood(doc, x, z, 96, 13) || nearest([x, z], starts) < 600) return null;
-      const d = nearest([x, z], spots);
+      const d = room(x, z);
       return d < 180 ? null : Math.min(d, 900) + rnd() * 120;
     }, 400);
     if (!best) break;
@@ -76,12 +79,21 @@ export function placeResources(doc, { players, metalPerBase = 4, expansions, geo
     }, 300);
     if (best) addSpot('geo', best[0], best[1]);
   }
-  // A small level pad under every steep spot so extractors are always buildable.
+  // A small level pad under every steep metal spot so extractors are always buildable, and under every geo the whole
+  // footprint of BAR's T2 geothermal (80 elmos square, centred on the 16-elmo build grid: up to 68 elmos out).
   for (const o of doc.objects) {
-    if ((o.type === 'metal' || o.type === 'geo') && slopeAt(doc, o.x, o.z) > 6) flattenAround(doc, o.x, o.z, o.type === 'geo' ? 50 : 40, 80, 6);
+    if (o.type === 'geo') flattenAround(doc, o.x, o.z, 72, 80, 6);
+    else if (o.type === 'metal' && slopeAt(doc, o.x, o.z) > 6) flattenAround(doc, o.x, o.z, 40, 80, 6);
   }
   symmetrize(doc, 0.01);
   clearAroundResources(doc);
+}
+
+/** Start positions for `players` (mirrored, as placeResources places them), replacing the doc's starts; nothing else changes. */
+export function placeStartPositions(doc, players, seed = 1) {
+  checkPlayers(players);
+  doc.objects = doc.objects.filter((o) => o.type !== 'start');
+  placeStarts(doc, players, mulberry32(seed + 31));
 }
 
 // Highest-scoring random point over `tries`; score(x, z) returns null to reject.

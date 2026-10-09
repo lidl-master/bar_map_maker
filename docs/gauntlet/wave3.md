@@ -16,9 +16,9 @@ Set only on a map opened from an archive. Builders may add fields; changing thes
  * @property {Map<string, Uint8Array>} files  every file of the archive, untouched (pass-through on export)
  * @property {number} tilesX     tiles across = doc.sx * 16 (1 tile = 32 elmos)
  * @property {number} tilesZ     tiles down   = doc.sz * 16
- * @property {Int32Array} tileIndex  tilesX * tilesZ, index into `tiles`; -1 = no original tile (area added by extend)
+ * @property {Int32Array|null} tileIndex  tilesX * tilesZ, index into `tiles`; -1 = no original tile (area added by extend); null after resizeMap (no original tile anywhere)
  * @property {Uint8Array} tiles  SMT tile bytes, 680 per tile, all tile files concatenated in SMF order
- * @property {Uint8Array|null} metalMap  (sx*32) * (sz*32) bytes, shifted with the map; null once metal objects were edited
+ * @property {Uint8Array|null} metalMap  (sx*32) * (sz*32) bytes, shifted with the map; null once metal objects were edited or after resizeMap
  * @property {number} maxMetal
  */
 ```

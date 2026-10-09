@@ -49,4 +49,10 @@ Brief: [wave2.md](wave2.md). User approved: CC0 texture download, windowed BAR s
 | 2.6 | UI polish: 32 fixes from both critics | building |
 
 ## Wave 3: open and extend existing maps — building (in parallel with the end of Wave 2)
-Brief: [wave3.md](wave3.md). 3.1 open + original textures, 3.2 extend/crop/resize: building. 3.3 derivative export: after 2.2.
+Brief: [wave3.md](wave3.md).
+
+| WP | Scope | Status |
+|---|---|---|
+| 3.1 | Open BAR maps (list + browse), import to MapDoc + `doc.original`, original textures in 2D/3D | building |
+| 3.2 | Extend/crop per side in whole units, resize; undoable whole-doc swap; original tile/metal grids shift | merged (71/71 tests; seam ≤ 2 elmos near the old edge) |
+| 3.3 | Derivative export: pass-through, new name/version, credit, ND/NC warning | after 2.2 |

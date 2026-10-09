@@ -12,6 +12,7 @@ import CircleCheck from '../../node_modules/lucide/dist/esm/icons/circle-check.m
 import CircleDot from '../../node_modules/lucide/dist/esm/icons/circle-dot.mjs';
 import Clock from '../../node_modules/lucide/dist/esm/icons/clock.mjs';
 import Columns2 from '../../node_modules/lucide/dist/esm/icons/columns-2.mjs';
+import Crop from '../../node_modules/lucide/dist/esm/icons/crop.mjs';
 import Crosshair from '../../node_modules/lucide/dist/esm/icons/crosshair.mjs';
 import Dice5 from '../../node_modules/lucide/dist/esm/icons/dice-5.mjs';
 import Equal from '../../node_modules/lucide/dist/esm/icons/equal.mjs';
@@ -35,6 +36,7 @@ import Plus from '../../node_modules/lucide/dist/esm/icons/plus.mjs';
 import Redo2 from '../../node_modules/lucide/dist/esm/icons/redo-2.mjs';
 import Route from '../../node_modules/lucide/dist/esm/icons/route.mjs';
 import Scan from '../../node_modules/lucide/dist/esm/icons/scan.mjs';
+import Scaling from '../../node_modules/lucide/dist/esm/icons/scaling.mjs';
 import Sparkles from '../../node_modules/lucide/dist/esm/icons/sparkles.mjs';
 import Square from '../../node_modules/lucide/dist/esm/icons/square.mjs';
 import Trash from '../../node_modules/lucide/dist/esm/icons/trash.mjs';
@@ -49,11 +51,11 @@ import X from '../../node_modules/lucide/dist/esm/icons/x.mjs';
 const ICONS = {
   'arrow-down-to-line': ArrowDownToLine, 'arrow-right': ArrowRight, 'arrow-up-from-line': ArrowUpFromLine,
   'audio-waveform': AudioWaveform, box: Box, check: Check, circle: Circle, 'circle-alert': CircleAlert, 'circle-check': CircleCheck,
-  'circle-dot': CircleDot, clock: Clock, 'columns-2': Columns2, crosshair: Crosshair, 'dice-5': Dice5, equal: Equal, 'file-plus': FilePlus,
+  'circle-dot': CircleDot, clock: Clock, 'columns-2': Columns2, crop: Crop, crosshair: Crosshair, 'dice-5': Dice5, equal: Equal, 'file-plus': FilePlus,
   flag: Flag, flame: Flame, 'folder-open': FolderOpen, 'hard-drive-download': HardDriveDownload, image: ImageIcon, info: Info,
   keyboard: Keyboard, 'loader-circle': LoaderCircle, lock: Lock, minus: Minus, 'mountain-snow': MountainSnow, mouse: Mouse,
   'mouse-pointer-2': MousePointer2, package: Package, paintbrush: Paintbrush, plus: Plus, 'redo-2': Redo2, route: Route,
-  scan: Scan, sparkles: Sparkles, square: Square, trash: Trash, trees: Trees, 'triangle-alert': TriangleAlert,
+  scaling: Scaling, scan: Scan, sparkles: Sparkles, square: Square, trash: Trash, trees: Trees, 'triangle-alert': TriangleAlert,
   'triangle-right': TriangleRight, 'undo-2': Undo2, users: Users, 'waves-horizontal': WavesHorizontal, x: X,
 };
 

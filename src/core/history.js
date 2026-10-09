@@ -1,6 +1,7 @@
 // Undo/redo. Each entry keeps only the changed rectangle of the grid layers plus JSON snapshots of
 // whichever of objects / symmetry / settings changed, so long sculpting sessions stay cheap and undoing
-// an object edit never reverts settings that were edited outside the history.
+// an object edit never reverts settings that were edited outside the history. A reshape replaces the whole
+// doc: its entry keeps both doc objects and swaps them; the entries below it belong to the doc before.
 const LAYERS = ['heights', 'paint', 'paintWeight'];
 const META = ['objects', 'symmetry', 'settings'];
 const LIMIT_BYTES = 400e6, MAX_ENTRIES = 100;
@@ -41,14 +42,22 @@ export class History {
       (entry.meta ??= {})[k] = { before: p.meta[n], after: now };
       entry.bytes += (p.meta[n].length + now.length) * 2;
     });
-    if (!entry.rect && !entry.meta) return;
+    if (entry.rect || entry.meta) this.#push(entry);
+  }
+
+  /** One step that replaced the whole doc (before → after, e.g. a reshape); its undo and redo hand back the other doc. */
+  replace(before, after, label) {
+    this.#push({ label, rect: null, docs: { before, after }, bytes: before.heights.length * 6 });
+  }
+
+  #push(entry) {
     this.undoStack.push(entry);
     this.redoStack = [];
     let total = this.undoStack.reduce((s, e) => s + e.bytes, 0);
     while ((total > LIMIT_BYTES || this.undoStack.length > MAX_ENTRIES) && this.undoStack.length > 1) total -= this.undoStack.shift().bytes;
   }
 
-  /** Returns the undone entry ({label, rect, ...}) or null. */
+  /** Returns the undone step ({label, rect, doc}) or null; `doc` is the doc to show from now on (another one after a replace). */
   undo(doc) { return apply(doc, this.undoStack, this.redoStack, 'before'); }
   redo(doc) { return apply(doc, this.redoStack, this.undoStack, 'after'); }
 }
@@ -56,10 +65,14 @@ export class History {
 function apply(doc, from, to, which) {
   const e = from.pop();
   if (!e) return null;
+  if (e.docs) {
+    e.docs[which].settings = doc.settings; // settings are edited outside the history: they carry over
+    doc = e.docs[which];
+  }
   if (e.rect) LAYERS.forEach((k, n) => restore(doc, doc[k], e.rect, e[which][n]));
   for (const [k, json] of Object.entries(e.meta ?? {})) doc[k] = JSON.parse(json[which]);
   to.push(e);
-  return e;
+  return { label: e.label, rect: e.rect, doc };
 }
 
 function extract(doc, layer, [x0, z0, x1, z1]) {

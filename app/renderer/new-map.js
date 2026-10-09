@@ -7,7 +7,7 @@ import { biomeChoices, symmetryChoices } from './pickers.js';
 import { paintThumb, templateThumbs, thumbFailed, thumbFrame } from './thumbs.js';
 
 const SIZE_PRESETS = [[8, '1v1'], [12, '2v2'], [16, '4v4'], [20, '6v6'], [24, '8v8']];
-const evenSize = (v) => clamp(Math.round(+v / 2) * 2 || 2, 2, 32);
+export const evenSize = (v) => clamp(Math.round(+v / 2) * 2 || 2, 2, 32);
 const SQUARE_ONLY = Object.keys(SYMMETRY).filter((m) => SYMMETRY[m].square);
 
 const state = { template: TEMPLATES[0].id, sx: 12, sz: 12, players: 2, symmetry: 'rot180', biome: 'temperate' };

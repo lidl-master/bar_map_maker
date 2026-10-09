@@ -1,5 +1,5 @@
 // Top-down 2D view: the map image (look or pathing colours) plus overlays (grid, symmetry axes, objects, brush, ramp).
-import { symmetry } from '../../src/core/index.js';
+import { orbit } from '../../src/core/index.js';
 import { previewColor } from '../../src/look/index.js';
 import { clamp } from './dom.js';
 import { PATHING_LEGEND, SQ, UNIT, pathingClass, worldSize } from './sample.js';
@@ -210,7 +210,7 @@ export class View2D {
     const { ctx, brush } = this, r = brush.radius * this.scale;
     ctx.save();
     ctx.lineWidth = 1.5;
-    symmetry.orbit(this.doc, this.cursor.x, this.cursor.z).forEach(([x, z], k) => {
+    orbit(this.doc, this.cursor.x, this.cursor.z).forEach(([x, z], k) => {
       const s = this.toScreen(x, z);
       ctx.strokeStyle = k === 0 ? brush.color : 'rgba(255,255,255,0.45)';
       ctx.setLineDash(k === 0 ? [] : [4, 4]); // ghosts show where the mirrored copies of the stroke land

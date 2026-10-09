@@ -1,8 +1,9 @@
-// Mouse and keyboard: pan/zoom, symmetric brush strokes, ramps, placing/moving/deleting objects, shortcuts.
-import { symmetry } from '../../src/core/index.js';
+// Mouse and keyboard: pan/zoom, brush strokes, ramps, placing/moving/deleting objects, shortcuts.
+// src/terrain's brush() and ramp() and src/core's addObject() apply the map's symmetry themselves.
+import { addObject, moveGroup } from '../../src/core/index.js';
 import { brush, ramp } from '../../src/terrain/index.js';
 import { $, clamp, toast } from './dom.js';
-import { addObject, findObject, moveObject } from './objects.js';
+import { findObject } from './objects.js';
 import { PATHING, heightAt } from './sample.js';
 import { TOOLS, toolById } from './tools.js';
 
@@ -15,7 +16,7 @@ const union = (a, b) => (!a ? b : !b ? a : [Math.min(a[0], b[0]), Math.min(a[1],
 const SHIFTED = {
   raise: (p) => ['lower', p],
   lower: (p) => ['raise', p],
-  roughen: (p) => ['roughen', { ...p, strength: -p.strength }],
+  noise: (p) => ['noise', { ...p, strength: -p.strength }],
   paint: (p) => ['paint', { ...p, material: 0 }],
 };
 
@@ -30,7 +31,7 @@ export function bindInput(editor) {
   const pickRadius = () => Math.max(40, 14 / view.scale);
   const pickTypes = () => (toolById(editor.tool).kind === 'place' ? [editor.tool] : OBJECT_TYPES);
 
-  // ---- brush strokes: dabs every frame along the mouse path, mirrored by the map's symmetry
+  // ---- brush strokes: dabs every frame along the mouse path
   function startStroke(e, w) {
     const doc = editor.doc, s = editor.settings[editor.tool];
     if (editor.tool === 'flatten' && e.altKey) {
@@ -40,7 +41,7 @@ export function bindInput(editor) {
       toast(`Flatten height set to ${s.target} elmos`);
       return;
     }
-    const params = { ...s, seed: Math.random() * 1000, target: s.fixed ? s.target : heightAt(doc, w.x, w.z) };
+    const params = { ...s, target: s.fixed ? s.target : heightAt(doc, w.x, w.z) };
     const [tool, p] = e.shiftKey && SHIFTED[editor.tool] ? SHIFTED[editor.tool](params) : [editor.tool, params];
     editor.history.begin(doc, tool);
     stroke = { tool, p, last: w, pos: w, time: performance.now(), rect: null };
@@ -59,13 +60,7 @@ export function bindInput(editor) {
     const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / Math.max(4, p.radius * 0.25)));
     let rect = null;
     for (let i = 1; i <= n; i++) {
-      const used = [];
-      for (const [x, z] of symmetry.orbit(doc, a.x + ((b.x - a.x) * i) / n, a.z + ((b.z - a.z) * i) / n)) {
-        // Near a symmetry axis the mirrored dabs overlap; apply them once so the axis does not get a double dose.
-        if (used.some(([ux, uz]) => Math.hypot(ux - x, uz - z) < p.radius * 0.5)) continue;
-        used.push([x, z]);
-        rect = union(rect, brush(doc, stroke.tool, x, z, p, dt / n));
-      }
+      rect = union(rect, brush(doc, stroke.tool, a.x + ((b.x - a.x) * i) / n, a.z + ((b.z - a.z) * i) / n, p, dt / n));
     }
     stroke.last = b;
     if (rect) {
@@ -74,7 +69,7 @@ export function bindInput(editor) {
     }
   }
 
-  // ---- ramps: drag a line; every mirror image of the line gets the same ramp
+  // ---- ramps: drag a line from one height to another
   function rampMoved(w) {
     const doc = editor.doc, { a } = rampDrag;
     rampDrag.b = w;
@@ -91,12 +86,7 @@ export function bindInput(editor) {
     $('hint').textContent = toolById('ramp').hint;
     if (Math.hypot(b.x - a.x, b.z - a.z) < 8) return;
     editor.history.begin(doc, 'ramp');
-    // shortcut: images are paired by orbit order; an endpoint exactly on a symmetry axis can mis-pair. Revisit if core exposes transform indices.
-    const A = symmetry.orbit(doc, a.x, a.z), B = symmetry.orbit(doc, b.x, b.z);
-    let rect = null;
-    for (let k = 0; k < Math.min(A.length, B.length); k++) {
-      rect = union(rect, ramp(doc, { x: A[k][0], z: A[k][1] }, { x: B[k][0], z: B[k][1] }, editor.settings.ramp));
-    }
+    const rect = ramp(doc, a, b, editor.settings.ramp);
     editor.terrainChanged(rect);
     editor.commit(rect);
   }
@@ -110,7 +100,7 @@ export function bindInput(editor) {
       return;
     }
     editor.history.begin(doc, hit ? `move ${hit.type}` : `place ${tool}`);
-    const placed = !hit && toolById(tool).kind === 'place' ? addObject(doc, tool, w.x, w.z, tool === 'metal' ? { metal: editor.settings.metal.metal } : {}) : null;
+    const placed = !hit && toolById(tool).kind === 'place' ? addObject(doc, tool, w.x, w.z, tool === 'metal' ? { metal: editor.settings.metal.metal } : {})[0] : null;
     const obj = hit ?? placed;
     editor.select(obj);
     if (!obj) {
@@ -151,7 +141,7 @@ export function bindInput(editor) {
     } else if (stroke) stroke.pos = w;
     else if (rampDrag) rampMoved(w);
     else if (drag) {
-      moveObject(editor.doc, drag.obj, w.x + drag.dx, w.z + drag.dz);
+      moveGroup(editor.doc, drag.obj, w.x + drag.dx, w.z + drag.dz);
       drag.changed = true;
       editor.objectsChanged();
     } else if (['pick', 'place'].includes(toolById(editor.tool).kind)) {

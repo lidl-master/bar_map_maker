@@ -1,5 +1,6 @@
 // The tool list (toolbar, shortcuts, hints) and the Tool tab, which shows the active tool's settings and the selection.
-import { $, el, heading, icon, note, check, slider, stat } from './dom.js';
+import { MATERIALS } from '../../src/look/index.js';
+import { $, el, heading, icon, note, check, select, slider, stat } from './dom.js';
 import { groupOf } from './objects.js';
 import { PATHING, heightAt } from './sample.js';
 
@@ -13,7 +14,7 @@ export const TOOLS = [
   { id: 'lower', kind: 'brush', group: 'Sculpt', label: 'Lower', key: 'L', icon: ['M2 12h5l3 7h4l3-7h5', 'M12 3v6M9.5 6.5L12 9l2.5-2.5'], hint: 'Drag to lower terrain. Below 0 is water. Hold Shift to raise.' },
   { id: 'smooth', kind: 'brush', group: 'Sculpt', label: 'Smooth', key: 'S', icon: ['M2 13c3.3-5 6.7-5 10 0s6.7 5 10 0', 'M2 20h20'], hint: 'Drag to smooth bumps and soften cliffs.' },
   { id: 'flatten', kind: 'brush', group: 'Sculpt', label: 'Flatten', key: 'F', icon: ['M2 20h4l3-8h6l3 8h4', 'M8.5 12h7', 'M12 3v5'], hint: 'Drag to flatten to the height where the stroke starts. Alt+click picks a fixed height.' },
-  { id: 'roughen', kind: 'brush', group: 'Sculpt', label: 'Roughen', key: 'N', icon: ['M2 18l3-5 3 3 3-8 3 7 3-4 3 3 2-2'], hint: 'Drag to add natural roughness. Hold Shift to subtract.' },
+  { id: 'noise', kind: 'brush', group: 'Sculpt', label: 'Roughen', key: 'N', icon: ['M2 18l3-5 3 3 3-8 3 7 3-4 3 3 2-2'], hint: 'Drag to add natural roughness. Hold Shift to subtract.' },
   { id: 'ramp', kind: 'ramp', group: 'Sculpt', label: 'Ramp', key: 'A', icon: ['M2 20h20', 'M3 20L21 9v11', 'M8 17l2-1M13 14.5l2-1'], hint: 'Drag a line from one height to another to cut a ramp between plateaus.' },
   { id: 'paint', kind: 'brush', group: 'Texture', label: 'Paint', key: 'P', icon: ['M15 3l6 6-8.5 8.5H6.5V11.5z', 'M3 21h8'], hint: 'Drag to paint a material. Hold Shift to erase back to automatic.' },
   { id: 'metal', kind: 'place', group: 'Resources', label: 'Metal', key: 'M', icon: [CIRCLE, 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0'], hint: 'Click to place a metal spot. Drag to move it, right-click to delete.' },
@@ -28,7 +29,7 @@ export const defaultToolSettings = () => ({
   lower: { radius: 160, strength: 0.5, hardness: 0.3 },
   smooth: { radius: 160, strength: 0.6, hardness: 0.2 },
   flatten: { radius: 160, strength: 0.7, hardness: 0.55, fixed: false, target: 100 },
-  roughen: { radius: 220, strength: 0.4, hardness: 0.2 },
+  noise: { radius: 220, strength: 0.4, hardness: 0.2 },
   paint: { radius: 120, strength: 0.6, hardness: 0.4, material: 1 },
   ramp: { width: 160, hardness: 0.5 },
   metal: { metal: 2 },
@@ -73,10 +74,8 @@ export function buildToolPanel(editor) {
     check(panel, 'Use a fixed height instead of the height where I click', s, 'fixed', () => buildToolPanel(editor));
     if (s.fixed) slider(panel, 'Target height (elmos)', s, 'target', -500, 2000, 1);
   }
-  if (t.id === 'paint') {
-    // shortcut: material ids only, until src/look names its materials (Wave 2 texture stack).
-    slider(panel, 'Material id', s, 'material', 1, 15, 1);
-  }
+  // doc.paint holds the MATERIALS index + 1 (0 = automatic).
+  if (t.id === 'paint') select(panel, 'Material', s, 'material', MATERIALS.map((m, i) => [i + 1, m.label]), (v) => { s.material = Number(v); });
   if (t.id === 'ramp') {
     slider(panel, 'Ramp width (elmos)', s, 'width', 32, 800, 1, preview);
     slider(panel, 'Edge hardness', s, 'hardness', 0, 0.95, 0.01);
